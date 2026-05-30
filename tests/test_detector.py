@@ -1,0 +1,84 @@
+"""
+tests สำหรับ RegionDetector
+
+รัน:
+    python -m pytest tests/test_detector.py -v
+"""
+
+import io
+import pathlib
+
+import pytest
+from PIL import Image
+
+from pipeline.detector import RegionDetector
+
+CLASSES = ["back_label", "container_label", "grade_bag", "import_sticker", "retail_sachet"]
+
+
+def _make_jpeg(width: int = 400, height: int = 600, color=(200, 200, 200)) -> bytes:
+    """สร้าง JPEG dummy ขนาดที่กำหนด"""
+    img = Image.new("RGB", (width, height), color=color)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    return buf.getvalue()
+
+
+@pytest.fixture()
+def detector():
+    return RegionDetector()
+
+
+# ─── Unit tests ───────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("image_class", CLASSES)
+def test_crop_returns_bytes(detector, image_class):
+    """crop คืน bytes ที่เปิดเป็น image ได้เสมอ"""
+    result = detector.crop(_make_jpeg(), image_class)
+    img = Image.open(io.BytesIO(result.cropped_bytes))
+    assert img.size[0] > 0 and img.size[1] > 0
+
+
+@pytest.mark.parametrize("image_class", CLASSES)
+def test_crop_smaller_than_original(detector, image_class):
+    """รูปที่ crop ต้องมีพื้นที่ ≤ รูปต้นฉบับ"""
+    original = _make_jpeg(400, 600)
+    result = detector.crop(original, image_class)
+
+    orig_img = Image.open(io.BytesIO(original))
+    crop_img = Image.open(io.BytesIO(result.cropped_bytes))
+
+    orig_area = orig_img.size[0] * orig_img.size[1]
+    crop_area = crop_img.size[0] * crop_img.size[1]
+    assert crop_area <= orig_area
+
+
+@pytest.mark.parametrize("image_class", [c for c in CLASSES if c != "container_label"])
+def test_bbox_valid(detector, image_class):
+    """bbox ต้อง [x1, y1, x2, y2] โดย x2>x1 และ y2>y1"""
+    result = detector.crop(_make_jpeg(), image_class)
+    assert result.bbox is not None
+    x1, y1, x2, y2 = result.bbox
+    assert x2 > x1
+    assert y2 > y1
+
+
+def test_unknown_class_returns_full_image(detector):
+    """class ที่ไม่รู้จักต้องคืน full image (bbox=None)"""
+    img_bytes = _make_jpeg()
+    result = detector.crop(img_bytes, "unknown_class")
+    assert result.bbox is None
+
+
+def test_real_images_per_class(detector):
+    """ทดสอบกับรูปจริงใน images/<class>/ (ถ้ามี)"""
+    for image_class in CLASSES:
+        img_dir = pathlib.Path("images") / image_class
+        samples = list(img_dir.glob("*.jpg"))[:2]
+        if not samples:
+            continue
+        for img_path in samples:
+            result = detector.crop(img_path.read_bytes(), image_class)
+            crop_img = Image.open(io.BytesIO(result.cropped_bytes))
+            assert crop_img.size[0] > 0, f"{image_class}: cropped width = 0"
+            assert crop_img.size[1] > 0, f"{image_class}: cropped height = 0"

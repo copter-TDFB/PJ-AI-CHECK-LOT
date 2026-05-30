@@ -1,0 +1,4 @@
+detections=3
+1: bbox=[2025, 376, 3735, 994], cropped=86060, preprocessed=127205
+2: bbox=[1109, 1687, 1658, 1901], cropped=14628, preprocessed=19113
+3: bbox=[1655, 2054, 2182, 2281], cropped=14234, preprocessed=20146

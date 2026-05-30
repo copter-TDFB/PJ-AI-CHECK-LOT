@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Env files (NEVER commit real secrets)
+.env
+.env.local
+.env.*.local
+*.json
+!package*.json
+!tsconfig*.json
+# allow ignore list itself to not match these
+!.gitignore
+!.dockerignore
+!.gcloudignore
+
+# GCP service account keys
+gcp-key.json
+service-account*.json
+credentials*.json
+
+# Model weights (เก็บไว้ใน GCS / Artifact Registry แทน)
+models/*.pt
+models/*.pth
+models/*.onnx
+models/*.h5
+models/*.pkl
+
+# Local test images (ใหญ่ ไม่ commit)
+images/**/*.jpg
+images/**/*.jpeg
+images/**/*.png
+images/**/*.webp
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs / cache
+*.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage

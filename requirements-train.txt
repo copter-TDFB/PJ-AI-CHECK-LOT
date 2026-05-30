@@ -1,0 +1,5 @@
+# dependencies เพิ่มเติมสำหรับ training เท่านั้น (ไม่ต้องใส่ใน Docker production image)
+-r requirements.txt
+tqdm
+matplotlib
+scikit-learn

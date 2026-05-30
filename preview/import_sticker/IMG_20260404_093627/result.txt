@@ -1,0 +1,11 @@
+=== IMG_20260404_093627.jpg ===
+Classify:   import_sticker (conf=97.17%)  [true=import_sticker]
+Bbox:       None
+Lot Number: WP0003000010909426P
+MFG Date:   None
+EXP Date:   None
+Status:     ok
+OCR Conf:   1.0
+
+--- Raw OCR Text ---
+WP0003000010909426P

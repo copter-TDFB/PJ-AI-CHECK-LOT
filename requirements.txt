@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+httpx
+python-multipart
+python-dotenv
+google-cloud-vision
+opencv-python-headless
+Pillow
+pillow-heif
+numpy
+torch
+torchvision
+ultralytics
+zxing-cpp
+gspread
+google-auth

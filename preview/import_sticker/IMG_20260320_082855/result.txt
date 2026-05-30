@@ -1,0 +1,11 @@
+=== IMG_20260320_082855.jpg ===
+Classify:   import_sticker (conf=82.79%)  [true=import_sticker]
+Bbox:       None
+Lot Number: EX0007001007607926R
+MFG Date:   None
+EXP Date:   None
+Status:     ok
+OCR Conf:   1.0
+
+--- Raw OCR Text ---
+EX0007001007607926R

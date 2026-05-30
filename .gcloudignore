@@ -1,0 +1,53 @@
+# gcloud-specific ignore (สำหรับ gcloud builds submit / app deploy)
+.git/
+.gitignore
+.dockerignore
+.claude/
+skills-lock.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Tests / dev
+tests/
+.pytest_cache/
+.mypy_cache/
+.coverage
+
+# Local images / training data (414 MB — ห้าม upload)
+images/
+data collect pj check lot/
+preview/
+
+# Training / dev scripts
+train_classifier.py
+train_detector.py
+evaluate.py
+sort_images.py
+preview_pipeline.py
+confusion_matrix_eval.py
+requirements-train.txt
+
+# Model weights ที่ไม่ใช้ใน production
+ai_check lot v2.pt
+
+# Docs
+PLAN.md
+AGENTS.md
+FLOW_PROCESS_PRESENTATION.html
+*.md
+!CLAUDE.md
+
+# IDE
+.vscode/
+.idea/
+
+# Env / secrets
+.env
+.env.*
+gcp-key.json
+service-account*.json
+credentials*.json

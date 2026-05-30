@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Tests และไฟล์ dev
+tests/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Training / dev scripts (ไม่ต้องใน production image)
+train_classifier.py
+train_detector.py
+evaluate.py
+sort_images.py
+preview_pipeline.py
+confusion_matrix_eval.py
+requirements-train.txt
+
+# Local images / training data
+images/
+data collect pj check lot/
+preview/
+
+# Model weights ที่ไม่ใช้ใน production
+ai_check lot v2.pt
+
+# Docs / meta
+PLAN.md
+AGENTS.md
+FLOW_PROCESS_PRESENTATION.html
+*.md
+!CLAUDE.md
+
+# Claude Code
+.claude/
+skills-lock.json
+
+# Git
+.git/
+.gitignore
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+.env.*
+gcp-key.json
+service-account*.json
+credentials*.json
