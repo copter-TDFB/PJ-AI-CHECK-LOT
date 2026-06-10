@@ -5,7 +5,7 @@
 
 import shutil
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -735,7 +735,8 @@ def test_training_full_start_publishes_dataset(client, monkeypatch):
     body = res.json()
     assert body["dataset"] == fake_summary
     assert "colab.research.google.com" in body["colab_url"]
-    publish_mock.assert_called_once()
+    publish_mock.assert_called_once_with("fullpub", drive=ANY)
     # zip bundle must NOT be uploaded anymore
     for call in drive_mock.upload_bytes.call_args_list:
-        assert not str(call.kwargs.get("name", "")).endswith(".zip")
+        all_args = list(call.args) + list(call.kwargs.values())
+        assert not any(str(a).endswith(".zip") for a in all_args)

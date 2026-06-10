@@ -506,6 +506,11 @@ def training_full_start(key: str):
 
     try:
         drive = DriveClient()
+    except Exception as e:
+        logger.exception("Drive client init failed for %s", key)
+        raise HTTPException(500, f"Drive client init failed: {e}")
+
+    try:
         dataset_summary = dataset_publisher.publish(key, drive=drive)
     except (FileNotFoundError, ValueError) as e:
         raise HTTPException(400, str(e))
