@@ -68,6 +68,9 @@ def label_lines(
         cy = ((b["y1"] + b["y2"]) / 2) / h
         bw = (b["x2"] - b["x1"]) / w
         bh = (b["y2"] - b["y1"]) / h
+        if bw <= 0 or bh <= 0:
+            logger.warning("zero-area bbox skipped (label '%s')", label)
+            continue
         cx, cy = max(0, min(1, cx)), max(0, min(1, cy))
         bw, bh = max(0, min(1, bw)), max(0, min(1, bh))
         lines.append(f"{cid} {cx:.6f} {cy:.6f} {bw:.6f} {bh:.6f}")
@@ -108,6 +111,9 @@ def publish(key: str, drive=None) -> dict:
 
     dest = _resolve_dest_folders(drive, det_root, data_yaml)
     cls_folder = drive.ensure_folder(key, cls_root)
+    # Snapshot read once per publish() run. Files created mid-run by a
+    # concurrent/partial uploader aren't visible here; they'll be seen on the
+    # next call (acceptable: retry rebuilds the snapshot cleanly).
     existing_files = {
         fid: {f["name"] for f in drive.list_folder(fid)}
         for fid in set(dest.values()) | {cls_folder}
@@ -122,11 +128,10 @@ def publish(key: str, drive=None) -> dict:
     # data.yaml LAST — the commit point (see module docstring)
     if merged != existing_names:
         import yaml as _yaml
-        data_yaml["names"] = merged
-        data_yaml["nc"] = len(merged)
+        updated_yaml = {**data_yaml, "names": merged, "nc": len(merged)}
         drive.update_file_content(
             yaml_id,
-            _yaml.safe_dump(data_yaml, sort_keys=False, allow_unicode=True).encode("utf-8"),
+            _yaml.safe_dump(updated_yaml, sort_keys=False, allow_unicode=True).encode("utf-8"),
             mime_type="text/yaml",
         )
 

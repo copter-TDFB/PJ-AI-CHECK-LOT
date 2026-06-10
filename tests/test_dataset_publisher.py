@@ -177,6 +177,9 @@ def test_publish_skips_existing_files(draft, env, fake_drive):
     summary = dp.publish(draft, drive=fake_drive)
     assert summary["images_skipped"] == 1
     assert summary["images_uploaded"] == 2
+    # img_0's label was also pre-existing — only 2 label uploads should occur
+    kinds = [e[0] for e in fake_drive.events]
+    assert kinds.count("upload_bytes") == 2
 
 
 def test_publish_skips_yaml_update_when_class_exists(draft, env, fake_drive):
@@ -200,3 +203,42 @@ def test_publish_raises_when_no_labeled_images(tmp_path, env, fake_drive, monkey
     )
     with pytest.raises(ValueError, match="no labeled images"):
         dp.publish("empty", drive=fake_drive)
+
+
+def test_publish_multi_sub_region_global_ids(tmp_path, env, fake_drive, monkeypatch):
+    """sub_regions [box, sachet] → global ids continue after existing names."""
+    import json as _json
+
+    from PIL import Image as _Image
+
+    from services import packaging_store
+
+    draft_dir = tmp_path / "drafts"
+    monkeypatch.setattr(dp, "_DRAFT_DIR", draft_dir)
+    monkeypatch.setattr(packaging_store, "_DRAFT_DIR", draft_dir)
+    key = "multi"
+    (draft_dir / key / "images").mkdir(parents=True)
+    (draft_dir / key / "annotations").mkdir(parents=True)
+    (draft_dir / key / "meta.json").write_text(
+        _json.dumps({"key": key, "sub_regions": ["box", "sachet"]}), encoding="utf-8"
+    )
+    _Image.new("RGB", (100, 100)).save(draft_dir / key / "images" / "a.jpg")
+    ann = {
+        "bboxes": [
+            {"x1": 0, "y1": 0, "x2": 10, "y2": 10, "label": "box"},
+            {"x1": 20, "y1": 20, "x2": 40, "y2": 40, "label": "sachet"},
+        ]
+    }
+    (draft_dir / key / "annotations" / "a.jpg.json").write_text(
+        _json.dumps(ann), encoding="utf-8"
+    )
+
+    summary = dp.publish(key, drive=fake_drive)
+    assert summary["class_ids"] == {"box": 2, "sachet": 3}
+    assert summary["new_classes"] == ["multi_box", "multi_sachet"]
+
+    # Verify label file content: both bboxes with global ids 2 and 3
+    args, kwargs = fake_drive.upload_bytes.call_args
+    content = (args[0] if args else kwargs["content"]).decode("utf-8")
+    leading_ids = {line.split()[0] for line in content.splitlines() if line.strip()}
+    assert leading_ids == {"2", "3"}
