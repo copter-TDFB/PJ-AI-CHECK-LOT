@@ -1,4 +1,4 @@
-"""Google Drive API v3 wrapper — download + upload (drive.file scope)."""
+"""Google Drive API v3 wrapper — download + upload (full drive scope)."""
 
 import io
 import json
@@ -12,11 +12,11 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload, MediaIoBa
 
 logger = logging.getLogger(__name__)
 
-# drive.file = read/write only on files this app created. Cannot touch
-# user's pre-existing folders — but that's fine: wizard writes new-class
-# additions to its own folder, and the Colab notebook (which has full Drive
-# mount via the user's Colab session) merges with the reference dataset.
-_SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+# Full drive scope — required to write into the reference dataset folders
+# that the user shares with this service account. SAs do not go through
+# OAuth consent verification, so the "restricted scope" problem in ADR 0001
+# does not apply (see ADR 0003).
+_SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
 class DriveClient:
@@ -27,15 +27,22 @@ class DriveClient:
 
     # ─── Download ────────────────────────────────────────
 
-    def read_json(self, file_id: str) -> dict:
-        """Download file from Drive และ parse เป็น dict."""
+    def _download_bytes(self, file_id: str) -> bytes:
         request = self._svc.files().get_media(fileId=file_id)
         buf = io.BytesIO()
         dl = MediaIoBaseDownload(buf, request)
         done = False
         while not done:
             _, done = dl.next_chunk()
-        return json.loads(buf.getvalue())
+        return buf.getvalue()
+
+    def read_json(self, file_id: str) -> dict:
+        """Download file from Drive และ parse เป็น dict."""
+        return json.loads(self._download_bytes(file_id))
+
+    def read_text(self, file_id: str) -> str:
+        """Download file from Drive เป็น UTF-8 text."""
+        return self._download_bytes(file_id).decode("utf-8")
 
     def download_file(self, file_id: str, dest: Path) -> None:
         """Download file from Drive ไปเก็บที่ dest (เขียนทับถ้ามีอยู่แล้ว)."""
@@ -105,6 +112,27 @@ class DriveClient:
             self._make_public(file_id)
         return file_id
 
+    def update_file_content(
+        self, file_id: str, content: bytes, mime_type: str = "text/plain"
+    ) -> None:
+        """เขียนทับเนื้อหาไฟล์เดิม (file_id คงเดิม)."""
+        media = MediaIoBaseUpload(io.BytesIO(content), mimetype=mime_type, resumable=False)
+        self._svc.files().update(fileId=file_id, media_body=media).execute()
+        logger.info("Updated file content → %s (%.1f KB)", file_id, len(content) / 1024)
+
+    def ensure_folder(self, name: str, parent_id: str) -> str:
+        """Find folder by name under parent — create ถ้ายังไม่มี. Return folder_id."""
+        safe = name.replace("'", "\\'")
+        q = (
+            f"name = '{safe}' and '{parent_id}' in parents and trashed = false "
+            "and mimeType = 'application/vnd.google-apps.folder'"
+        )
+        resp = self._svc.files().list(q=q, fields="files(id)", pageSize=1).execute()
+        files = resp.get("files", [])
+        if files:
+            return files[0]["id"]
+        return self.create_folder(name, parent_id)
+
     def _make_public(self, file_id: str) -> None:
         """Grant anyone-with-link read access — required for Colab gdown."""
         self._svc.permissions().create(
@@ -114,6 +142,22 @@ class DriveClient:
         logger.info("Granted public read → %s", file_id)
 
     # ─── Search ──────────────────────────────────────────
+
+    def list_folder(self, parent_id: str) -> list[dict]:
+        """List ทุกไฟล์/โฟลเดอร์ใน parent — return [{id, name, mimeType}]."""
+        files: list[dict] = []
+        token = None
+        while True:
+            resp = self._svc.files().list(
+                q=f"'{parent_id}' in parents and trashed = false",
+                fields="nextPageToken, files(id,name,mimeType)",
+                pageSize=1000,
+                pageToken=token,
+            ).execute()
+            files.extend(resp.get("files", []))
+            token = resp.get("nextPageToken")
+            if not token:
+                return files
 
     def find_in_folder(self, parent_id: str, name: str) -> str | None:
         """Find file by name within a parent folder — return file_id or None."""
