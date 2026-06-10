@@ -490,7 +490,8 @@ def training_seed_start(key: str):
 
 @router.post("/{key}/training/full/start")
 def training_full_start(key: str):
-    """Full training — uses ALL labeled images (incl. verified pre-labels)."""
+    """Full training — publishes dataset images directly to Drive, then generates
+    and uploads a Colab notebook. No zip bundle is created."""
     draft = packaging_store.get_draft(key)
     if draft is None:
         raise HTTPException(404, f"draft '{key}' not found")
@@ -500,24 +501,24 @@ def training_full_start(key: str):
     if len(labeled) < 10:
         raise HTTPException(400, f"need at least 10 labeled images (have {len(labeled)})")
 
-    from services import notebook_generator, training_bundle
+    from services import dataset_publisher, notebook_generator
     from services.drive_client import DriveClient
 
     try:
-        bundle_bytes = training_bundle.build_zip(key)
+        drive = DriveClient()
+        dataset_summary = dataset_publisher.publish(key, drive=drive)
     except (FileNotFoundError, ValueError) as e:
         raise HTTPException(400, str(e))
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+    except Exception as e:
+        logger.exception("dataset publish failed for %s", key)
+        raise HTTPException(500, f"Dataset publish failed: {e}")
 
     try:
-        drive = DriveClient()
         run_folder_id = drive.create_folder(f"lot-checker-training-{key}-full")
-        bundle_file_id = drive.upload_bytes(
-            bundle_bytes, name=f"{key}-bundle-full.zip", parent_id=run_folder_id,
-            mime_type="application/zip", public=True,
-        )
         nb_bytes = notebook_generator.build_full_notebook(
             packaging_key=key,
-            bundle_file_id=bundle_file_id,
             output_folder_id=run_folder_id,
         )
         nb_file_id = drive.upload_bytes(
@@ -531,11 +532,11 @@ def training_full_start(key: str):
     packaging_store.update_draft(
         key,
         training_run={
-            "bundle_file_id": bundle_file_id,
             "notebook_file_id": nb_file_id,
             "output_folder_id": run_folder_id,
             "started_at": datetime.now(timezone.utc).isoformat(),
             "kind": "full",
+            "dataset": dataset_summary,
         },
         status="training_full",
     )
@@ -543,7 +544,7 @@ def training_full_start(key: str):
         "colab_url": notebook_generator.colab_url(nb_file_id),
         "notebook_file_id": nb_file_id,
         "output_folder_id": run_folder_id,
-        "bundle_size_kb": round(len(bundle_bytes) / 1024, 1),
+        "dataset": dataset_summary,
         "labeled_count": len(labeled),
     }
 

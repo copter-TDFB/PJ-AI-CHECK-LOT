@@ -691,3 +691,51 @@ def test_predict_returns_archived_status_when_class_archived(client, fake_active
     body = r.json()
     assert body["status"] == "archived_class"
     assert body["class"] == fake_active
+
+
+# ─── training/full/start — dataset publish ───────────────
+
+def test_training_full_start_publishes_dataset(client, monkeypatch):
+    """full/start must publish dataset (no zip) then gen + upload notebook."""
+    from services import packaging_store
+
+    # create a draft using the same route/payload shape as other tests in this file
+    client.post("/api/packagings", json={"key": "fullpub", "display_name": "x"})
+
+    monkeypatch.setattr(
+        packaging_store, "list_annotation_status",
+        lambda key: [{"name": f"i{n}.jpg", "labeled": True, "bbox_count": 1}
+                     for n in range(10)],
+    )
+
+    fake_summary = {
+        "images_uploaded": 10, "images_skipped": 0,
+        "train_count": 8, "val_count": 2,
+        "new_classes": ["fullpub_lot"], "class_ids": {"lot": 9},
+        "total_classes": 10,
+    }
+    publish_mock = MagicMock(return_value=fake_summary)
+    monkeypatch.setattr("services.dataset_publisher.publish", publish_mock)
+
+    drive_mock = MagicMock()
+    drive_mock.create_folder.return_value = "run-folder"
+    drive_mock.upload_bytes.return_value = "nb-id"
+    monkeypatch.setattr(
+        "services.drive_client.DriveClient", MagicMock(return_value=drive_mock)
+    )
+    # build_full_notebook still has the old bundle_file_id signature until
+    # Task 5 — mock it so this wiring test stays green in between
+    monkeypatch.setattr(
+        "services.notebook_generator.build_full_notebook",
+        MagicMock(return_value=b"{}"),
+    )
+
+    res = client.post("/api/packagings/fullpub/training/full/start")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["dataset"] == fake_summary
+    assert "colab.research.google.com" in body["colab_url"]
+    publish_mock.assert_called_once()
+    # zip bundle must NOT be uploaded anymore
+    for call in drive_mock.upload_bytes.call_args_list:
+        assert not str(call.kwargs.get("name", "")).endswith(".zip")
