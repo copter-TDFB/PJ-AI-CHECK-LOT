@@ -1,0 +1,20 @@
+key: container_label
+display_name: "Container Label"
+pipeline: detector_ocr
+conf_threshold: 0.6
+accuracy: 0.94
+gate_on_lot: false
+lot_short_fallback: false
+sub_regions: [box, sachet]
+
+lot_patterns:
+  - '(?i)LOT\s*[:\.\-]?\s*([A-Z0-9\-]{4,})'
+  - '(?im)^([A-Z]{1,3}\d{6,}[A-Z0-9]*)$'
+
+fields_extracted: [lot, exp]
+sheet_checks: [lot, exp, sachet]
+post_ocr_fixes: []
+
+message_template_key: container
+model_classifier_label: container_label
+detector_yolo_prefixes: [container_label_box, container_label_sachet]

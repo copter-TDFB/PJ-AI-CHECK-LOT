@@ -15,6 +15,9 @@ venv/
 env/
 ENV/
 
+# Wizard draft storage (user-created packaging drafts)
+data/
+
 # Env files (NEVER commit real secrets)
 .env
 .env.local
@@ -38,6 +41,13 @@ models/*.pth
 models/*.onnx
 models/*.h5
 models/*.pkl
+models/*.bak-*
+
+# Tooling / scratch
+.understand-anything/
+patch_nb.ps1
+Screenshot*.png
+วิธี local test
 
 # Local test images (ใหญ่ ไม่ commit)
 images/**/*.jpg

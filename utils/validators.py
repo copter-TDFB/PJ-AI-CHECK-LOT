@@ -169,14 +169,15 @@ def _fix_lot_alpha_prefix(lot: str, image_class: str | None) -> str:
 # ─── OCR correction ───────────────────────────────────────────────────────────
 
 _OCR_FIXES: list[tuple[re.Pattern, str]] = [
-    (re.compile(r'\bL[O0][LI1]\b', re.IGNORECASE), 'LOT'),   # LOL / L0L / L01 → LOT
-    (re.compile(r'\bL[O0][T7]\b',  re.IGNORECASE), 'LOT'),   # L0T / LO7 → LOT
-    (re.compile(r'\bLC[T7]\b',     re.IGNORECASE), 'LOT'),   # LCT / LC7 → LOT
+    # L?? → LOT: O อ่านผิดเป็น 0/C/Q/G/D, T อ่านผิดเป็น 7/I/1/L/J
+    (re.compile(r'\bL[O0CQGD][TI17LJ]\b', re.IGNORECASE), 'LOT'),
     (re.compile(r'(\b(?:EXCELLENT|CLASSIC|MEDIUM|HOUJICHA)\s+)RIC\w*\b', re.IGNORECASE), r'\1RICH'),  # EXCELLENT/CLASSIC/MEDIUM/HOUJICHA RIC* → RICH
     (re.compile(r'\bBBl\b',        re.IGNORECASE), 'BBD'),   # BBl → BBD
     (re.compile(r'\bEXl\b',        re.IGNORECASE), 'EXP'),   # EXl → EXP
     # retail_sachet: แก้ตัวอักษรที่ OCR อ่านแทน 0 ใน "LOT XNNN" (X=C,O,D → 0)
     (re.compile(r'(LOT\s*[:\.\-]?\s*)[COD](\d{3})\b', re.IGNORECASE), r'\g<1>0\2'),
+    # compact date (ddmmyyyy): ตัวแรกอ่านผิดเป็น Q (0→Q) เช่น Q3062027 → 03062027
+    (re.compile(r'\bQ(\d{7})\b'), r'0\1'),
 ]
 
 
@@ -241,23 +242,34 @@ def find_product_name(text: str) -> str | None:
     return None
 
 
-def find_lot(text: str, image_class: str | None = None) -> str | None:
+def find_lot(
+    text: str,
+    image_class: str | None = None,
+    patterns: list[re.Pattern] | None = None,
+) -> str | None:
     """
     ค้นหาเลข lot จาก text ดิบ
 
     Args:
         text: raw OCR text
-        image_class: class ของรูป (ใช้ class-specific patterns ก่อน generic)
+        image_class: class ของรูป — ใช้ class-specific patterns จาก _LOT_BY_CLASS (backward compat)
+        patterns: lot patterns จาก PackagingConfig (ถ้าให้มา จะใช้แทน _LOT_BY_CLASS)
     """
     text = correct_ocr(text)
-    # ลอง class-specific patterns ก่อน
-    if image_class and image_class in _LOT_BY_CLASS:
-        for pat in _LOT_BY_CLASS[image_class]:
-            match = pat.search(text)
-            if match:
-                lot = match.group(1).strip().rstrip('.,;:')
-                if _is_valid_lot(lot):
-                    return _fix_lot_alpha_prefix(lot, image_class)
+    # patterns จาก registry มีความสำคัญสูงสุด; fallback ไป _LOT_BY_CLASS (backward compat)
+    if patterns is not None:
+        class_patterns = patterns
+    elif image_class and image_class in _LOT_BY_CLASS:
+        class_patterns = _LOT_BY_CLASS[image_class]
+    else:
+        class_patterns = []
+
+    for pat in class_patterns:
+        match = pat.search(text)
+        if match:
+            lot = match.group(1).strip().rstrip('.,;:')
+            if _is_valid_lot(lot):
+                return _fix_lot_alpha_prefix(lot, image_class)
 
     # fallback: generic patterns
     for pat in _LOT_GENERIC:

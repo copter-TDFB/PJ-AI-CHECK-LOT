@@ -1,0 +1,18 @@
+key: import_sticker
+display_name: "Import Sticker"
+pipeline: qr_scanner
+conf_threshold: 0.6
+accuracy: 0.99
+gate_on_lot: true
+lot_short_fallback: true
+sub_regions: []
+
+lot_patterns: []
+
+fields_extracted: [lot]
+sheet_checks: [lot]
+post_ocr_fixes: []
+
+message_template_key: lot_only
+model_classifier_label: import_sticker
+detector_yolo_prefixes: []

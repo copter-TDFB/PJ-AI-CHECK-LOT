@@ -2,9 +2,13 @@ import logging
 import re
 import time
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import gspread
 from google.auth import default as google_auth_default
+
+if TYPE_CHECKING:
+    from pipeline.packaging_registry import PackagingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -74,75 +78,80 @@ class SheetChecker:
                 return row
         return None
 
-    def check(self, image_class: str, sheet_id: str, gid: int, **kwargs) -> dict:
+    def check(
+        self,
+        config: "PackagingConfig",
+        sheet_id: str,
+        gid: int,
+        **kwargs,
+    ) -> dict:
         """
-        เช็ค lot/exp/product กับ sheet ตาม class
+        เช็ค lot/exp/product กับ sheet ตาม PackagingConfig
 
         Returns:
             dict มี lot_match, exp_match, product_match, sachet_match
             ค่า None = ไม่เกี่ยวกับ class นั้น, False = ไม่ตรง, True = ตรง
         """
-        result = {
-            "lot_match":     None,
-            "exp_match":     None,
-            "product_match": None,
-            "sachet_match":  None,
+        result: dict = {
+            "lot_match":          None,
+            "exp_match":          None,
+            "product_match":      None,
+            "sachet_match":       None,
+            "sheet_product_name": None,
         }
 
         try:
-            if image_class == "import_sticker":
-                lot = kwargs.get("lot_number")
-                row = self._find_row_by_lot(lot, sheet_id, gid)
-                if row is None and lot and len(lot) >= 13:
-                    # fallback: ตัด 4 หลัก [9:13] จาก barcode ยาว เช่น HR0008001014613926R → 0146
-                    short_lot = lot[9:13]
-                    logger.info("import_sticker lot not found — retrying with short lot %s", short_lot)
-                    row = self._find_row_by_lot(short_lot, sheet_id, gid)
+            checks = config.sheet_checks
+            is_container = bool(config.sub_regions)
+
+            lot = kwargs.get("lot_box") if is_container else kwargs.get("lot_number")
+            row = self._find_row_by_lot(lot, sheet_id, gid)
+
+            if row is None and config.lot_short_fallback and lot and len(lot) >= 13:
+                short_lot = lot[9:13]
+                logger.info(
+                    "%s lot not found — retrying with short lot %s",
+                    config.key,
+                    short_lot,
+                )
+                row = self._find_row_by_lot(short_lot, sheet_id, gid)
+
+            if "lot" in checks:
                 result["lot_match"] = row is not None
 
-            elif image_class in ("back_label", "grade_bag"):
-                lot     = kwargs.get("lot_number")
-                exp     = kwargs.get("exp_date")
-                product = kwargs.get("product_name")
-                row = self._find_row_by_lot(lot, sheet_id, gid)
-                result["lot_match"] = row is not None
-                if row:
+            if row:
+                result["sheet_product_name"] = row.get("Product Name", "").strip() or None
+
+                if "exp" in checks:
+                    exp_key = "exp_box" if is_container else "exp_date"
+                    exp = kwargs.get(exp_key)
                     sheet_exp = _normalize_sheet_date(row.get("EXP", ""))
                     result["exp_match"] = sheet_exp == exp if exp else False
+
+                if "product" in checks:
+                    product = kwargs.get("product_name")
                     sheet_product = str(row.get("Product Name", "")).strip().lower()
-                    result["product_match"] = bool(product and product.strip().lower() == sheet_product)
-                else:
-                    result["exp_match"]     = False
+                    result["product_match"] = bool(
+                        product and product.strip().lower() == sheet_product
+                    )
+            else:
+                if "exp" in checks:
+                    result["exp_match"] = False
+                if "product" in checks:
                     result["product_match"] = False
 
-            elif image_class in ("retail_sachet", "capsule_box"):
-                lot = kwargs.get("lot_number")
-                exp = kwargs.get("exp_date")
-                row = self._find_row_by_lot(lot, sheet_id, gid)
-                result["lot_match"] = row is not None
-                if row:
-                    sheet_exp = _normalize_sheet_date(row.get("EXP", ""))
-                    result["exp_match"] = sheet_exp == exp if exp else False
-                else:
-                    result["exp_match"] = False
-
-            elif image_class == "container_label":
-                lot_box    = kwargs.get("lot_box")
+            if "sachet" in checks:
                 exp_box    = kwargs.get("exp_box")
                 exp_sachet = kwargs.get("exp_sachet")
-                row = self._find_row_by_lot(lot_box, sheet_id, gid)
-                result["lot_match"] = row is not None
-                if row:
-                    sheet_exp = _normalize_sheet_date(row.get("EXP", ""))
-                    result["exp_match"] = sheet_exp == exp_box if exp_box else False
-                else:
-                    result["exp_match"] = False
                 lot_sachet = kwargs.get("lot_sachet")
                 if not exp_sachet and not lot_sachet:
-                    # ไม่มีซองเลย — ถือว่าผ่าน (สแกนแค่กล่อง)
+                    # ไม่มีซองเลย — ถือว่าผ่าน
                     result["sachet_match"] = True
                 elif exp_box and exp_sachet:
                     result["sachet_match"] = exp_box == exp_sachet
+                elif not exp_sachet:
+                    # เจอซอง (lot_sachet) แต่ OCR อ่าน exp_sachet ไม่ได้ — ผ่าน
+                    result["sachet_match"] = True
                 else:
                     result["sachet_match"] = False
 

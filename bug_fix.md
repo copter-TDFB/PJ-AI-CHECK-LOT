@@ -123,3 +123,36 @@ def _fix_lot_alpha_prefix(lot: str, image_class: str | None) -> str:
 
 ถ้าเจอ misread pattern ใหม่ใน prefix เพิ่มใน `_DIGIT_TO_LETTER_TRANS` ได้เลย  
 เช่น `6→G` → `str.maketrans('01586', 'OISBG')`
+
+---
+
+## Fix 3 — OCR อ่านตัวเลขนำหน้าของ compact date เป็น Q (2026-06-04)
+
+**ไฟล์ที่แก้:** `utils/validators.py`
+
+### ปัญหา
+
+`container_label` และ `retail_sachet` พิมพ์วันหมดอายุบนซองเป็น compact format `ddmmyyyy` ไม่มี keyword นำหน้า (เช่น `03062027`)  
+Vision API อ่าน `0` ตัวแรกเป็น `Q` → ได้ `Q3062027` → `DATE_COMPACT_FALLBACK = re.compile(r'\b(\d{8})\b')` match ไม่ได้เพราะ `Q` ไม่ใช่ digit → `exp_sachet = None`
+
+**ตัวอย่าง:**
+
+| raw text จาก Vision API | ก่อนแก้ | หลังแก้ |
+|---|---|---|
+| `Q3062027\nLOT 0196` | `exp_sachet = null` ❌ | `exp_sachet = "2027-06-03"` ✅ |
+
+### Root Cause
+
+`Q` และ `0` มีรูปร่างคล้ายกันในฟอนต์ขนาดเล็กบนซอง — Vision API เลือก `Q` แทน `0`  
+เนื่องจาก `DATE_COMPACT_FALLBACK` require digit ทุกตัว จึง miss ไปทั้งหมด
+
+### วิธีแก้
+
+เพิ่ม rule ใน `_OCR_FIXES` (`utils/validators.py`):
+
+```python
+(re.compile(r'\bQ(\d{7})\b'), r'0\1'),  # Q→0 OCR misread in compact date
+```
+
+`correct_ocr()` ถูกเรียกใน `find_expiry()` ซึ่ง run ทุก class → ครอบคลุม `container_label` และ `retail_sachet` โดยอัตโนมัติ  
+ความเสี่ยง false positive ต่ำมาก เพราะ `Q` ตามด้วย 7 digits แทบไม่มีความหมายอื่นบนฉลากสินค้า

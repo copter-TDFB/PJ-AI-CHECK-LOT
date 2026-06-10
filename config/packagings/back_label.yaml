@@ -1,0 +1,20 @@
+key: back_label
+display_name: "Back Label"
+pipeline: detector_ocr
+conf_threshold: 0.8
+accuracy: 0.97
+gate_on_lot: true
+lot_short_fallback: false
+sub_regions: []
+
+lot_patterns:
+  - '(?i)LOT\s*[:\.\-]?\s*([A-Z]{0,3}\d{6,}[A-Z0-9]*)'
+  - '(?i)\bL[:\s]?\s*([A-Z0-9]{5,})'
+
+fields_extracted: [lot, exp, product, size]
+sheet_checks: [lot, exp, product]
+post_ocr_fixes: [lot_alpha_prefix]
+
+message_template_key: default_full
+model_classifier_label: back_label
+detector_yolo_prefixes: [back_label_lot]

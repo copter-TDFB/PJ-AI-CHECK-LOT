@@ -27,7 +27,11 @@ images/
 data collect pj check lot/
 preview/
 
-# Model weights ที่ไม่ใช้ใน production
+# Wizard draft storage — runtime only, not baked into image
+data/
+
+# Model weights — โหลดจาก Drive ตอน startup แทน (Phase 1)
+models/
 ai_check lot v2.pt
 
 # Docs / meta

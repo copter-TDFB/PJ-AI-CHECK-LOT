@@ -1,0 +1,19 @@
+key: capsule_box
+display_name: "Capsule Box"
+pipeline: detector_ocr
+conf_threshold: 0.6
+accuracy: 0.78
+gate_on_lot: true
+lot_short_fallback: false
+sub_regions: []
+
+lot_patterns:
+  - '(?i)LOT\s*[:\.\-]?\s*(\d{4})\b'
+
+fields_extracted: [lot, exp]
+sheet_checks: [lot, exp]
+post_ocr_fixes: []
+
+message_template_key: lot_exp
+model_classifier_label: capsule_box
+detector_yolo_prefixes: [capsule_box_lot]

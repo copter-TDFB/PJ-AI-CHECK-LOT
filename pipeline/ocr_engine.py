@@ -1,8 +1,12 @@
 import logging
+from typing import TYPE_CHECKING
 
 from google.cloud import vision
 
 from utils.validators import find_expiry, find_lot, find_mfg, find_product_name, find_size
+
+if TYPE_CHECKING:
+    from pipeline.packaging_registry import PackagingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -14,18 +18,25 @@ class OcrEngine:
         self._client = vision.ImageAnnotatorClient()
         logger.info("OcrEngine initialised (Google Cloud Vision)")
 
-    def run(self, image_bytes: bytes, image_class: str | None = None) -> dict:
+    def run(
+        self,
+        image_bytes: bytes,
+        config: "PackagingConfig | None" = None,
+        image_class: str | None = None,
+    ) -> dict:
         """
         รัน OCR และ extract lot number, dates จาก image_bytes
 
         Args:
             image_bytes: raw image bytes
-            image_class: class ของรูปจาก classifier (Phase 2) ใช้ช่วย filter ในอนาคต
+            config: PackagingConfig (preferred) — drives field extraction + lot patterns
+            image_class: fallback เมื่อไม่มี config (backward compat)
 
         Returns:
             dict ที่มี lot_number, confidence, raw_text, mfg_date, exp_date, bbox, status
         """
-        logger.info("OCR start — class=%s size=%d bytes", image_class, len(image_bytes))
+        cls_key = config.key if config else image_class
+        logger.info("OCR start — class=%s size=%d bytes", cls_key, len(image_bytes))
 
         vision_image = vision.Image(content=image_bytes)
         response = self._client.text_detection(image=vision_image)
@@ -42,11 +53,17 @@ class OcrEngine:
         full_text = annotations[0].description
         logger.info("Text detected (%d chars)", len(full_text))
 
-        lot = find_lot(full_text, image_class=image_class)
+        lot_patterns = config.lot_patterns if config else None
+        lot = find_lot(full_text, image_class=cls_key, patterns=lot_patterns)
         exp = find_expiry(full_text)
         mfg = find_mfg(full_text)
-        size = find_size(full_text) if image_class in ("back_label", "grade_bag") else None
-        product_name = find_product_name(full_text) if image_class in ("back_label", "grade_bag") else None
+
+        fields = config.fields_extracted if config else []
+        extract_size = "size" in fields if config else cls_key in ("back_label", "grade_bag")
+        extract_product = "product" in fields if config else cls_key in ("back_label", "grade_bag")
+
+        size = find_size(full_text) if extract_size else None
+        product_name = find_product_name(full_text) if extract_product else None
         if product_name and size:
             product_name = f"{product_name} {size}"
 

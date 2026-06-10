@@ -3,6 +3,7 @@ uvicorn[standard]
 httpx
 python-multipart
 python-dotenv
+pyyaml
 google-cloud-vision
 opencv-python-headless
 Pillow
@@ -14,3 +15,4 @@ ultralytics
 zxing-cpp
 gspread
 google-auth
+google-api-python-client

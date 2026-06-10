@@ -78,7 +78,9 @@ def _assert_schema(body: dict) -> None:
     """ตรวจว่า response มี field ครบและ status ถูกต้อง"""
     missing = REQUIRED_FIELDS - body.keys()
     assert not missing, f"Missing fields: {missing}"
-    assert body["status"] in ("ok", "not_found", "qr_not_found", "lot_not_found")
+    assert body["status"] in (
+        "ok", "not_found", "qr_not_found", "lot_not_found", "low_confidence"
+    )
 
 
 @needs_models
@@ -87,9 +89,16 @@ def test_predict_no_file(client):
     assert r.status_code == 422   # FastAPI validation error
 
 
+_DUMMY_SHEET_PARAMS = {"sheet_id": "DUMMY_SHEET_ID", "sheet_gid": "0"}
+
+
 @needs_models
 def test_predict_invalid_file(client):
-    r = client.post("/predict", files={"file": ("test.txt", b"not an image", "text/plain")})
+    r = client.post(
+        "/predict",
+        params=_DUMMY_SHEET_PARAMS,
+        files={"file": ("test.txt", b"not an image", "text/plain")},
+    )
     assert r.status_code == 400
 
 
@@ -99,7 +108,11 @@ def test_predict_ocr_classes(client, cls):
     img = _first_image(cls)
     if img is None:
         pytest.skip(f"No images found for {cls}")
-    r = client.post("/predict", files={"file": (f"test.jpg", img, "image/jpeg")})
+    r = client.post(
+        "/predict",
+        params=_DUMMY_SHEET_PARAMS,
+        files={"file": ("test.jpg", img, "image/jpeg")},
+    )
     assert r.status_code == 200
     body = r.json()
     _assert_schema(body)
@@ -114,7 +127,11 @@ def test_predict_import_sticker_uses_qr(client):
     img = _first_image("import_sticker")
     if img is None:
         pytest.skip("No images found for import_sticker")
-    r = client.post("/predict", files={"file": ("test.jpg", img, "image/jpeg")})
+    r = client.post(
+        "/predict",
+        params=_DUMMY_SHEET_PARAMS,
+        files={"file": ("test.jpg", img, "image/jpeg")},
+    )
     assert r.status_code == 200
     body = r.json()
     _assert_schema(body)

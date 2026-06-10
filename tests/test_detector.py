@@ -53,7 +53,7 @@ def test_crop_smaller_than_original(detector, image_class):
     assert crop_area <= orig_area
 
 
-@pytest.mark.parametrize("image_class", [c for c in CLASSES if c != "container_label"])
+@pytest.mark.parametrize("image_class", [c for c in CLASSES if c not in ("container_label", "import_sticker")])
 def test_bbox_valid(detector, image_class):
     """bbox ต้อง [x1, y1, x2, y2] โดย x2>x1 และ y2>y1"""
     result = detector.crop(_make_jpeg(), image_class)

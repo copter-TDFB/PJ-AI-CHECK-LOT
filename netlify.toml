@@ -1,0 +1,16 @@
+# Netlify config — static deploy ของ wizard frontend
+# Backend (FastAPI) อยู่บน Cloud Run
+
+[build]
+  publish = "web"
+  command = ""
+
+[[redirects]]
+  from = "/"
+  to = "/wizard.html"
+  status = 200
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

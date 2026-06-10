@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>ระบบเพิ่ม Packaging ใหม่ — Ops Self-Service Flow</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', 'Sarabun', 'Tahoma', system-ui, -apple-system, sans-serif;
+    background: #eef1f5; color: #1a1a1a; line-height: 1.5;
+  }
+  header {
+    background: linear-gradient(135deg, #1565C0 0%, #0D47A1 100%);
+    color: white; padding: 28px 40px; border-bottom: 4px solid #FFC107;
+  }
+  header h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.3px; }
+  header p { font-size: 13px; opacity: 0.88; margin-top: 6px; }
+  header .meta { font-size: 11px; opacity: 0.7; margin-top: 10px; font-family: 'Consolas', monospace; }
+
+  .container { max-width: 1600px; margin: 0 auto; padding: 24px; }
+
+  .legend {
+    background: white; border-radius: 8px; padding: 18px 22px;
+    margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .legend h2 { font-size: 14px; margin-bottom: 12px; color: #333; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .legend-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 18px; }
+  .legend-item { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #333; }
+  .legend-item svg { flex-shrink: 0; width: 56px; height: 38px; }
+  .legend-item strong { font-weight: 600; color: #111; }
+  .legend-item span { color: #555; }
+  .arrow-legend { margin-top: 12px; display: flex; gap: 20px; flex-wrap: wrap; font-size: 12px; color: #444; }
+  .arrow-legend .item { display: flex; align-items: center; gap: 8px; }
+  .arrow-legend svg { width: 56px; height: 12px; }
+
+  .controls {
+    background: white; border-radius: 8px; padding: 12px 18px;
+    margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .controls .hint { font-size: 12px; color: #555; margin-right: auto; }
+  .controls .hint kbd { background: #f0f2f5; border: 1px solid #d0d4da; border-radius: 3px; padding: 1px 6px; font-family: 'Consolas', monospace; font-size: 11px; color: #333; }
+  .controls button {
+    font-family: inherit; font-size: 12px; font-weight: 600;
+    padding: 7px 14px; border: 1px solid #c0c4ca; border-radius: 6px;
+    background: #f7f8fa; color: #333; cursor: pointer; transition: all 0.15s;
+  }
+  .controls button:hover { background: #1565C0; color: white; border-color: #1565C0; }
+  .controls button.danger:hover { background: #C62828; border-color: #C62828; }
+  .controls .badge { font-size: 11px; color: #2E7D32; background: #E8F5E9; padding: 4px 10px; border-radius: 12px; font-weight: 600; }
+  .controls .badge.dirty { color: #E65100; background: #FFF3E0; }
+
+  .ed {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center; line-height: 1.22;
+    padding: 4px 8px; outline: none;
+    white-space: pre-wrap; cursor: text; user-select: text;
+    font-family: 'Segoe UI', 'Sarabun', 'Tahoma', system-ui, sans-serif;
+    overflow: hidden; box-sizing: border-box; border-radius: 3px;
+  }
+  .ed:hover { background: rgba(21, 101, 192, 0.06); }
+  .ed:focus { background: rgba(255, 235, 59, 0.25); box-shadow: 0 0 0 2px #FBC02D inset; }
+
+  .diagram-wrap { background: white; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow-x: auto; }
+  svg.flowchart { display: block; margin: 0 auto; font-family: inherit; }
+
+  footer { text-align: center; color: #888; font-size: 12px; padding: 20px; font-family: 'Consolas', monospace; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ระบบเพิ่ม Packaging ใหม่ — Ops Self-Service Flow</h1>
+  <p>Ops ทำเองทุก step • ไม่มี dev gate • Active Learning (seed → full) • Staging Promotion</p>
+  <div class="meta">source : <code>plans/project-user-keen-cocke.md</code> · pj-ocr-text-check-lot · 2026-06-05 (v3 — layout improved)</div>
+</header>
+
+<div class="container">
+  <section class="legend">
+    <h2>สัญลักษณ์มาตรฐาน · Standard Flowchart Symbols</h2>
+    <div class="legend-grid" id="legend"></div>
+    <div class="arrow-legend">
+      <div class="item"><svg viewBox="0 0 60 12"><line x1="2" y1="6" x2="50" y2="6" stroke="#333" stroke-width="1.8"/><polygon points="50,2 58,6 50,10" fill="#333"/></svg><span>Flow ปกติ</span></div>
+      <div class="item"><svg viewBox="0 0 60 12"><line x1="2" y1="6" x2="50" y2="6" stroke="#C62828" stroke-width="1.8" stroke-dasharray="6 4"/><polygon points="50,2 58,6 50,10" fill="#C62828"/></svg><span>Loop-back / NO branch</span></div>
+      <div class="item"><svg viewBox="0 0 60 12"><line x1="2" y1="6" x2="50" y2="6" stroke="#2E7D32" stroke-width="1.8"/><polygon points="50,2 58,6 50,10" fill="#2E7D32"/></svg><span>Fire-and-forget</span></div>
+    </div>
+  </section>
+
+  <div class="controls">
+    <span class="hint">💡 คลิกข้อความใดก็ได้เพื่อแก้ — บันทึกอัตโนมัติลง browser  •  กด <kbd>Esc</kbd> เพื่อยกเลิก</span>
+    <span id="editBadge" class="badge">บันทึกแล้ว</span>
+    <button onclick="exportEdits()">💾 Export JSON</button>
+    <button onclick="importEdits()">📂 Import JSON</button>
+    <button class="danger" onclick="resetEdits()">↺ คืนค่าเดิมทั้งหมด</button>
+  </div>
+
+  <div class="diagram-wrap">
+    <svg class="flowchart" id="chart" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+</div>
+
+<footer>FLOW_ADD_PACKAGING.html · ops-only · generated by /flow-process</footer>
+
+<script>
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function el(tag, attrs = {}, parent) {
+  const e = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+const EDIT_KEY = 'flow-edit:addpkg-v3:';
+function loadEdit(id, fallback) {
+  const v = localStorage.getItem(EDIT_KEY + id);
+  return v !== null ? v : fallback;
+}
+function saveEdit(id, value, fallback) {
+  if (value === fallback) localStorage.removeItem(EDIT_KEY + id);
+  else localStorage.setItem(EDIT_KEY + id, value);
+  updateBadge();
+}
+function updateBadge() {
+  const badge = document.getElementById('editBadge');
+  if (!badge) return;
+  let count = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    if (localStorage.key(i).startsWith(EDIT_KEY)) count++;
+  }
+  if (count === 0) { badge.textContent = 'ค่าเดิม'; badge.classList.remove('dirty'); }
+  else { badge.textContent = `แก้แล้ว ${count} จุด`; badge.classList.add('dirty'); }
+}
+function editText(parent, x, y, w, h, id, defaultText, opts = {}) {
+  const fo = el('foreignObject', { x, y, width: w, height: h }, parent);
+  const div = document.createElement('div');
+  div.className = 'ed';
+  div.setAttribute('contenteditable', 'plaintext-only');
+  div.style.fontSize = (opts.fontSize || 12) + 'px';
+  div.style.fontWeight = opts.fontWeight || 600;
+  div.style.color = opts.color || '#1a1a1a';
+  if (opts.letterSpacing) div.style.letterSpacing = opts.letterSpacing;
+  div.textContent = loadEdit(id, defaultText);
+  div.addEventListener('blur', () => saveEdit(id, div.textContent, defaultText));
+  div.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') { div.textContent = defaultText; div.blur(); }
+    if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); div.blur(); }
+  });
+  fo.appendChild(div);
+  return fo;
+}
+function exportEdits() {
+  const edits = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k.startsWith(EDIT_KEY)) edits[k.slice(EDIT_KEY.length)] = localStorage.getItem(k);
+  }
+  const blob = new Blob([JSON.stringify(edits, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().slice(0,16).replace(':','-');
+  a.href = url; a.download = `flow-edits-addpkg-${ts}.json`; a.click();
+  URL.revokeObjectURL(url);
+}
+function importEdits() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.json,application/json';
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      for (const [k, v] of Object.entries(data)) localStorage.setItem(EDIT_KEY + k, v);
+      location.reload();
+    } catch (e) { alert('ไฟล์ไม่ถูกต้อง: ' + e.message); }
+  };
+  inp.click();
+}
+function resetEdits() {
+  if (!confirm('ลบการแก้ไขทั้งหมดและกลับไปใช้ค่าเดิม?')) return;
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k.startsWith(EDIT_KEY)) keys.push(k);
+  }
+  keys.forEach(k => localStorage.removeItem(k));
+  location.reload();
+}
+
+// ===== Sizes (BIGGER) =====
+const HEADER_H = 64;
+const NODE_W = 240;
+const NODE_H_2 = 80;       // เพิ่มจาก 66
+const NODE_H_3 = 96;       // เพิ่มจาก 82
+const NODE_H_4 = 112;      // เพิ่มจาก 98
+const DEC_W = 230;
+const DEC_H = 124;         // เพิ่มจาก 110
+
+// ===== 5 lanes — DEV ตัดออก =====
+const lanes = [
+  { id: 'ops',   name: 'OPS (Operations)',     x:    0, w: 290, bg: '#FFFBF0', strip: '#F57F17' },
+  { id: 'app',   name: 'MAIN APP (FastAPI)',   x:  290, w: 290, bg: '#EBF4FF', strip: '#1565C0' },
+  { id: 'drive', name: 'DRIVE + LABEL STUDIO', x:  580, w: 300, bg: '#F1F8E9', strip: '#33691E' },
+  { id: 'colab', name: 'COLAB (Manual)',       x:  880, w: 290, bg: '#FFF3E0', strip: '#E65100' },
+  { id: 'prod',  name: 'CLOUD RUN (Prod)',     x: 1170, w: 290, bg: '#E8EAF6', strip: '#1A237E' },
+];
+
+// Row spacing — เพิ่มเป็น 170-180px per row
+// Lane centers: OPS=145, APP=435, DRIVE=730, COLAB=1025, PROD=1315
+
+// nodes: [id, lane, y, type, label, optionalHeightOverride]
+const nodeDefs = [
+  // Phase 1: ops creates draft
+  ['start',         0,  100, 'terminator', 'OPS เปิด\n/packagings/new'],
+  ['nameForm',      0,  260, 'process',    'ตั้งชื่อ + อธิบาย\npackaging ใหม่'],
+  ['uploadImg',     0,  420, 'manualInput','อัพรูป 50+ รูป'],
+  ['appReceive',    1,  420, 'process',    'validate +\nupload → Drive'],
+  ['driveStore',    2,  580, 'cylinder',   'เก็บใน Drive\nfolder ของ packaging'],
+
+  // Phase 2: seed labeling
+  ['lsSeed',        2,  740, 'manualInput','Label Studio:\nลาก bbox 20 รูปแรก\n(seed labels)', 110],
+  ['checkSeed',     1,  920, 'decision',   'labels ≥ 20 ?'],
+
+  // Phase 3: seed training cycle
+  ['startSeed',     0, 1110, 'process',    'คลิก\n"Start seed training"'],
+  ['genSeedNb',     1, 1110, 'document',   'generate seed.ipynb\n→ Drive\n+ เปิด Colab tab', 100],
+  ['colabRunSeed',  3, 1280, 'manualInput','ใน Colab tab:\nops คลิก "Run all"\n→ train ~15 นาที', 110],
+  ['saveSeed',      3, 1460, 'document',   'COLAB save\nseed_detector.pt\n→ Drive', 96],
+  ['trainDone1',    0, 1640, 'process',    'กลับมาแอป → คลิก\n"Training done"'],
+  ['autoLabel',     1, 1640, 'process',    'รัน seed บน 30 รูปที่เหลือ\n→ import เป็น\npre-annotation ใน LS', 100],
+
+  // Phase 4: verify prelabels
+  ['lsVerify',      2, 1820, 'manualInput','Label Studio:\nverify/fix 30 prelabels\n(เร็วกว่าลากเอง 3×)', 110],
+  ['checkVerified', 1, 2000, 'decision',   'verify ครบ\nทั้งหมด ?'],
+
+  // Phase 5: no-code config form (NEW — แทน dev review)
+  ['configForm',    0, 2200, 'manualInput','No-code Config Form:\n• ตัวอย่าง lot 3-5 ตัว\n• เลือก fields + checks\n• เลือก message template', 120],
+  ['autoRegex',     1, 2200, 'process',    'auto-generate\nlot regex จากตัวอย่าง\n+ preview match', 100],
+
+  // Phase 6: full training cycle (same shape as seed)
+  ['startFull',     0, 2400, 'process',    'คลิก\n"Start full training"'],
+  ['genFullNb',     1, 2400, 'document',   'generate full.ipynb\n→ Drive + เปิด Colab', 96],
+  ['colabRunFull',  3, 2570, 'manualInput','ใน Colab tab:\nops คลิก "Run all"\n→ train ~1 ชม', 110],
+  ['saveFull',      3, 2750, 'document',   'COLAB save model\n+ eval.json → Drive', 96],
+  ['trainDone2',    0, 2930, 'process',    'กลับมาแอป → คลิก\n"Training done"'],
+  ['pullEval',      1, 2930, 'process',    'pull model +\neval.json จาก Drive'],
+
+  // Phase 7: ops reads eval
+  ['evalPage',      0, 3110, 'manualInput','อ่าน Eval Page:\nnumbers + tooltips\nตัดสินใจ deploy?', 100],
+  ['hardFloor',     1, 3290, 'decision',   'ผ่าน hard floor?\nacc ≥0.85\nmAP ≥0.65', 130],
+
+  // Phase 8: staging then promote
+  ['stagingBtn',    0, 3490, 'process',    'คลิก\n"Deploy to staging"'],
+  ['stagingDeploy', 1, 3490, 'process',    'update staging\nmanifest + restart\nstaging service', 100],
+  ['testStaging',   0, 3670, 'manualInput','ทดสอบ 5 รูป\nบน staging URL', 96],
+  ['promoteBtn',    0, 3840, 'process',    'คลิก\n"Promote to production"'],
+  ['prodDeploy',    1, 3840, 'process',    'update active\nmanifest + restart\nprod Cloud Run', 100],
+
+  // Phase 9: prod load + live
+  ['loadModel',     4, 4010, 'subprocess', 'CR instance load\nmodel จาก Drive\n(~30s downtime)', 100],
+  ['live',          4, 4170, 'terminator', 'Packaging ใหม่ live\nใน /predict'],
+];
+
+// ===== Gutter X positions (สำหรับ loop / cross-lane arrow ที่ไม่ทับ node) =====
+// OPS left gutter: x=18
+// OPS↔APP gutter: x=275 (between 0+290=290 and 290)
+// APP↔DRIVE gutter: x=565
+// DRIVE↔COLAB gutter: x=865
+// COLAB↔PROD gutter: x=1155
+// Far right gutter: x=1442
+
+// edges
+const edges = [
+  // Phase 1: ops creates draft
+  { from: 'start',         fs: 'b', to: 'nameForm',     ts: 't' },
+  { from: 'nameForm',      fs: 'b', to: 'uploadImg',    ts: 't' },
+  { from: 'uploadImg',     fs: 'r', to: 'appReceive',   ts: 'l' },
+  { from: 'appReceive',    fs: 'r', to: 'driveStore',   ts: 't',
+    via: [[730, 460], [730, 580]] },
+
+  // Phase 2: seed labeling
+  { from: 'driveStore',    fs: 'b', to: 'lsSeed',       ts: 't' },
+  { from: 'lsSeed',        fs: 'l', to: 'checkSeed',    ts: 'r' },
+  { from: 'checkSeed',     fs: 'r', to: 'lsSeed',       ts: 'b', label: 'NO\n(< 20)',
+    via: [[865, 982], [865, 875], [730, 875]],
+    style: 'loop' },
+
+  // Phase 3: seed training cycle
+  { from: 'checkSeed',     fs: 'l', to: 'startSeed',    ts: 'r', label: 'YES' },
+  { from: 'startSeed',     fs: 'r', to: 'genSeedNb',    ts: 'l' },
+  // APP → COLAB ผ่าน DRIVE lane (gutter y=1230 ว่าง — ระหว่าง lsSeed 850 และ lsVerify 1820)
+  { from: 'genSeedNb',     fs: 'b', to: 'colabRunSeed', ts: 't',
+    via: [[435, 1230], [1025, 1230]] },
+  { from: 'colabRunSeed',  fs: 'b', to: 'saveSeed',     ts: 't' },
+  // COLAB → OPS ผ่าน DRIVE + APP lane (gutter y=1590 ว่าง — ระหว่าง lsSeed และ lsVerify)
+  { from: 'saveSeed',      fs: 'b', to: 'trainDone1',   ts: 't',
+    via: [[1025, 1590], [145, 1590]] },
+
+  // Phase 4: auto-label + verify
+  { from: 'trainDone1',    fs: 'r', to: 'autoLabel',    ts: 'l' },
+  { from: 'autoLabel',     fs: 'r', to: 'lsVerify',     ts: 't',
+    via: [[730, 1690], [730, 1820]] },
+  { from: 'lsVerify',      fs: 'l', to: 'checkVerified', ts: 'r' },
+  { from: 'checkVerified', fs: 'r', to: 'lsVerify',     ts: 'b', label: 'NO',
+    via: [[865, 2062], [865, 1950], [730, 1950]],
+    style: 'loop' },
+
+  // Phase 5: config form
+  { from: 'checkVerified', fs: 'l', to: 'configForm',   ts: 'r', label: 'YES' },
+  { from: 'configForm',    fs: 'r', to: 'autoRegex',    ts: 'l' },
+
+  // Phase 6: full training cycle
+  { from: 'autoRegex',     fs: 'b', to: 'startFull',    ts: 't',
+    via: [[435, 2350], [145, 2350]] },
+  { from: 'startFull',     fs: 'r', to: 'genFullNb',    ts: 'l' },
+  { from: 'genFullNb',     fs: 'b', to: 'colabRunFull', ts: 't',
+    via: [[435, 2520], [1025, 2520]] },
+  { from: 'colabRunFull',  fs: 'b', to: 'saveFull',     ts: 't' },
+  { from: 'saveFull',      fs: 'b', to: 'trainDone2',   ts: 't',
+    via: [[1025, 2880], [145, 2880]] },
+
+  // Phase 7: eval
+  { from: 'trainDone2',    fs: 'r', to: 'pullEval',     ts: 'l' },
+  { from: 'pullEval',      fs: 'b', to: 'evalPage',     ts: 't',
+    via: [[435, 3060], [145, 3060]] },
+  { from: 'evalPage',      fs: 'r', to: 'hardFloor',    ts: 't',
+    via: [[435, 3240], [435, 3290]] },
+  // FAIL: long loop back to config form (ใช้ left gutter x=18)
+  { from: 'hardFloor',     fs: 'l', to: 'configForm',   ts: 'l',
+    label: 'FAIL\n(เพิ่มรูป /\nปรับ config)',
+    via: [[18, 3352], [18, 2260]],
+    style: 'loop' },
+
+  // Phase 8: staging then promote
+  { from: 'hardFloor',     fs: 'b', to: 'stagingBtn',   ts: 't', label: 'PASS',
+    via: [[435, 3440], [145, 3440]] },
+  { from: 'stagingBtn',    fs: 'r', to: 'stagingDeploy',ts: 'l' },
+  { from: 'stagingDeploy', fs: 'b', to: 'testStaging',  ts: 't',
+    via: [[435, 3640], [145, 3640]] },
+  { from: 'testStaging',   fs: 'b', to: 'promoteBtn',   ts: 't' },
+  { from: 'promoteBtn',    fs: 'r', to: 'prodDeploy',   ts: 'l' },
+  // APP → PROD ผ่าน DRIVE + COLAB lane (gutter y=3960 ว่าง — ไม่มี node ในแถวนั้น)
+  { from: 'prodDeploy',    fs: 'b', to: 'loadModel',    ts: 't',
+    via: [[435, 3960], [1315, 3960]] },
+
+  // Phase 9: live
+  { from: 'loadModel',     fs: 'b', to: 'live',         ts: 't' },
+];
+
+// Compute lane positions
+let cursor = 0;
+for (const ln of lanes) {
+  if (ln.x === undefined) ln.x = cursor;
+  if (ln.w === undefined) ln.w = 290;
+  cursor = ln.x + ln.w;
+}
+const TOTAL_W = lanes.reduce((s, l) => Math.max(s, l.x + l.w), 0);
+const laneCenter = i => lanes[i].x + lanes[i].w / 2;
+
+const N = {};
+for (const def of nodeDefs) {
+  const [id, lane, y, type, label, hOverride] = def;
+  let h;
+  if (type === 'decision') h = hOverride || DEC_H;
+  else if (hOverride) h = hOverride;
+  else {
+    const lines = label.split('\n').length;
+    h = lines >= 4 ? NODE_H_4 : lines === 3 ? NODE_H_3 : NODE_H_2;
+  }
+  const w = type === 'decision' ? DEC_W : NODE_W;
+  N[id] = { id, lane, y, type, label, w, h, cx: laneCenter(lane), cy: y + h/2 };
+}
+
+const TOTAL_H = Math.max(...Object.values(N).map(n => n.y + n.h)) + 100;
+
+const svg = document.getElementById('chart');
+svg.setAttribute('viewBox', `0 0 ${TOTAL_W} ${TOTAL_H}`);
+svg.setAttribute('width', '100%');
+svg.style.maxWidth = TOTAL_W + 'px';
+
+const defs = el('defs', {}, svg);
+function defArrow(id, color) {
+  const m = el('marker', { id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 8, markerHeight: 8, orient: 'auto-start-reverse' }, defs);
+  el('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: color }, m);
+}
+defArrow('arrow',     '#333');
+defArrow('arrowLoop', '#C62828');
+defArrow('arrowOk',   '#2E7D32');
+
+// ===== Lanes =====
+const laneGroup = el('g', { id: 'lanes' }, svg);
+for (let i = 0; i < lanes.length; i++) {
+  const ln = lanes[i];
+  el('rect', { x: ln.x, y: 0, width: ln.w, height: TOTAL_H, fill: ln.bg || '#fafafa', stroke: '#d0d4da', 'stroke-width': 1 }, laneGroup);
+  el('rect', { x: ln.x, y: 0, width: ln.w, height: HEADER_H, fill: ln.strip || '#666', stroke: 'none' }, laneGroup);
+  editText(laneGroup, ln.x, 0, ln.w, HEADER_H, 'lane:' + (ln.id || i), ln.name, { fontSize: 15, fontWeight: 700, color: 'white', letterSpacing: '1px' });
+}
+
+function drawShape(parent, node) {
+  const { type, cx, y, w, h, label } = node;
+  const x = cx - w/2;
+  let textFill = '#1a1a1a';
+
+  switch (type) {
+    case 'terminator':
+      el('rect', { x, y, width: w, height: h, rx: h/2, ry: h/2, fill: '#2E7D32', stroke: '#1B5E20', 'stroke-width': 2 }, parent);
+      textFill = 'white'; break;
+    case 'process':
+      el('rect', { x, y, width: w, height: h, fill: '#FFFFFF', stroke: '#333', 'stroke-width': 1.8, rx: 2 }, parent); break;
+    case 'decision':
+      el('polygon', { points: `${cx},${y} ${x+w},${y+h/2} ${cx},${y+h} ${x},${y+h/2}`, fill: '#FFF59D', stroke: '#F57F17', 'stroke-width': 2 }, parent); break;
+    case 'data': {
+      const sl = 16;
+      el('polygon', { points: `${x+sl},${y} ${x+w},${y} ${x+w-sl},${y+h} ${x},${y+h}`, fill: '#B3E5FC', stroke: '#0277BD', 'stroke-width': 1.8 }, parent); break;
+    }
+    case 'manualInput':
+      el('polygon', { points: `${x},${y+14} ${x+w},${y} ${x+w},${y+h} ${x},${y+h}`, fill: '#FFE082', stroke: '#FF8F00', 'stroke-width': 1.8 }, parent); break;
+    case 'subprocess': {
+      const g = el('g', {}, parent);
+      el('rect', { x, y, width: w, height: h, fill: '#FFFFFF', stroke: '#333', 'stroke-width': 1.8 }, g);
+      el('line', { x1: x+10, y1: y, x2: x+10, y2: y+h, stroke: '#333', 'stroke-width': 1.8 }, g);
+      el('line', { x1: x+w-10, y1: y, x2: x+w-10, y2: y+h, stroke: '#333', 'stroke-width': 1.8 }, g); break;
+    }
+    case 'delay': {
+      const r = h/2;
+      el('path', { d: `M ${x},${y} L ${x+w-r},${y} A ${r},${r} 0 0 1 ${x+w-r},${y+h} L ${x},${y+h} Z`, fill: '#FFCCBC', stroke: '#BF360C', 'stroke-width': 1.8 }, parent); break;
+    }
+    case 'document': {
+      const wave = 9;
+      el('path', { d: `M ${x},${y} L ${x+w},${y} L ${x+w},${y+h-wave} Q ${x+3*w/4},${y+h+wave} ${x+w/2},${y+h-wave/2} Q ${x+w/4},${y+h-wave*1.5} ${x},${y+h-wave/2} Z`, fill: '#FFCC80', stroke: '#E65100', 'stroke-width': 1.8 }, parent); break;
+    }
+    case 'cylinder': {
+      const g = el('g', {}, parent);
+      const ry = 9;
+      el('path', { d: `M ${x},${y+ry} L ${x},${y+h-ry} A ${w/2},${ry} 0 0 0 ${x+w},${y+h-ry} L ${x+w},${y+ry} Z`, fill: '#A5D6A7', stroke: '#1B5E20', 'stroke-width': 1.8 }, g);
+      el('ellipse', { cx: x+w/2, cy: y+ry, rx: w/2, ry, fill: '#A5D6A7', stroke: '#1B5E20', 'stroke-width': 1.8 }, g); break;
+    }
+  }
+
+  if (node.id !== undefined) {
+    editText(parent, x, y, w, h, 'node:' + node.id, label, { fontSize: type === 'decision' ? 11.5 : 12, fontWeight: 600, color: textFill });
+  } else {
+    const lines = label.split('\n'); const lineH = 14;
+    const startY = y + h/2 - (lines.length - 1) * lineH / 2 + 4;
+    const text = el('text', { x: cx, y: startY, 'text-anchor': 'middle', 'font-size': type === 'decision' ? 11.5 : 12, 'font-weight': 600, fill: textFill }, parent);
+    lines.forEach((line, i) => { const ts = el('tspan', { x: cx, dy: i === 0 ? 0 : lineH }, text); ts.textContent = line; });
+  }
+}
+
+function anchor(id, side) {
+  const n = N[id];
+  switch (side) {
+    case 't': return { x: n.cx, y: n.y };
+    case 'b': return { x: n.cx, y: n.y + n.h };
+    case 'l': return { x: n.cx - n.w/2, y: n.y + n.h/2 };
+    case 'r': return { x: n.cx + n.w/2, y: n.y + n.h/2 };
+  }
+}
+function buildPath(points) {
+  let d = `M ${points[0][0]},${points[0][1]}`;
+  for (let i = 1; i < points.length; i++) d += ` L ${points[i][0]},${points[i][1]}`;
+  return d;
+}
+function autoPoints(a, b, fs, ts, via) {
+  const pts = [[a.x, a.y]];
+  if (via) for (const v of via) pts.push(v);
+  else {
+    if (Math.abs(a.x - b.x) < 0.5 || Math.abs(a.y - b.y) < 0.5) {
+      // straight
+    } else if (fs === 'b' && ts === 't') { const m = (a.y + b.y) / 2; pts.push([a.x, m], [b.x, m]); }
+    else if (fs === 't' && ts === 'b') { const m = (a.y + b.y) / 2; pts.push([a.x, m], [b.x, m]); }
+    else if ((fs === 'r' && ts === 'l') || (fs === 'l' && ts === 'r')) { const m = (a.x + b.x) / 2; pts.push([m, a.y], [m, b.y]); }
+    else if ((fs === 'b' && ts === 'l') || (fs === 'b' && ts === 'r')) pts.push([a.x, b.y]);
+    else if ((fs === 't' && ts === 'l') || (fs === 't' && ts === 'r')) pts.push([a.x, b.y]);
+    else if ((fs === 'r' && ts === 't') || (fs === 'l' && ts === 't')) pts.push([b.x, a.y]);
+    else if ((fs === 'r' && ts === 'b') || (fs === 'l' && ts === 'b')) pts.push([b.x, a.y]);
+  }
+  pts.push([b.x, b.y]);
+  return pts;
+}
+function pickLabelPos(points) {
+  let maxLen = 0; let best = null;
+  for (let i = 0; i < points.length - 1; i++) {
+    const [x1, y1] = points[i]; const [x2, y2] = points[i+1];
+    const len = Math.hypot(x2-x1, y2-y1);
+    if (len > maxLen) { maxLen = len; best = { x: (x1+x2)/2, y: (y1+y2)/2 }; }
+  }
+  return best;
+}
+
+// ===== Render edges =====
+const edgeLayer = el('g', { id: 'edges' }, svg);
+const edgeLabelLayer = el('g', { id: 'edge-labels' }, svg);
+
+for (const e of edges) {
+  const a = anchor(e.from, e.fs);
+  const b = anchor(e.to, e.ts);
+  const points = autoPoints(a, b, e.fs, e.ts, e.via);
+  const d = buildPath(points);
+
+  let stroke = '#333', dash = 'none';
+  const attrs = { d, fill: 'none', 'stroke-width': 1.9, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', 'marker-end': 'url(#arrow)' };
+  if (e.style === 'loop') { stroke = '#C62828'; dash = '7 4'; attrs['marker-end'] = 'url(#arrowLoop)'; }
+  else if (e.style === 'ok') { stroke = '#2E7D32'; attrs['marker-end'] = 'url(#arrowOk)'; }
+  attrs.stroke = stroke; attrs['stroke-dasharray'] = dash;
+  el('path', attrs, edgeLayer);
+
+  if (e.label) {
+    const pos = pickLabelPos(points);
+    if (!pos) continue;
+    const lx = pos.x, ly = pos.y;
+    const edgeId = 'edge:' + e.from + '>' + e.to;
+    const actual = loadEdit(edgeId, e.label);
+    const lines = actual.split('\n'); const lh = 14;
+    const maxLen = Math.max(...lines.map(l => l.length));
+    const bw = Math.max(46, maxLen * 7 + 18);
+    const bh = lines.length * lh + 10;
+    el('rect', { x: lx - bw/2, y: ly - bh/2, width: bw, height: bh, fill: '#fff', stroke, 'stroke-width': 1, opacity: 0.97, rx: 5 }, edgeLabelLayer);
+    editText(edgeLabelLayer, lx - bw/2, ly - bh/2, bw, bh, edgeId, e.label, { fontSize: 11, fontWeight: 700, color: stroke });
+  }
+}
+
+// ===== Render nodes =====
+const nodeLayer = el('g', { id: 'nodes' }, svg);
+for (const id in N) drawShape(nodeLayer, N[id]);
+
+// ===== Legend =====
+const legendItems = [
+  { type: 'terminator',   title: 'Terminator',         desc: 'จุดเริ่ม / จบ flow' },
+  { type: 'process',      title: 'Process',            desc: 'ขั้นตอนทำงานปกติ' },
+  { type: 'decision',     title: 'Decision',           desc: 'จุดตัดสินใจ (YES/NO)' },
+  { type: 'manualInput',  title: 'Manual Input',       desc: 'user ป้อนข้อมูลเอง' },
+  { type: 'subprocess',   title: 'Predefined Process', desc: 'subroutine / training' },
+  { type: 'document',     title: 'Document',           desc: 'notebook / model file' },
+  { type: 'cylinder',     title: 'Database',           desc: 'storage / Drive folder' },
+];
+const legend = document.getElementById('legend');
+for (const li of legendItems) {
+  const wrap = document.createElement('div'); wrap.className = 'legend-item';
+  const svgL = document.createElementNS(SVG_NS, 'svg'); svgL.setAttribute('viewBox', '0 0 70 40');
+  const fakeNode = { type: li.type, cx: 35, y: 6, w: 50, h: 28, label: '' };
+  if (li.type === 'decision') { fakeNode.w = 50; fakeNode.h = 32; fakeNode.y = 4; }
+  drawShape(svgL, fakeNode);
+  wrap.appendChild(svgL);
+  const txt = document.createElement('div');
+  txt.innerHTML = `<strong>${li.title}</strong><br><span>${li.desc}</span>`;
+  wrap.appendChild(txt);
+  legend.appendChild(wrap);
+}
+
+updateBadge();
+</script>
+</body>
+</html>
