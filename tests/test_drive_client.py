@@ -41,12 +41,27 @@ def test_read_text_decodes_utf8(client_and_svc):
         assert client.read_text("fid") == "names: [a, b]\n"
 
 
+class FakeJsonDownloader(FakeDownloader):
+    """FakeDownloader variant with a JSON payload."""
+
+    payload = b'{"version": "v1"}'
+
+
+def test_read_json_parses_json(client_and_svc):
+    client, _ = client_and_svc
+    with patch("services.drive_client.MediaIoBaseDownload", FakeJsonDownloader):
+        assert client.read_json("fid") == {"version": "v1"}
+
+
 def test_update_file_content_calls_files_update(client_and_svc):
     client, svc = client_and_svc
     client.update_file_content("fid123", b"new content", mime_type="text/yaml")
     _, kwargs = svc.files.return_value.update.call_args
     assert kwargs["fileId"] == "fid123"
     assert "media_body" in kwargs
+    media = kwargs["media_body"]
+    assert media.mimetype() == "text/yaml"
+    assert media.getbytes(0, media.size()) == b"new content"
 
 
 def test_list_folder_paginates(client_and_svc):

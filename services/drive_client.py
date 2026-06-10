@@ -28,6 +28,7 @@ class DriveClient:
     # ─── Download ────────────────────────────────────────
 
     def _download_bytes(self, file_id: str) -> bytes:
+        """Stream file content from Drive into memory and return raw bytes."""
         request = self._svc.files().get_media(fileId=file_id)
         buf = io.BytesIO()
         dl = MediaIoBaseDownload(buf, request)
