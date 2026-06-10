@@ -80,11 +80,6 @@ body{
 .nav-item:hover{background:var(--s1);color:var(--t1)}
 .nav-item.active{background:var(--acc-bg);color:var(--acc)}
 .nav-item.soon{opacity:.4;cursor:not-allowed;pointer-events:none}
-.nav-item.locked{opacity:.45;cursor:not-allowed}
-.nav-item.locked:hover{background:transparent;color:var(--t2)}
-.nav-item.locked::after{
-  content:'🔒';font-size:9px;margin-left:auto;opacity:.6;
-}
 
 /* Toast */
 .toast{
@@ -1014,6 +1009,12 @@ select{
 <!-- MAIN -->
 <main class="main">
   <header class="topbar" id="topbar">
+    <button class="btn btn-ghost btn-sm" id="topbar-back" style="display:none" onclick="showView('dashboard')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+      </svg>
+      กลับ
+    </button>
     <div class="topbar-title" id="topbar-title">Packaging <i>Wizard</i></div>
     <div class="topbar-spacer"></div>
     <button class="btn btn-primary btn-sm" id="topbar-add" onclick="startWizard()">
@@ -1505,15 +1506,7 @@ let currentView = 'dashboard';
 function showView(id) {
   // No-op guard — กัน fade-out/in ซ้ำเมื่อเรียกซ้ำ view เดิม
   if (id === currentView) return;
-  // Block sidebar/breadcrumb leaving wizard with active draft — ออกได้ผ่าน step actions เท่านั้น
-  if (currentView === 'wizard' && id === 'dashboard' && curDraftKey) {
-    showToast('อยู่ใน wizard — กดปุ่ม "ยกเลิก" บน step 1 ถ้าต้องการออก');
-    return;
-  }
   currentView = id;
-  // Visual: gray out sidebar Packaging while in wizard
-  const navDash = document.getElementById('nav-dash');
-  if (navDash) navDash.classList.toggle('locked', id === 'wizard' && !!curDraftKey);
   if (id === 'dashboard') {
     curDraftKey = null;
     syncUrl();
@@ -1529,13 +1522,14 @@ function showView(id) {
   // Hide topbar "+ Add Packaging" while inside wizard — กันคลิกแล้ว reset เด้งกลับ step 1
   const topbarAdd = document.getElementById('topbar-add');
   if (topbarAdd) topbarAdd.style.display = (id === 'dashboard') ? '' : 'none';
+  // "← กลับ" โชว์เฉพาะใน wizard — draft ถูก auto-save ไว้แล้ว กลับมาทำต่อจาก dashboard ได้
+  const topbarBack = document.getElementById('topbar-back');
+  if (topbarBack) topbarBack.style.display = (id === 'wizard') ? '' : 'none';
 
   const tt = document.getElementById('topbar-title');
   if (id === 'dashboard') {
     tt.innerHTML = 'Packaging <i>Wizard</i>';
   } else {
-    // Breadcrumb เป็น label เฉยๆ — ไม่ clickable เพื่อกันกดโดนเด้ง
-    // ทางออก: sidebar "Packaging" nav-item หรือ step 1 "ยกเลิก"
     const name = document.getElementById('inp-display-name')?.value || curDraftKey || 'New Packaging';
     tt.innerHTML = `<span style="font-size:13px;color:var(--t3)">Packaging</span>
        <span style="color:var(--t3);margin:0 6px">›</span>
@@ -2115,16 +2109,7 @@ function cancelWizardStep1() {
     api('DELETE', `/api/packagings/${encodeURIComponent(curDraftKey)}`).catch(() => {});
     curDraftKey = null;
   }
-  currentView = 'dashboard';
-  syncUrl();
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.getElementById('view-dashboard').classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('nav-dash').classList.add('active');
-  document.getElementById('nav-dash').classList.remove('locked');
-  document.getElementById('topbar-add').style.display = '';
-  document.getElementById('topbar-title').innerHTML = 'Packaging <i>Wizard</i>';
-  loadDashboard();
+  showView('dashboard');
 }
 
 async function step1Next() {
