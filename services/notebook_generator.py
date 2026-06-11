@@ -167,6 +167,8 @@ def build_full_notebook(
             "                shutil.copy(f'{src}/{fn}', f'{MD}/{kind}/{split}/{fn}')\n"
             "print(f\"train={len(os.listdir(f'{MD}/images/train'))}, \"\n"
             "      f\"val={len(os.listdir(f'{MD}/images/val'))}\")\n"
+            "# Guard: layout mismatch would otherwise silently produce an empty set\n"
+            "assert os.listdir(f'{MD}/images/train'), 'detector train set empty — check Drive dataset layout'\n"
             "with open(f'{MD}/data.yaml', 'w') as f:\n"
             "    f.write(f'path: {MD}\\n')\n"
             "    f.write('train: images/train\\n')\n"
