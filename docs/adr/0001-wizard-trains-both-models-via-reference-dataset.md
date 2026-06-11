@@ -1,7 +1,7 @@
 # 0001 — Wizard retrains both Classifier and Detector against the Drive reference dataset
 
 Date: 2026-06-06
-Status: Accepted
+Status: Accepted — data path superseded by ADR 0003 (training recipe still in force)
 
 ## Context
 

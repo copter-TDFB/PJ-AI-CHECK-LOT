@@ -58,7 +58,7 @@ Models are loaded once in the FastAPI `lifespan` startup. `services/model_regist
 
 ## Wizard API (`api/packagings.py`)
 
-`/api/packagings/*` is a separate router that backs `web/wizard.html`. It lets the user add a new packaging class without code changes: upload sample images, annotate bboxes, generate regex from labelled lot strings, save a draft YAML in `data/drafts/`, then promote to `config/packagings/`. ADR 0001 explains the "wizard trains both models via reference dataset" flow; ADR 0002 explains "edit active packaging via clone".
+`/api/packagings/*` is a separate router that backs `web/wizard.html`. It lets the user add a new packaging class without code changes: upload sample images, annotate bboxes, generate regex from labelled lot strings, save a draft YAML in `data/drafts/`, then promote to `config/packagings/`. ADR 0001 explains the "wizard trains both models via reference dataset" flow; ADR 0002 explains "edit active packaging via clone". ADR 0003 explains "backend writes the reference dataset directly" (Full Training publishes images/labels to Drive; data.yaml is the commit point).
 
 ## Adding or Editing a Packaging Class
 
@@ -74,6 +74,7 @@ Local dev reads `.env` (see `.env.example`). Key vars:
 - `MODEL_CLASSIFIER_PATH` / `MODEL_DETECTOR_PATH` — local model paths.
 - `GOOGLE_APPLICATION_CREDENTIALS` — path to GCP service account JSON locally; Cloud Run uses the runtime service account (`ocr-lot-checker-sa`) via ADC, no JSON key.
 - `CONFIDENCE_THRESHOLD`, `LOG_LEVEL`.
+- `DRIVE_DETECTOR_DATASET_FOLDER_ID` / `DRIVE_CLASSIFIER_DATASET_FOLDER_ID` — Drive folder ids of the reference dataset (`data check lot` / `data classify check lot`), shared with the SA. Required for the wizard's Full Training (dataset publish). See ADR 0003.
 
 ## Conventions specific to this repo
 
