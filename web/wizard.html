@@ -2813,7 +2813,7 @@ async function startFullTraining() {
   if (!curDraftKey) return;
   const btn = document.getElementById('btn-full-start');
   btn.disabled = true;
-  btn.textContent = '⏳ Upload bundle ขึ้น Drive...';
+  btn.textContent = '⏳ กำลังเขียน dataset เข้า Drive...';
   try {
     const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/full/start`);
     window.open(res.colab_url, '_blank');

@@ -154,6 +154,10 @@ def build_full_notebook(
         )),
 
         # ── Copy detector data ─────────────────────────────────
+        # NOTE: copy cell assumes the reference layout {split}/{kind}
+        # (train/images, train/labels, ...) — the same default layout that
+        # dataset_publisher derives from data.yaml. If data.yaml ever declares
+        # a different layout, the empty-train-set assert below fires loudly.
         _cell("markdown", "## 1. Copy detector dataset to local disk (Drive I/O is slow)"),
         _cell("code", (
             "MD = '/content/detector_data'\n"
