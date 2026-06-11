@@ -1,12 +1,16 @@
 """Generate Colab notebooks for training Classifier + Detector.
 
-Architecture:
-- Backend uploads the new packaging's bundle (images + YOLO labels +
-  classifier images) to its own Drive folder.
-- Notebook runs in Colab with the USER's Drive access (full mount), reads
-  the reference dataset directly from the mounted paths, merges with the
-  addition bundle, trains both models, uploads results back to the addition
-  folder.
+Architecture (ADR 0003):
+- Before a Full Training run, the backend publishes the new packaging's
+  images + YOLO labels directly into the Drive reference dataset via
+  services/dataset_publisher.py — so the dataset is already complete when
+  the notebook executes.
+- The Full Training notebook mounts the user's Drive, copies the reference
+  dataset to local disk for I/O speed, then trains both models and uploads
+  the resulting .pt files back to the run output folder on Drive.
+- The Seed Training notebook still uses a small zip bundle containing only
+  the new class's hand-labelled images (quick ~10 min pre-labelling run,
+  not deployed).
 
 Reference paths are taken from the original training notebooks
 (ai_crop_lot.ipynb + colab_classify_training.ipynb).
@@ -107,14 +111,18 @@ def build_seed_notebook(
 
 def build_full_notebook(
     packaging_key: str,
-    bundle_file_id: str,
     output_folder_id: str,
     detector_ref_path: str = DEFAULT_DETECTOR_REF,
     classifier_ref_path: str = DEFAULT_CLASSIFIER_REF,
     epochs: int = 250,
     imgsz: int = 1024,
 ) -> bytes:
-    """Full = retrain Classifier + Detector against merged (reference + new)."""
+    """Full = retrain Classifier + Detector straight from the reference dataset.
+
+    The backend has already published the new packaging's images + labels into
+    the reference dataset on Drive (services/dataset_publisher.py), so there is
+    nothing to merge here — mount, copy to local disk for I/O speed, train.
+    """
     cells = [
         _cell("markdown", (
             f"# Full Training — {packaging_key}\n\n"
@@ -123,106 +131,48 @@ def build_full_notebook(
             "2. Authorize Drive access ตอน popup\n"
             "3. รอประมาณ **1-2 ชั่วโมง** (detector ~60 min + classifier ~30 min)\n"
             "4. เมื่อขึ้น **TRAINING DONE** กลับไปที่ wizard\n\n"
-            f"**Reference paths (in My Drive):** `{detector_ref_path}/`, `{classifier_ref_path}/`"
+            f"**Dataset (in My Drive):** `{detector_ref_path}/`, `{classifier_ref_path}/`"
         )),
 
         # ── Setup ─────────────────────────────────────────────
-        _cell("code", "!pip install -q ultralytics==8.3.0 gdown==5.2.0 timm==1.0.11\n"),
+        _cell("code", "!pip install -q ultralytics==8.3.0 timm==1.0.11\n"),
         _cell("code", (
             "from google.colab import drive\n"
             "drive.mount('/content/drive')\n"
         )),
         _cell("code", (
-            "import gdown, zipfile, json, os, shutil\n"
-            f"BUNDLE_ID = {bundle_file_id!r}\n"
+            "import json, os, shutil, yaml\n"
             f"OUTPUT_FOLDER_ID = {output_folder_id!r}\n"
             f"PACKAGING_KEY = {packaging_key!r}\n"
             f"DETECTOR_REF = '/content/drive/MyDrive/{detector_ref_path}'\n"
             f"CLASSIFIER_REF = '/content/drive/MyDrive/{classifier_ref_path}'\n"
-            "\n"
-            "# Download addition bundle\n"
-            "gdown.download(id=BUNDLE_ID, output='/content/bundle.zip', quiet=False)\n"
-            "with zipfile.ZipFile('/content/bundle.zip') as zf:\n"
-            "    zf.extractall('/content/addition')\n"
-            "manifest = json.load(open('/content/addition/addition_manifest.json'))\n"
-            "new_class_names = manifest['yolo_class_names']\n"
-            "print('new classes:', new_class_names)\n"
-            "print('reference detector exists:', os.path.exists(DETECTOR_REF))\n"
-            "print('reference classifier exists:', os.path.exists(CLASSIFIER_REF))\n"
+            "assert os.path.exists(DETECTOR_REF), f'missing {DETECTOR_REF}'\n"
+            "assert os.path.exists(CLASSIFIER_REF), f'missing {CLASSIFIER_REF}'\n"
+            "ref_yaml = yaml.safe_load(open(f'{DETECTOR_REF}/data.yaml'))\n"
+            "class_names = ref_yaml['names']\n"
+            "print('classes:', class_names)\n"
         )),
 
-        # ── Merge detector data ────────────────────────────────
-        _cell("markdown", "## 1. Merge detector dataset"),
+        # ── Copy detector data ─────────────────────────────────
+        _cell("markdown", "## 1. Copy detector dataset to local disk (Drive I/O is slow)"),
         _cell("code", (
-            "# Read existing data.yaml to know existing classes (ordering matters)\n"
-            "import yaml\n"
-            "ref_yaml = yaml.safe_load(open(f'{DETECTOR_REF}/data.yaml'))\n"
-            "ref_classes = ref_yaml['names']\n"
-            "print('existing classes:', ref_classes)\n"
-            "\n"
-            "# Filter out duplicates if packaging already in reference\n"
-            "new_class_names = [c for c in new_class_names if c not in ref_classes]\n"
-            "merged_classes = list(ref_classes) + new_class_names\n"
-            "offset = len(ref_classes)\n"
-            "print('merged classes:', merged_classes)\n"
-            "print('addition class id offset:', offset)\n"
-        )),
-        _cell("code", (
-            "# Build merged dataset under /content/merged_detector\n"
-            "import glob, shutil\n"
-            "MD = '/content/merged_detector'\n"
+            "MD = '/content/detector_data'\n"
             "for split in ['train', 'val']:\n"
             "    os.makedirs(f'{MD}/images/{split}', exist_ok=True)\n"
             "    os.makedirs(f'{MD}/labels/{split}', exist_ok=True)\n"
-            "\n"
-            "# 1) Copy reference images + labels\n"
-            "for split in ['train', 'val']:\n"
-            "    src_img = f'{DETECTOR_REF}/{split}/images'\n"
-            "    src_lbl = f'{DETECTOR_REF}/{split}/labels'\n"
-            "    if os.path.isdir(src_img):\n"
-            "        for f in os.listdir(src_img):\n"
-            "            shutil.copy(f'{src_img}/{f}', f'{MD}/images/{split}/{f}')\n"
-            "    if os.path.isdir(src_lbl):\n"
-            "        for f in os.listdir(src_lbl):\n"
-            "            shutil.copy(f'{src_lbl}/{f}', f'{MD}/labels/{split}/{f}')\n"
-            "ref_train = len(os.listdir(f'{MD}/images/train'))\n"
-            "ref_val   = len(os.listdir(f'{MD}/images/val'))\n"
-            "print(f'reference: train={ref_train}, val={ref_val}')\n"
-            "\n"
-            "# 2) Append addition (80/20 split + offset class ids)\n"
-            "import random\n"
-            "random.seed(42)\n"
-            "add_imgs = sorted(os.listdir('/content/addition/images'))\n"
-            "n_val = max(1, len(add_imgs) // 5)\n"
-            "val_set = set(random.sample(add_imgs, n_val))\n"
-            "\n"
-            "for img_name in add_imgs:\n"
-            "    split = 'val' if img_name in val_set else 'train'\n"
-            "    # Image\n"
-            "    shutil.copy(f'/content/addition/images/{img_name}',\n"
-            "                f'{MD}/images/{split}/{img_name}')\n"
-            "    # Label — offset class ids\n"
-            "    stem = os.path.splitext(img_name)[0]\n"
-            "    src = f'/content/addition/labels/{stem}.txt'\n"
-            "    if not os.path.exists(src):\n"
-            "        continue\n"
-            "    out_lines = []\n"
-            "    for line in open(src).read().splitlines():\n"
-            "        parts = line.split()\n"
-            "        if not parts:\n"
-            "            continue\n"
-            "        parts[0] = str(int(parts[0]) + offset)\n"
-            "        out_lines.append(' '.join(parts))\n"
-            "    open(f'{MD}/labels/{split}/{stem}.txt', 'w').write('\\n'.join(out_lines) + '\\n')\n"
-            "\n"
-            "print(f'merged: train={len(os.listdir(f\"{MD}/images/train\"))}, val={len(os.listdir(f\"{MD}/images/val\"))}')\n"
-            "\n"
+            "    for kind in ['images', 'labels']:\n"
+            "        src = f'{DETECTOR_REF}/{split}/{kind}'\n"
+            "        if os.path.isdir(src):\n"
+            "            for fn in os.listdir(src):\n"
+            "                shutil.copy(f'{src}/{fn}', f'{MD}/{kind}/{split}/{fn}')\n"
+            "print(f\"train={len(os.listdir(f'{MD}/images/train'))}, \"\n"
+            "      f\"val={len(os.listdir(f'{MD}/images/val'))}\")\n"
             "with open(f'{MD}/data.yaml', 'w') as f:\n"
             "    f.write(f'path: {MD}\\n')\n"
             "    f.write('train: images/train\\n')\n"
             "    f.write('val: images/val\\n')\n"
-            "    f.write(f'nc: {len(merged_classes)}\\n')\n"
-            "    f.write(f'names: {merged_classes}\\n')\n"
+            "    f.write(f'nc: {len(class_names)}\\n')\n"
+            "    f.write(f'names: {class_names}\\n')\n"
         )),
 
         # ── Train detector ─────────────────────────────────────
@@ -231,7 +181,7 @@ def build_full_notebook(
             "from ultralytics import YOLO\n"
             "model = YOLO('yolo11s.pt')\n"
             "results = model.train(\n"
-            "    data='/content/merged_detector/data.yaml',\n"
+            "    data=f'{MD}/data.yaml',\n"
             f"    epochs={epochs},\n"
             f"    imgsz={imgsz},\n"
             "    batch=16,\n"
@@ -240,7 +190,7 @@ def build_full_notebook(
             "    degrees=180.0, translate=0.1, scale=0.2, mosaic=0.5, shear=2.0,\n"
             "    plots=True,\n"
             ")\n"
-            "det_metrics = model.val(data='/content/merged_detector/data.yaml', imgsz=" + str(imgsz) + ")\n"
+            "det_metrics = model.val(data=f'{MD}/data.yaml', imgsz=" + str(imgsz) + ")\n"
             "det_summary = {\n"
             "    'detector_mAP_50': float(det_metrics.box.map50),\n"
             "    'detector_mAP_50_95': float(det_metrics.box.map),\n"
@@ -250,11 +200,10 @@ def build_full_notebook(
             "print(det_summary)\n"
         )),
 
-        # ── Train classifier ───────────────────────────────────
-        _cell("markdown", "## 3. Merge classifier dataset + Train EfficientNet"),
+        # ── Copy classifier data + Train ───────────────────────
+        _cell("markdown", "## 3. Copy classifier dataset + Train EfficientNet"),
         _cell("code", (
-            "# Merge classifier images: reference per-class folders + addition folder\n"
-            "MC = '/content/merged_classifier'\n"
+            "MC = '/content/classifier_data'\n"
             "os.makedirs(MC, exist_ok=True)\n"
             "for cls_dir in os.listdir(CLASSIFIER_REF):\n"
             "    src = os.path.join(CLASSIFIER_REF, cls_dir)\n"
@@ -262,12 +211,6 @@ def build_full_notebook(
             "        dst = os.path.join(MC, cls_dir)\n"
             "        if not os.path.exists(dst):\n"
             "            shutil.copytree(src, dst)\n"
-            "# Copy addition classifier images\n"
-            "add_cls = f'/content/addition/classifier_images/{PACKAGING_KEY}'\n"
-            "if os.path.isdir(add_cls):\n"
-            "    dst = os.path.join(MC, PACKAGING_KEY)\n"
-            "    if os.path.exists(dst): shutil.rmtree(dst)\n"
-            "    shutil.copytree(add_cls, dst)\n"
             "classifier_classes = sorted(os.listdir(MC))\n"
             "print('classifier classes:', classifier_classes)\n"
             "for c in classifier_classes:\n"
@@ -364,7 +307,7 @@ def build_full_notebook(
             "    'packaging_key': PACKAGING_KEY,\n"
             "    **det_summary, **cls_summary,\n"
             "    'epochs_detector': " + str(epochs) + ", 'imgsz': " + str(imgsz) + ",\n"
-            "    'merged_class_count': len(merged_classes),\n"
+            "    'merged_class_count': len(class_names),\n"
             "}\n"
             "json.dump(summary, open('/content/eval.json', 'w'), indent=2)\n"
             "\n"
