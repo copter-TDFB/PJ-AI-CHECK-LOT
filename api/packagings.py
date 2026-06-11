@@ -418,6 +418,15 @@ def get_crop(key: str, filename: str, idx: int):
 _MIN_LABELED_FOR_SEED = 5  # ขั้นต่ำที่ allow seed train (จริงๆ 20 ตาม UI แต่ allow ทดสอบเร็ว)
 
 
+@router.get("/{key}/training/progress")
+def training_progress(key: str):
+    """Live progress ของ training start ที่กำลังรัน — wizard poll ทุก ~0.6s
+    ระหว่างรอ POST /training/{seed|full}/start ตอบกลับ."""
+    from services import progress_store
+
+    return progress_store.get(key)
+
+
 @router.post("/{key}/training/seed/start")
 def training_seed_start(key: str):
     """Bundle labeled images → upload to Drive → gen Colab notebook → return URL."""
@@ -434,12 +443,14 @@ def training_seed_start(key: str):
         )
 
     # Lazy imports — heavy + only needed at training time
-    from services import notebook_generator, training_bundle
+    from services import notebook_generator, progress_store, training_bundle
     from services.drive_client import DriveClient
 
+    progress_store.report(key, "bundle")
     try:
         bundle_bytes = training_bundle.build_zip(key)
     except (FileNotFoundError, ValueError) as e:
+        progress_store.report(key, "error", detail=str(e))
         raise HTTPException(400, str(e))
 
     try:
@@ -451,7 +462,11 @@ def training_seed_start(key: str):
             parent_id=run_folder_id,
             mime_type="application/zip",
             public=True,  # ให้ gdown โหลดได้โดยไม่ต้อง auth
+            progress_cb=lambda sent, total: progress_store.report(
+                key, "upload_bundle", done=sent, total=total
+            ),
         )
+        progress_store.report(key, "notebook")
         nb_bytes = notebook_generator.build_seed_notebook(
             packaging_key=key,
             bundle_file_id=bundle_file_id,
@@ -463,8 +478,10 @@ def training_seed_start(key: str):
             parent_id=run_folder_id,
             mime_type="application/vnd.google.colaboratory",
         )
+        progress_store.report(key, "done")
     except Exception as e:
         logger.exception("training/seed/start failed for %s", key)
+        progress_store.report(key, "error", detail=str(e))
         raise HTTPException(500, f"Drive upload failed: {e}")
 
     # Persist on draft meta
@@ -501,26 +518,38 @@ def training_full_start(key: str):
     if len(labeled) < 10:
         raise HTTPException(400, f"need at least 10 labeled images (have {len(labeled)})")
 
-    from services import dataset_publisher, notebook_generator
+    from services import dataset_publisher, notebook_generator, progress_store
     from services.drive_client import DriveClient
 
+    progress_store.report(key, "starting")
     try:
         drive = DriveClient()
     except Exception as e:
         logger.exception("Drive client init failed for %s", key)
+        progress_store.report(key, "error", detail=str(e))
         raise HTTPException(500, f"Drive client init failed: {e}")
 
     try:
-        dataset_summary = dataset_publisher.publish(key, drive=drive)
+        dataset_summary = dataset_publisher.publish(
+            key,
+            drive=drive,
+            progress_cb=lambda done, total, name: progress_store.report(
+                key, "upload_images", done=done, total=total, detail=name
+            ),
+        )
     except (FileNotFoundError, ValueError) as e:
+        progress_store.report(key, "error", detail=str(e))
         raise HTTPException(400, str(e))
     except RuntimeError as e:
+        progress_store.report(key, "error", detail=str(e))
         raise HTTPException(500, str(e))
     except Exception as e:
         logger.exception("dataset publish failed for %s", key)
+        progress_store.report(key, "error", detail=str(e))
         raise HTTPException(500, f"Dataset publish failed: {e}")
 
     try:
+        progress_store.report(key, "notebook")
         run_folder_id = drive.create_folder(f"lot-checker-training-{key}-full")
         nb_bytes = notebook_generator.build_full_notebook(
             packaging_key=key,
@@ -530,8 +559,10 @@ def training_full_start(key: str):
             nb_bytes, name=f"{key}-full-training.ipynb", parent_id=run_folder_id,
             mime_type="application/vnd.google.colaboratory",
         )
+        progress_store.report(key, "done")
     except Exception as e:
         logger.exception("training/full/start failed for %s", key)
+        progress_store.report(key, "error", detail=str(e))
         raise HTTPException(500, f"Drive upload failed: {e}")
 
     packaging_store.update_draft(

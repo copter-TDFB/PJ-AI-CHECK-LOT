@@ -18,6 +18,7 @@ import hashlib
 import logging
 import os
 from pathlib import Path
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +78,15 @@ def label_lines(
     return lines
 
 
-def publish(key: str, drive=None) -> dict:
+def publish(
+    key: str,
+    drive=None,
+    progress_cb: Callable[[int, int, str], None] | None = None,
+) -> dict:
     """Publish draft's labeled data into the Drive reference dataset.
+
+    progress_cb(done, total, current_filename) is invoked once per image
+    as uploads complete — used by the wizard to render a live % bar.
 
     Returns {images_uploaded, images_skipped, train_count, val_count,
              new_classes, class_ids, total_classes}.
@@ -120,7 +128,8 @@ def publish(key: str, drive=None) -> dict:
     }
 
     stats = _upload_items(
-        drive, key, label_to_id, sub_regions[0], dest, cls_folder, existing_files
+        drive, key, label_to_id, sub_regions[0], dest, cls_folder, existing_files,
+        progress_cb=progress_cb,
     )
     if stats["images_uploaded"] == 0 and stats["images_skipped"] == 0:
         raise ValueError(f"draft '{key}' has no labeled images yet")
@@ -180,16 +189,11 @@ def _resolve_dest_folders(drive, det_root: str, data_yaml: dict) -> dict:
     return dest
 
 
-def _upload_items(
-    drive,
-    key: str,
-    label_to_id: dict[str, int],
-    default_label: str,
-    dest: dict,
-    cls_folder: str,
-    existing_files: dict[str, set[str]],
-) -> dict:
-    """Upload each labeled image + label + classifier copy. Skip existing."""
+def _collect_items(
+    key: str, label_to_id: dict[str, int], default_label: str
+) -> list[dict]:
+    """Gather eligible labeled images up-front so the upload loop knows the
+    total count (needed for % progress) before the first byte goes out."""
     from PIL import Image
 
     from services import packaging_store
@@ -198,8 +202,7 @@ def _upload_items(
     if not img_dir.exists():
         raise FileNotFoundError(f"no images for draft '{key}'")
 
-    uploaded = skipped = 0
-    counts = {"train": 0, "val": 0}
+    items = []
     for img_path in sorted(img_dir.iterdir()):
         if not img_path.is_file() or img_path.suffix.lower() not in _IMG_EXTS:
             continue
@@ -217,7 +220,30 @@ def _upload_items(
         lines = label_lines(ann["bboxes"], label_to_id, w, h, default_label)
         if not lines:
             continue
+        items.append({"path": img_path, "lines": lines})
+    return items
 
+
+def _upload_items(
+    drive,
+    key: str,
+    label_to_id: dict[str, int],
+    default_label: str,
+    dest: dict,
+    cls_folder: str,
+    existing_files: dict[str, set[str]],
+    progress_cb: Callable[[int, int, str], None] | None = None,
+) -> dict:
+    """Upload each labeled image + label + classifier copy. Skip existing."""
+    items = _collect_items(key, label_to_id, default_label)
+    total = len(items)
+    if progress_cb and total:
+        progress_cb(0, total, "")
+
+    uploaded = skipped = 0
+    counts = {"train": 0, "val": 0}
+    for i, item in enumerate(items):
+        img_path = item["path"]
         new_name = f"{key}_{img_path.name}"
         lbl_name = f"{Path(new_name).stem}.txt"
         split = split_for(new_name)
@@ -232,11 +258,13 @@ def _upload_items(
             uploaded += 1
         if lbl_name not in existing_files[lbl_fid]:
             drive.upload_bytes(
-                ("\n".join(lines) + "\n").encode("utf-8"),
+                ("\n".join(item["lines"]) + "\n").encode("utf-8"),
                 name=lbl_name, parent_id=lbl_fid, mime_type="text/plain",
             )
         if new_name not in existing_files[cls_folder]:
             drive.upload_file(img_path, parent_id=cls_folder, name=new_name)
+        if progress_cb:
+            progress_cb(i + 1, total, img_path.name)
 
     return {
         "images_uploaded": uploaded,

@@ -100,13 +100,33 @@ class DriveClient:
         parent_id: str | None = None,
         mime_type: str = "application/octet-stream",
         public: bool = False,
+        progress_cb=None,
     ) -> str:
-        """Upload bytes (ไม่ผ่าน disk) → return file_id."""
+        """Upload bytes (ไม่ผ่าน disk) → return file_id.
+
+        progress_cb(sent_bytes, total_bytes) → switches to a resumable
+        chunked upload so the caller gets per-chunk progress (ใช้กับ
+        bundle zip ใหญ่ๆ ให้ wizard แสดง % ได้).
+        """
         metadata: dict = {"name": name}
         if parent_id:
             metadata["parents"] = [parent_id]
-        media = MediaIoBaseUpload(io.BytesIO(content), mimetype=mime_type, resumable=False)
-        created = self._svc.files().create(body=metadata, media_body=media, fields="id").execute()
+        if progress_cb is not None:
+            media = MediaIoBaseUpload(
+                io.BytesIO(content), mimetype=mime_type,
+                resumable=True, chunksize=1024 * 1024,
+            )
+            request = self._svc.files().create(body=metadata, media_body=media, fields="id")
+            response = None
+            while response is None:
+                status, response = request.next_chunk()
+                if status:
+                    progress_cb(status.resumable_progress, len(content))
+            progress_cb(len(content), len(content))
+            created = response
+        else:
+            media = MediaIoBaseUpload(io.BytesIO(content), mimetype=mime_type, resumable=False)
+            created = self._svc.files().create(body=metadata, media_body=media, fields="id").execute()
         file_id = created["id"]
         logger.info("Uploaded bytes %s → file_id=%s (%.1f KB)", name, file_id, len(content) / 1024)
         if public:

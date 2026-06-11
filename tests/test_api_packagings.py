@@ -362,11 +362,16 @@ def test_eval_with_existing_eval_json(client, annot_draft, tmp_path):
     }
     (eval_dir / "eval.json").write_text(_json.dumps(eval_data))
 
-    r = client.get(f"/api/packagings/{annot_draft}/eval")
-    assert r.status_code == 200
-    body = r.json()
-    assert body["eval"]["detector_mAP_50"] == 0.78
-    assert body["hard_floor"]["passed"] is True
+    try:
+        r = client.get(f"/api/packagings/{annot_draft}/eval")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["eval"]["detector_mAP_50"] == 0.78
+        assert body["hard_floor"]["passed"] is True
+    finally:
+        # เขียนลง data/drafts จริง (ไม่ใช่ DRAFT_DIR ที่ isolate) — ต้องลบ
+        # ไม่งั้น test_eval_404_without_training fail ในรอบรันถัดไป
+        shutil.rmtree(f"data/drafts/{annot_draft}", ignore_errors=True)
 
 
 def test_eval_hard_floor_fails(client, annot_draft):
@@ -381,13 +386,16 @@ def test_eval_hard_floor_fails(client, annot_draft):
         "recall": 0.30,
     }))
 
-    r = client.get(f"/api/packagings/{annot_draft}/eval")
-    assert r.status_code == 200
-    floor = r.json()["hard_floor"]
-    assert floor["passed"] is False
-    assert len(floor["failures"]) >= 1
-    metrics_failed = {f["metric"] for f in floor["failures"]}
-    assert "detector_mAP_50" in metrics_failed
+    try:
+        r = client.get(f"/api/packagings/{annot_draft}/eval")
+        assert r.status_code == 200
+        floor = r.json()["hard_floor"]
+        assert floor["passed"] is False
+        assert len(floor["failures"]) >= 1
+        metrics_failed = {f["metric"] for f in floor["failures"]}
+        assert "detector_mAP_50" in metrics_failed
+    finally:
+        shutil.rmtree(f"data/drafts/{annot_draft}", ignore_errors=True)
 
 
 def test_deploy_blocks_without_eval(client, annot_draft):
@@ -403,8 +411,11 @@ def test_deploy_blocks_on_hard_floor_fail(client, annot_draft):
     (eval_dir / "eval.json").write_text(_json.dumps({
         "detector_mAP_50": 0.30, "precision": 0.40, "recall": 0.20,
     }))
-    r = client.post(f"/api/packagings/{annot_draft}/deploy")
-    assert r.status_code == 400
+    try:
+        r = client.post(f"/api/packagings/{annot_draft}/deploy")
+        assert r.status_code == 400
+    finally:
+        shutil.rmtree(f"data/drafts/{annot_draft}", ignore_errors=True)
 
 
 def test_deploy_writes_yaml(client, annot_draft):
@@ -439,6 +450,7 @@ def test_deploy_writes_yaml(client, annot_draft):
     finally:
         if yaml_path.exists():
             yaml_path.unlink()
+        shutil.rmtree(f"data/drafts/{annot_draft}", ignore_errors=True)
 
 
 # ─── Active packaging — clone / archive / unarchive / overwrite ─────────
@@ -735,8 +747,31 @@ def test_training_full_start_publishes_dataset(client, monkeypatch):
     body = res.json()
     assert body["dataset"] == fake_summary
     assert "colab.research.google.com" in body["colab_url"]
-    publish_mock.assert_called_once_with("fullpub", drive=ANY)
+    publish_mock.assert_called_once_with("fullpub", drive=ANY, progress_cb=ANY)
     # zip bundle must NOT be uploaded anymore
     for call in drive_mock.upload_bytes.call_args_list:
         all_args = list(call.args) + list(call.kwargs.values())
         assert not any(str(a).endswith(".zip") for a in all_args)
+
+
+# ─── Training progress polling ───────────────────────────
+
+def test_training_progress_idle_when_nothing_running(client):
+    res = client.get("/api/packagings/no-such-key/training/progress")
+    assert res.status_code == 200
+    assert res.json()["phase"] == "idle"
+
+
+def test_training_progress_reflects_reported_snapshot(client):
+    from services import progress_store
+
+    progress_store.report("progkey", "upload_images", done=2, total=8, detail="x.jpg")
+    try:
+        res = client.get("/api/packagings/progkey/training/progress")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["phase"] == "upload_images"
+        assert body["percent"] == 25
+        assert body["detail"] == "x.jpg"
+    finally:
+        progress_store.clear("progkey")

@@ -405,6 +405,50 @@ select{
 .pbar-wrap{height:6px;background:var(--s2);border-radius:10px;overflow:hidden}
 .pbar{height:100%;border-radius:10px;background:linear-gradient(to right,var(--acc),var(--acc2));transition:width .4s ease}
 .pbar.green{background:linear-gradient(to right,var(--ok),#2EBF8A)}
+
+/* ── TRAINING UPLOAD PROGRESS (Drive) ─────────────── */
+.train-prog{
+  display:none;margin-top:14px;padding:14px 16px;
+  background:linear-gradient(135deg,var(--s1),var(--s0));
+  border:1px solid var(--acc-bd);border-radius:10px;
+  text-align:left;
+}
+.train-prog.on{display:block;animation:tpIn .35s cubic-bezier(.22,1,.36,1)}
+@keyframes tpIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.train-prog-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px;gap:10px}
+.train-prog-phase{font-size:12px;color:var(--t2);display:flex;align-items:center;min-width:0}
+.tp-dot{
+  flex-shrink:0;width:7px;height:7px;border-radius:50%;
+  background:var(--acc);margin-right:8px;
+  box-shadow:0 0 8px rgba(232,160,32,.55);
+  animation:tpPulse 1.1s ease-in-out infinite;
+}
+@keyframes tpPulse{50%{opacity:.3}}
+.train-prog-pct{
+  font-family:'JetBrains Mono',monospace;
+  font-size:16px;font-weight:600;color:var(--acc2);
+  font-variant-numeric:tabular-nums;flex-shrink:0;
+}
+.train-prog-bar{height:7px;background:var(--s3);border-radius:99px;overflow:hidden;position:relative}
+.train-prog-fill{
+  height:100%;width:0%;border-radius:99px;position:relative;overflow:hidden;
+  background:linear-gradient(90deg,var(--acc),var(--acc2));
+  transition:width .5s cubic-bezier(.22,1,.36,1);
+}
+.train-prog-fill::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.4) 50%,transparent 70%);
+  animation:tpShine 1.5s linear infinite;
+}
+@keyframes tpShine{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.train-prog-fill.indet{width:38%;animation:tpIndet 1.25s cubic-bezier(.45,.05,.55,.95) infinite;transition:none}
+@keyframes tpIndet{from{transform:translateX(-110%)}to{transform:translateX(300%)}}
+.train-prog-fill.ok{background:linear-gradient(90deg,var(--ok),#2EBF8A)}
+.train-prog-file{
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t3);
+  margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-variant-numeric:tabular-nums;
+}
 .thumb-grid{display:grid;grid-template-columns:repeat(auto-fill,54px);gap:6px;margin-top:13px}
 .thumb{
   width:54px;height:54px;border-radius:6px;
@@ -1255,6 +1299,7 @@ select{
                     🚀 เริ่ม Seed Training (เปิด Colab)
                   </button>
                 </div>
+                <div id="seed-prog" class="train-prog"></div>
               </div>
               <div id="colab-done" style="display:none;margin-top:12px">
                 <div class="info-box">
@@ -2530,13 +2575,87 @@ document.addEventListener('keydown', (e) => {
 // Bind immediately (script is at end of body — DOM already parsed)
 bindCanvasEvents();
 
+// ─── Training upload progress (Drive) ─────────
+// Poll GET /training/progress ระหว่างรอ POST /training/{seed|full}/start
+// แล้ววาด % bar — backend รายงานทีละไฟล์ (full) หรือทีละ chunk (seed bundle)
+const TRAIN_PHASE_LABELS = {
+  starting:      'กำลังเตรียม Drive…',
+  bundle:        'กำลังรวมรูปเป็น bundle…',
+  upload_bundle: 'อัปโหลด bundle ขึ้น Drive',
+  upload_images: 'อัปโหลดรูปขึ้น Drive',
+  notebook:      'สร้าง Colab notebook…',
+  done:          'เสร็จแล้ว',
+};
+const fmtMB = b => (b / 1048576).toFixed(1);
+
+function trainProgressStart(key, mountEl) {
+  mountEl.classList.add('on');
+  mountEl.innerHTML = `
+    <div class="train-prog-head">
+      <span class="train-prog-phase"><span class="tp-dot"></span><span class="tp-txt">กำลังเริ่ม…</span></span>
+      <span class="train-prog-pct">&nbsp;</span>
+    </div>
+    <div class="train-prog-bar"><div class="train-prog-fill indet"></div></div>
+    <div class="train-prog-file">&nbsp;</div>`;
+  const txt  = mountEl.querySelector('.tp-txt');
+  const pct  = mountEl.querySelector('.train-prog-pct');
+  const fill = mountEl.querySelector('.train-prog-fill');
+  const file = mountEl.querySelector('.train-prog-file');
+
+  let stopped = false;
+  const tick = async () => {
+    if (stopped) return;
+    try {
+      const p = await api('GET', `/api/packagings/${encodeURIComponent(key)}/training/progress`);
+      if (stopped || !p || p.phase === 'idle' || p.phase === 'error') return;
+      txt.textContent = TRAIN_PHASE_LABELS[p.phase] || p.phase;
+      if (p.percent != null) {
+        fill.classList.remove('indet');
+        fill.style.width = p.percent + '%';
+        pct.textContent = p.percent + '%';
+        if (p.phase === 'upload_images') {
+          file.textContent = `${p.done} / ${p.total} รูป${p.detail ? ' · ' + p.detail : ''}`;
+        } else if (p.phase === 'upload_bundle') {
+          file.textContent = `${fmtMB(p.done)} / ${fmtMB(p.total)} MB`;
+        }
+      } else {
+        fill.classList.add('indet');
+        fill.style.width = '';
+        pct.innerHTML = '&nbsp;';
+        file.innerHTML = '&nbsp;';
+      }
+    } catch { /* poll พลาดครั้งเดียวไม่เป็นไร — รอบหน้าลองใหม่ */ }
+  };
+  const timer = setInterval(tick, 600);
+  tick();
+
+  return {
+    finish(ok) {
+      stopped = true;
+      clearInterval(timer);
+      if (ok) {
+        fill.classList.remove('indet');
+        fill.classList.add('ok');
+        fill.style.width = '100%';
+        pct.textContent = '100%';
+        txt.textContent = 'อัปโหลดเสร็จแล้ว ✓';
+        setTimeout(() => mountEl.classList.remove('on'), 2200);
+      } else {
+        mountEl.classList.remove('on');
+      }
+    },
+  };
+}
+
 async function openColab() {
   if (!curDraftKey) { alert('ยังไม่ได้สร้าง draft'); return; }
   const btn = document.getElementById('btn-open-colab');
   btn.disabled = true;
   btn.textContent = '⏳ กำลัง upload bundle ขึ้น Drive...';
+  const prog = trainProgressStart(curDraftKey, document.getElementById('seed-prog'));
   try {
     const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/seed/start`);
+    prog.finish(true);
     btn.textContent = '✓ เปิด Colab — รัน Run all (~15 นาที)';
     // เปิด Colab tab
     window.open(res.colab_url, '_blank');
@@ -2546,6 +2665,7 @@ async function openColab() {
     document.getElementById('btn-step3-next').onclick = () => trainingSeedDone();
     document.getElementById('btn-step3-next').disabled = false;
   } catch (err) {
+    prog.finish(false);
     btn.disabled = false;
     btn.textContent = '🚀 ลองอีกครั้ง';
     alert(`Start training ไม่สำเร็จ: ${err.message}`);
@@ -2696,6 +2816,7 @@ function renderStep5_preTraining(pkg) {
           🚀 เริ่ม Full Training (เปิด Colab)
         </button>
       </div>
+      <div id="full-prog" class="train-prog"></div>
     </div>`;
 }
 
@@ -2814,11 +2935,14 @@ async function startFullTraining() {
   const btn = document.getElementById('btn-full-start');
   btn.disabled = true;
   btn.textContent = '⏳ กำลังเขียน dataset เข้า Drive...';
+  const prog = trainProgressStart(curDraftKey, document.getElementById('full-prog'));
   try {
     const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/full/start`);
+    prog.finish(true);
     window.open(res.colab_url, '_blank');
     await loadStep5();
   } catch (err) {
+    prog.finish(false);
     btn.disabled = false;
     btn.textContent = '🚀 ลองอีกครั้ง';
     alert(`Start full training ไม่สำเร็จ: ${err.message}`);
