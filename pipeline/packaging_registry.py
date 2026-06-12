@@ -40,12 +40,28 @@ class MessageTemplate:
 class PackagingRegistry:
     """Loads and caches packaging configs + message templates from config/."""
 
-    def __init__(self) -> None:
+    def __init__(self, overrides: dict[str, dict] | None = None) -> None:
+        """`overrides` — runtime tuning values merged over the YAML
+        (currently only `conf_threshold`), see ADR 0004."""
         self._configs: dict[str, PackagingConfig] = {}
         self._templates: dict[str, MessageTemplate] = {}
-        self._load()
+        self._load(overrides or {})
 
-    def _load(self) -> None:
+    @staticmethod
+    def _merged_conf_threshold(data: dict, override: object) -> float:
+        yaml_value = float(data.get("conf_threshold", 0.6))
+        if not isinstance(override, dict) or "conf_threshold" not in override:
+            return yaml_value
+        try:
+            return float(override["conf_threshold"])
+        except (TypeError, ValueError):
+            logger.warning(
+                "Invalid conf_threshold override for %s: %r — using YAML value",
+                data.get("key"), override["conf_threshold"],
+            )
+            return yaml_value
+
+    def _load(self, overrides: dict[str, dict]) -> None:
         pkg_dir = _CONFIG_DIR / "packagings"
         # *.yaml glob skips *.yaml.archived and *.yaml.bak-* by extension
         for path in sorted(pkg_dir.glob("*.yaml")):
@@ -64,7 +80,7 @@ class PackagingRegistry:
                 message_template_key=data.get("message_template_key", "default_full"),
                 model_classifier_label=data.get("model_classifier_label", data["key"]),
                 detector_yolo_prefixes=data.get("detector_yolo_prefixes", []),
-                conf_threshold=float(data.get("conf_threshold", 0.6)),
+                conf_threshold=self._merged_conf_threshold(data, overrides.get(data["key"])),
                 accuracy=float(data["accuracy"]) if data.get("accuracy") is not None else None,
                 gate_on_lot=bool(data.get("gate_on_lot", True)),
                 lot_short_fallback=bool(data.get("lot_short_fallback", False)),

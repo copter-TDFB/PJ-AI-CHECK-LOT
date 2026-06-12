@@ -74,6 +74,21 @@ class PackagingResponse(BaseModel):
     config: dict | None = None
 
 
+class ConfThresholdUpdate(BaseModel):
+    """Runtime tuning ของ active packaging (ADR 0004).
+
+    ต่ำกว่า 0.5 → รูปที่ classifier เดามั่วหลุดเข้า pipeline ผิดประเภท,
+    สูงกว่า 0.95 → class โดนปัดแทบทุกรูป
+    """
+    conf_threshold: float = Field(..., ge=0.5, le=0.95)
+
+
+class ConfThresholdResponse(BaseModel):
+    key: str
+    conf_threshold: float
+    previous: float
+
+
 class RegexPreviewRequest(BaseModel):
     examples: list[str] = Field(..., min_length=1, max_length=20)
 
