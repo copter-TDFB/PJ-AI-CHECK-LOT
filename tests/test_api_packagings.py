@@ -526,6 +526,32 @@ def test_clone_active_creates_edit_draft(client, fake_active):
     assert meta["config"]["lot_patterns"] == [r"(?i)LOT\s*([A-Z0-9]+)"]
 
 
+def test_clone_starts_at_draft_status_until_first_upload(client, fake_active):
+    """Clone has no images of its own — status must be 'draft' so the wizard
+    resumes at step 2 (upload), not step 3 (annotate). First image upload
+    bumps it to 'uploading' like any fresh draft."""
+    r = client.post(f"/api/packagings/{fake_active}/clone")
+    assert r.status_code == 201, r.text
+    assert r.json()["status"] == "draft"
+
+    edit_key = f"{fake_active}__edit"
+    png = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xfc"
+        b"\xcf\xc0\x00\x00\x00\x03\x00\x01\xa3\xa3\xd2\xc0\x00\x00\x00\x00"
+        b"IEND\xaeB`\x82"
+    )
+    r2 = client.post(
+        f"/api/packagings/{edit_key}/images",
+        files=[("files", ("a.png", png, "image/png"))],
+    )
+    assert r2.status_code == 200, r2.text
+
+    from services import packaging_store
+    meta = packaging_store.get_draft(edit_key)
+    assert meta["status"] == "uploading"
+
+
 def test_clone_blocks_when_edit_draft_exists(client, fake_active):
     r1 = client.post(f"/api/packagings/{fake_active}/clone")
     assert r1.status_code == 201
@@ -775,3 +801,123 @@ def test_training_progress_reflects_reported_snapshot(client):
         assert body["detail"] == "x.jpg"
     finally:
         progress_store.clear("progkey")
+
+
+# ─── PUT /{key}/conf — runtime tuning override (ADR 0004) ─
+
+@pytest.fixture
+def conf_overrides_env(tmp_path, monkeypatch):
+    """Isolate override storage — local mode, file in tmp."""
+    monkeypatch.delenv("DRIVE_CONFIG_OVERRIDES_FILE_ID", raising=False)
+    monkeypatch.setenv("CONFIG_OVERRIDES_PATH", str(tmp_path / "config_overrides.json"))
+
+
+def test_put_conf_updates_active(client, fake_active, conf_overrides_env):
+    r = client.put(f"/api/packagings/{fake_active}/conf", json={"conf_threshold": 0.75})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["key"] == fake_active
+    assert body["conf_threshold"] == 0.75
+    assert body["previous"] == 0.7  # fixture YAML value
+
+    # GET must reflect the merged value immediately
+    g = client.get(f"/api/packagings/{fake_active}")
+    assert g.status_code == 200
+    assert g.json()["conf_threshold"] == 0.75
+
+
+def test_put_conf_rejects_out_of_range(client, fake_active, conf_overrides_env):
+    for bad in (0.4, 0.96, 0.0, 1.0):
+        r = client.put(f"/api/packagings/{fake_active}/conf", json={"conf_threshold": bad})
+        assert r.status_code == 422, f"value {bad} should be rejected"
+
+
+def test_put_conf_404_for_unknown_key(client, conf_overrides_env):
+    r = client.put("/api/packagings/nonexistent_xyz/conf", json={"conf_threshold": 0.7})
+    assert r.status_code == 404
+
+
+def test_put_conf_404_for_draft(client, conf_overrides_env):
+    client.post("/api/packagings", json={"key": "confdraft", "display_name": "x"})
+    try:
+        r = client.put("/api/packagings/confdraft/conf", json={"conf_threshold": 0.7})
+        assert r.status_code == 404
+    finally:
+        client.delete("/api/packagings/confdraft")
+
+
+def test_conf_override_survives_archive_unarchive(client, fake_active, conf_overrides_env):
+    """Registry reloads ที่อื่น (archive/unarchive) ต้องไม่ทำ override หาย."""
+    r = client.put(f"/api/packagings/{fake_active}/conf", json={"conf_threshold": 0.85})
+    assert r.status_code == 200, r.text
+
+    assert client.post(f"/api/packagings/{fake_active}/archive").status_code == 200
+    assert client.post(f"/api/packagings/{fake_active}/unarchive").status_code == 200
+
+    g = client.get(f"/api/packagings/{fake_active}")
+    assert g.json()["conf_threshold"] == 0.85
+
+
+def test_put_conf_502_when_persist_fails(client, fake_active, conf_overrides_env, monkeypatch):
+    from services import config_overrides
+
+    monkeypatch.setattr(
+        config_overrides, "save_conf_threshold",
+        MagicMock(side_effect=RuntimeError("drive down")),
+    )
+    r = client.put(f"/api/packagings/{fake_active}/conf", json={"conf_threshold": 0.9})
+    assert r.status_code == 502
+
+    # Nothing changed locally — registry still serves the YAML value
+    g = client.get(f"/api/packagings/{fake_active}")
+    assert g.json()["conf_threshold"] == 0.7
+
+
+# ─── training/prelabel — active detector, edit-drafts only ───────────
+
+def test_prelabel_rejects_non_edit_draft(client, monkeypatch):
+    from services import packaging_store
+    monkeypatch.setattr(packaging_store, "get_draft", lambda key: {"key": key})
+    res = client.post("/api/packagings/plain/training/prelabel")
+    assert res.status_code == 400
+    assert "edit-draft" in res.json()["detail"]
+
+
+def test_prelabel_edit_draft_runs_active_detector(client, monkeypatch, tmp_path):
+    import main
+    from services import packaging_store
+
+    monkeypatch.setattr(packaging_store, "get_draft", lambda key: {"key": key})
+
+    model_file = tmp_path / "detector.pt"
+    model_file.write_bytes(b"stub")
+    monkeypatch.setattr("api.packagings._DETECTOR_MODEL_PATH", model_file)
+
+    cfg = MagicMock()
+    cfg.detector_yolo_prefixes = ["box_"]
+    reg = MagicMock()
+    reg.get.return_value = cfg
+    monkeypatch.setattr(main, "registry", reg)
+
+    pl = MagicMock(return_value={"prelabeled": 3, "skipped_already_labeled": 1, "errors": 0})
+    monkeypatch.setattr("services.active_learning.prelabel_remaining", pl)
+
+    res = client.post("/api/packagings/box__edit/training/prelabel")
+    assert res.status_code == 200, res.text
+    assert res.json()["prelabeled"] == 3
+    reg.get.assert_called_with("box")
+    pl.assert_called_once_with("box__edit", model_file, class_prefixes=["box_"])
+
+
+def test_prelabel_503_when_no_active_detector(client, monkeypatch, tmp_path):
+    import main
+    from services import packaging_store
+
+    monkeypatch.setattr(packaging_store, "get_draft", lambda key: {"key": key})
+    monkeypatch.setattr("api.packagings._DETECTOR_MODEL_PATH", tmp_path / "missing.pt")
+    cfg = MagicMock(); cfg.detector_yolo_prefixes = ["box_"]
+    reg = MagicMock(); reg.get.return_value = cfg
+    monkeypatch.setattr(main, "registry", reg)
+
+    res = client.post("/api/packagings/box__edit/training/prelabel")
+    assert res.status_code == 503

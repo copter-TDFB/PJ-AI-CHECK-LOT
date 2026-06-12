@@ -12,6 +12,8 @@ from fastapi.responses import FileResponse
 
 from api.schemas import (
     AnnotationSave,
+    ConfThresholdResponse,
+    ConfThresholdUpdate,
     PackagingConfigUpdate,
     PackagingCreate,
     PackagingResponse,
@@ -217,8 +219,7 @@ def archive_packaging_endpoint(key: str):
         raise HTTPException(404, str(e))
 
     try:
-        from pipeline.packaging_registry import PackagingRegistry
-        main.registry = PackagingRegistry()
+        main.reload_registry()
     except Exception as e:
         logger.exception("registry reload failed after archive")
         raise HTTPException(500, f"registry reload failed: {e}")
@@ -240,13 +241,45 @@ def unarchive_packaging_endpoint(key: str):
         raise HTTPException(409, str(e))
 
     try:
-        from pipeline.packaging_registry import PackagingRegistry
-        main.registry = PackagingRegistry()
+        main.reload_registry()
     except Exception as e:
         logger.exception("registry reload failed after unarchive")
         raise HTTPException(500, f"registry reload failed: {e}")
 
     return {"unarchived": key, "yaml_path": str(dst)}
+
+
+@router.put("/{key}/conf", response_model=ConfThresholdResponse)
+def update_conf_threshold(key: str, body: ConfThresholdUpdate):
+    """Tune conf_threshold ของ active packaging — ไม่ต้อง retrain (ADR 0004).
+
+    เขียน Drive ให้สำเร็จก่อนแล้วค่อย reload registry — Drive ล่ม → 502
+    และไม่มีอะไรเปลี่ยน เพื่อไม่ให้ instance แตกค่ากับ storage
+    """
+    import main
+
+    cfg = main.registry.get(key) if main.registry else None
+    if cfg is None:
+        raise HTTPException(404, f"active packaging '{key}' not found")
+    previous = cfg.conf_threshold
+
+    from services import config_overrides
+
+    try:
+        config_overrides.save_conf_threshold(key, body.conf_threshold)
+    except Exception as e:
+        logger.exception("conf override persist failed for %s", key)
+        raise HTTPException(502, f"failed to persist conf override: {e}")
+
+    try:
+        main.reload_registry()
+    except Exception as e:
+        logger.exception("registry reload failed after conf update")
+        raise HTTPException(500, f"registry reload failed: {e}")
+
+    return ConfThresholdResponse(
+        key=key, conf_threshold=body.conf_threshold, previous=previous,
+    )
 
 
 @router.post("/{key}/images")
@@ -585,6 +618,41 @@ def training_full_start(key: str):
     }
 
 
+@router.post("/{key}/training/prelabel")
+def training_prelabel(key: str):
+    """Prelabel unlabeled draft images with the active (deployed) detector.
+
+    Edit-drafts only — a brand-new class has no deployed detector to borrow.
+    Runs server-side; no Colab, no retrain. Boxes are filtered by the parent
+    packaging's detector_yolo_prefixes and written as normal annotations.
+    """
+    draft = packaging_store.get_draft(key)
+    if draft is None:
+        raise HTTPException(404, f"draft '{key}' not found")
+    if not key.endswith("__edit"):
+        raise HTTPException(400, "prelabel ใช้ได้เฉพาะ edit-draft (class เดิม)")
+    parent_key = key[: -len("__edit")]
+
+    import main
+    cfg = main.registry.get(parent_key) if main.registry is not None else None
+    if cfg is None:
+        raise HTTPException(400, f"parent packaging '{parent_key}' not found")
+
+    if not _DETECTOR_MODEL_PATH.exists():
+        raise HTTPException(503, "active detector ยังไม่พร้อม — ไม่มีโมเดลให้ prelabel")
+
+    from services import active_learning
+
+    try:
+        result = active_learning.prelabel_remaining(
+            key, _DETECTOR_MODEL_PATH, class_prefixes=cfg.detector_yolo_prefixes,
+        )
+    except Exception as e:
+        logger.exception("prelabel failed for %s", key)
+        raise HTTPException(500, f"prelabel failed: {e}")
+    return result
+
+
 @router.post("/{key}/training/full/done")
 def training_full_done(key: str):
     """Pull full model + eval.json จาก Drive → store locally → ready for deploy."""
@@ -680,8 +748,7 @@ def deploy_packaging(key: str):
 
         # 5. Reload PackagingRegistry in-process so the (re-)written class is picked up
         try:
-            from pipeline.packaging_registry import PackagingRegistry
-            main.registry = PackagingRegistry()
+            main.reload_registry()
         except Exception as e:
             raise RuntimeError(f"registry reload failed: {e}")
     except Exception as e:
@@ -689,8 +756,7 @@ def deploy_packaging(key: str):
         if backup_manifest is not None:
             cloudrun_deployer.restore_backup(backup_manifest)
             try:
-                from pipeline.packaging_registry import PackagingRegistry
-                main.registry = PackagingRegistry()
+                main.reload_registry()
             except Exception:
                 logger.exception("registry reload after rollback failed")
         raise HTTPException(500, f"deploy failed: {e}")
