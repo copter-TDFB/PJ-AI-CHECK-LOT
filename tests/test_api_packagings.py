@@ -743,7 +743,7 @@ def test_training_full_start_publishes_dataset(client, monkeypatch):
     monkeypatch.setattr(
         packaging_store, "list_annotation_status",
         lambda key: [{"name": f"i{n}.jpg", "labeled": True, "bbox_count": 1}
-                     for n in range(10)],
+                     for n in range(30)],
     )
 
     fake_summary = {
@@ -778,6 +778,19 @@ def test_training_full_start_publishes_dataset(client, monkeypatch):
     for call in drive_mock.upload_bytes.call_args_list:
         all_args = list(call.args) + list(call.kwargs.values())
         assert not any(str(a).endswith(".zip") for a in all_args)
+
+
+def test_training_full_start_rejects_below_30(client, monkeypatch):
+    from services import packaging_store
+    client.post("/api/packagings", json={"key": "under30", "display_name": "x"})
+    monkeypatch.setattr(
+        packaging_store, "list_annotation_status",
+        lambda key: [{"name": f"i{n}.jpg", "labeled": True, "bbox_count": 1}
+                     for n in range(29)],
+    )
+    res = client.post("/api/packagings/under30/training/full/start")
+    assert res.status_code == 400
+    assert "30" in res.json()["detail"]
 
 
 # ─── Training progress polling ───────────────────────────

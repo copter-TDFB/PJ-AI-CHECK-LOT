@@ -548,8 +548,8 @@ def training_full_start(key: str):
 
     status = packaging_store.list_annotation_status(key)
     labeled = [it for it in status if it["labeled"]]
-    if len(labeled) < 10:
-        raise HTTPException(400, f"need at least 10 labeled images (have {len(labeled)})")
+    if len(labeled) < 30:
+        raise HTTPException(400, f"need at least 30 labeled images (have {len(labeled)})")
 
     from services import dataset_publisher, notebook_generator, progress_store
     from services.drive_client import DriveClient
