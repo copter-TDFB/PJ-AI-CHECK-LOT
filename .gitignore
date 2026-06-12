@@ -45,6 +45,7 @@ models/*.bak-*
 
 # Tooling / scratch
 .understand-anything/
+.playwright-mcp/
 patch_nb.ps1
 Screenshot*.png
 วิธี local test
