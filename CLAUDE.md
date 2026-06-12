@@ -58,11 +58,15 @@ Models are loaded once in the FastAPI `lifespan` startup. `services/model_regist
 
 ## Wizard API (`api/packagings.py`)
 
-`/api/packagings/*` is a separate router that backs `web/wizard.html`. It lets the user add a new packaging class without code changes: upload sample images, annotate bboxes, generate regex from labelled lot strings, save a draft YAML in `data/drafts/`, then promote to `config/packagings/`. ADR 0001 explains the "wizard trains both models via reference dataset" flow; ADR 0002 explains "edit active packaging via clone". ADR 0003 explains "backend writes the reference dataset directly" (Full Training publishes images/labels to Drive; data.yaml is the commit point).
+`/api/packagings/*` is a separate router that backs `web/wizard.html`. It lets the user add a new packaging class without code changes: upload sample images, annotate bboxes, generate regex from labelled lot strings, save a draft YAML in `data/drafts/`, then promote to `config/packagings/`. Training is single-stage: drafts label ≥30 images then run Full Training (ADR 0005). Edit-drafts can `POST /{key}/training/prelabel` to auto-fill bboxes on newly-added images using the deployed detector (filtered by the parent's `detector_yolo_prefixes`). ADR 0002 explains "edit active packaging via clone". ADR 0003 explains "backend writes the reference dataset directly" (Full Training publishes images/labels to Drive; data.yaml is the commit point).
+
+Draft `status` is the wizard's resume point (`continueDraft` stepMap in `web/wizard.html`): `draft` = no images yet → step 2; `uploading` = has images → step 3 (first `save_image` bumps draft→uploading); `configured`/`training_full`/`trained` → step 4/5. An edit-draft (`{key}__edit` from clone) starts at `draft` with ZERO images of its own — parent images are display-only and full training requires ≥30 labeled images in the draft itself (`api/packagings.py` training/full/start gate).
 
 ## Adding or Editing a Packaging Class
 
 Prefer editing the YAML in `config/packagings/<key>.yaml` over hardcoding. Required keys: `key`, `pipeline`, `lot_patterns`, `fields_extracted`, `sheet_checks`, `model_classifier_label`, `detector_yolo_prefixes`. Set `sub_regions: [box, sachet]` for multi-crop. Use `conf_threshold` (per-class override of the 0.6 default) to gate low-confidence classifier predictions. Set `gate_on_lot: false` if the packaging legitimately has no lot number (then `lot_short_fallback` may help).
+
+`conf_threshold` is also user-tunable at runtime (no retrain): `PUT /api/packagings/{key}/conf` (0.50–0.95) persists an override to Drive/`data/config_overrides.json` which `PackagingRegistry(overrides=...)` merges over the YAML — the YAML value is only a default once an override exists. See ADR 0004. Registry reloads must go through `main.reload_registry()` (never `PackagingRegistry()` directly) or overrides are silently dropped.
 
 When adding a brand-new class you also need: classifier label in the training dataset, YOLO class name with one of the `detector_yolo_prefixes`, retrained `.pt` files, updated message template if the existing four don't fit.
 
@@ -70,15 +74,19 @@ When adding a brand-new class you also need: classifier label in the training da
 
 Local dev reads `.env` (see `.env.example`). Key vars:
 
-- `DRIVE_MANIFEST_FILE_ID` — empty locally (uses `models/*.pt`); set on Cloud Run.
+- `DRIVE_MANIFEST_FILE_ID` — empty locally (uses `models/*.pt`). NOTE: as of 2026-06 production Cloud Run has NO env vars set at all — it runs entirely on image defaults (models baked into the image). Verify with `gcloud run services describe ocr-lot-checker --region asia-southeast1`.
 - `MODEL_CLASSIFIER_PATH` / `MODEL_DETECTOR_PATH` — local model paths.
 - `GOOGLE_APPLICATION_CREDENTIALS` — path to GCP service account JSON locally; Cloud Run uses the runtime service account (`ocr-lot-checker-sa`) via ADC, no JSON key.
+- Local Drive access: ADC is a user account with only `drive.file` scope — it can read/write files *created by this app* but gets 404 on files created manually in Drive web UI. Full `drive` scope is blocked by Google for user OAuth. To act as the production identity, use the SA key `gcp-key.json` (gitignored) via `GOOGLE_APPLICATION_CREDENTIALS`.
 - `CONFIDENCE_THRESHOLD`, `LOG_LEVEL`.
 - `DRIVE_DETECTOR_DATASET_FOLDER_ID` / `DRIVE_CLASSIFIER_DATASET_FOLDER_ID` — Drive folder ids of the reference dataset (`data check lot` / `data classify check lot`), shared with the SA. Required for the wizard's Full Training (dataset publish). See ADR 0003.
+- `DRIVE_CONFIG_OVERRIDES_FILE_ID` — Drive file id of `config_overrides.json` (runtime tuning overrides, currently `conf_threshold` per packaging). Empty locally → falls back to `data/config_overrides.json`. See ADR 0004.
 
 ## Conventions specific to this repo
 
 - `print()` is forbidden — use the module `logger`. Hooks may warn on `print` in edits.
+- Known pre-existing failure: `tests/test_classifier.py` has 3 setup errors — its fixture builds `efficientnet_b0` but `pipeline/classifier.py` now uses `efficientnet_v2_s`. Not caused by your changes; fix the fixture if touching classifier tests.
+- Wizard E2E: Playwright blocks `file://` — serve with `python -m http.server 8090 --directory web` (hostname localhost makes API_BASE resolve to `http://localhost:8080`). Port 8080 is usually already taken by the dev server running with `--reload` (which auto-picks up code edits — check `/openapi.json` before assuming stale code).
 - Date normalisation: validators return ISO `YYYY-MM-DD`; 2-digit years are accepted.
 - The `import_sticker` class is QR-only — never route it through detector/OCR. The QR scanner uses zxing-cpp first and a sticker-crop + cv2 fallback; the cv2 fallback has caused false positives historically (see `bug_fix.md`), so order and gating matter.
 - Multi-crop classes return `lot_number=None` at the top level; downstream code uses `lot_box` for sheet lookup (see `main.py:183`).
