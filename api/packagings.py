@@ -446,10 +446,7 @@ def get_crop(key: str, filename: str, idx: int):
     return FileResponse(crop_path, media_type="image/jpeg")
 
 
-# ─── Training (seed → active learning) ─────────────────
-
-_MIN_LABELED_FOR_SEED = 5  # ขั้นต่ำที่ allow seed train (จริงๆ 20 ตาม UI แต่ allow ทดสอบเร็ว)
-
+# ─── Training ─────────────────
 
 @router.get("/{key}/training/progress")
 def training_progress(key: str):
@@ -458,84 +455,6 @@ def training_progress(key: str):
     from services import progress_store
 
     return progress_store.get(key)
-
-
-@router.post("/{key}/training/seed/start")
-def training_seed_start(key: str):
-    """Bundle labeled images → upload to Drive → gen Colab notebook → return URL."""
-    draft = packaging_store.get_draft(key)
-    if draft is None:
-        raise HTTPException(404, f"draft '{key}' not found")
-
-    status = packaging_store.list_annotation_status(key)
-    labeled = [it for it in status if it["labeled"]]
-    if len(labeled) < _MIN_LABELED_FOR_SEED:
-        raise HTTPException(
-            400,
-            f"need at least {_MIN_LABELED_FOR_SEED} labeled images (have {len(labeled)})",
-        )
-
-    # Lazy imports — heavy + only needed at training time
-    from services import notebook_generator, progress_store, training_bundle
-    from services.drive_client import DriveClient
-
-    progress_store.report(key, "bundle")
-    try:
-        bundle_bytes = training_bundle.build_zip(key)
-    except (FileNotFoundError, ValueError) as e:
-        progress_store.report(key, "error", detail=str(e))
-        raise HTTPException(400, str(e))
-
-    try:
-        drive = DriveClient()
-        run_folder_id = drive.create_folder(f"lot-checker-training-{key}")
-        bundle_file_id = drive.upload_bytes(
-            bundle_bytes,
-            name=f"{key}-bundle.zip",
-            parent_id=run_folder_id,
-            mime_type="application/zip",
-            public=True,  # ให้ gdown โหลดได้โดยไม่ต้อง auth
-            progress_cb=lambda sent, total: progress_store.report(
-                key, "upload_bundle", done=sent, total=total
-            ),
-        )
-        progress_store.report(key, "notebook")
-        nb_bytes = notebook_generator.build_seed_notebook(
-            packaging_key=key,
-            bundle_file_id=bundle_file_id,
-            output_folder_id=run_folder_id,
-        )
-        nb_file_id = drive.upload_bytes(
-            nb_bytes,
-            name=f"{key}-seed-training.ipynb",
-            parent_id=run_folder_id,
-            mime_type="application/vnd.google.colaboratory",
-        )
-        progress_store.report(key, "done")
-    except Exception as e:
-        logger.exception("training/seed/start failed for %s", key)
-        progress_store.report(key, "error", detail=str(e))
-        raise HTTPException(500, f"Drive upload failed: {e}")
-
-    # Persist on draft meta
-    packaging_store.update_draft(
-        key,
-        training_run={
-            "bundle_file_id": bundle_file_id,
-            "notebook_file_id": nb_file_id,
-            "output_folder_id": run_folder_id,
-            "started_at": datetime.now(timezone.utc).isoformat(),
-            "kind": "seed",
-        },
-        status="training_seed",
-    )
-
-    return {
-        "colab_url": notebook_generator.colab_url(nb_file_id),
-        "notebook_file_id": nb_file_id,
-        "output_folder_id": run_folder_id,
-        "bundle_size_kb": round(len(bundle_bytes) / 1024, 1),
-    }
 
 
 @router.post("/{key}/training/full/start")
@@ -793,61 +712,6 @@ def get_eval(key: str):
     check = eval_thresholds.check_hard_floor(eval_data)
     return {"eval": eval_data, "hard_floor": check}
 
-
-@router.post("/{key}/training/seed/done")
-def training_seed_done(key: str):
-    """Poll Drive for trained model → download → run prelabeling on remaining images."""
-    draft = packaging_store.get_draft(key)
-    if draft is None:
-        raise HTTPException(404, f"draft '{key}' not found")
-    run = draft.get("training_run")
-    if not run or run.get("kind") != "seed":
-        raise HTTPException(400, "ยังไม่ได้เริ่ม seed training — กด 'เริ่ม Seed Training' ก่อน")
-
-    from services import active_learning
-    from services.drive_client import DriveClient
-
-    drive = DriveClient()
-    output_folder_id = run["output_folder_id"]
-
-    model_id = drive.find_in_folder(output_folder_id, "seed_detector.pt")
-    if not model_id:
-        raise HTTPException(
-            404,
-            "ยังหา seed_detector.pt ใน Drive ไม่เจอ — รัน notebook ใน Colab ให้เสร็จก่อน",
-        )
-
-    model_dir = Path("data/drafts") / key / "models"
-    model_dir.mkdir(parents=True, exist_ok=True)
-    model_path = model_dir / "seed_detector.pt"
-    try:
-        drive.download_file(model_id, model_path)
-    except Exception as e:
-        logger.exception("download seed_detector failed")
-        raise HTTPException(500, f"download model failed: {e}")
-
-    # Optionally pull eval.json
-    eval_id = drive.find_in_folder(output_folder_id, "seed_eval.json")
-    eval_summary: dict = {}
-    if eval_id:
-        try:
-            eval_summary = drive.read_json(eval_id)
-        except Exception:
-            pass
-
-    # Run inference on remaining unlabeled images
-    try:
-        result = active_learning.prelabel_remaining(key, model_path)
-    except Exception as e:
-        logger.exception("prelabeling failed")
-        raise HTTPException(500, f"prelabeling failed: {e}")
-
-    packaging_store.update_draft(key, status="labeled_full")
-    return {
-        "model_downloaded": True,
-        "eval": eval_summary,
-        **result,
-    }
 
 
 # ─── Annotations (drafts only) ─────────────────────────

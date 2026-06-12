@@ -1,8 +1,8 @@
 """Publish a draft's labeled images + YOLO labels directly into the Drive
 reference dataset (detector + classifier folders).
 
-Replaces the zip bundle for the FULL training path only (seed training still
-uses services/training_bundle.py — see ADR 0003).
+Replaces the zip bundle for the FULL training path; publishes the reference
+dataset directly — see ADR 0003).
 
 Key invariants:
 - data.yaml `names` are only ever APPENDED to — label files reference numeric

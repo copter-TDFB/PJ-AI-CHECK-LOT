@@ -28,11 +28,3 @@ def test_full_notebook_trains_from_reference_dataset():
     assert "full_detector.pt" in src
     assert "full_classifier.pt" in src
     assert "OUTPUT_FOLDER_ID = 'out-folder'" in src or '"out-folder"' in src
-
-
-def test_seed_notebook_unchanged_still_uses_bundle():
-    nb_bytes = notebook_generator.build_seed_notebook(
-        packaging_key="x", bundle_file_id="bid", output_folder_id="oid",
-    )
-    src = "".join("".join(c["source"]) for c in json.loads(nb_bytes)["cells"])
-    assert "gdown" in src and "bundle" in src
