@@ -7,6 +7,7 @@ from scratch).
 """
 
 import logging
+from collections.abc import Iterable
 from pathlib import Path
 
 from services import packaging_store
@@ -18,7 +19,10 @@ _IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 _PRELABEL_CONF = 0.25  # min YOLO confidence to keep a prediction
 
 
-def filter_prelabel_bboxes(boxes, class_prefixes=None):
+def filter_prelabel_bboxes(
+    boxes: Iterable[tuple[float, float, float, float, str]],
+    class_prefixes: list[str] | None = None,
+) -> list[dict]:
     """boxes: iterable of (x1, y1, x2, y2, class_name).
 
     Keep boxes whose class_name starts with one of class_prefixes (when given)
@@ -73,7 +77,13 @@ def prelabel_remaining(key: str, model_path: Path, conf: float = _PRELABEL_CONF,
                 xyxy = r.boxes.xyxy.cpu().numpy()
                 cls_ids = r.boxes.cls.int().tolist()
                 for box, cid in zip(xyxy, cls_ids):
-                    name = class_names.get(int(cid), "") if isinstance(class_names, dict) else ""
+                    cid_i = int(cid)
+                    if isinstance(class_names, dict):
+                        name = class_names.get(cid_i, "")
+                    elif isinstance(class_names, (list, tuple)) and 0 <= cid_i < len(class_names):
+                        name = class_names[cid_i]
+                    else:
+                        name = ""
                     boxes.append((float(box[0]), float(box[1]),
                                   float(box[2]), float(box[3]), name))
             bboxes = filter_prelabel_bboxes(boxes, class_prefixes)
