@@ -95,6 +95,12 @@ body{
   max-width:90vw;
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.has-action{pointer-events:auto;display:flex;align-items:center;gap:14px}
+.toast-action{
+  background:transparent;border:none;color:var(--acc);
+  font-size:13px;font-weight:600;cursor:pointer;padding:0;
+}
+.toast-action:hover{text-decoration:underline}
 .soon-tag{background:transparent !important;border:1px solid var(--bd) !important;color:var(--t3) !important;text-transform:uppercase;font-size:9px !important}
 .nav-item svg{flex-shrink:0;opacity:.7}
 .nav-item.active svg{opacity:1}
@@ -923,6 +929,14 @@ select{
 }
 .dsec-stat-val.g{color:var(--ok)}
 .dsec-stat-val.w{color:var(--warn)}
+.conf-edit{display:flex;align-items:center;gap:6px;margin-top:3px}
+.conf-input{
+  width:64px;background:var(--s2);border:1px solid var(--bd);
+  border-radius:5px;color:var(--t1);
+  font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:500;
+  padding:2px 6px;
+}
+.conf-input:focus{outline:none;border-color:var(--acc)}
 .code-block{
   font-family:'JetBrains Mono',monospace;font-size:11px;
   background:var(--s1);border:1px solid var(--bd);
@@ -1237,7 +1251,7 @@ select{
           <div id="sp3" class="step-panel" style="display:none">
             <div class="wiz-card" style="padding:18px">
               <div class="wiz-card-title" style="font-size:18px;margin-bottom:4px">Annotation — ลากกรอบ Lot</div>
-              <div class="wiz-card-desc" style="margin-bottom:14px">ลากเมาส์บนรูปสร้างกรอบรอบ <strong style="color:var(--t1)">lot number</strong> — อย่างน้อย 20 รูป — AI จะเรียนรู้จากที่ ops ลาก</div>
+              <div class="wiz-card-desc" style="margin-bottom:14px">ลากเมาส์บนรูปสร้างกรอบรอบ <strong style="color:var(--t1)">lot number</strong> — อย่างน้อย 30 รูป — AI จะเรียนรู้จากที่ ops ลาก</div>
 
               <!-- Annotator: thumbs + canvas + side panel -->
               <div class="annot-wrap" id="annot-wrap">
@@ -1280,7 +1294,7 @@ select{
                   <div class="annot-progress">
                     <div class="annot-progress-bar"><div class="annot-progress-fill" id="annot-pbar" style="width:0%"></div></div>
                     <div class="annot-progress-text">
-                      <span>Labeled <strong id="annot-lc">0</strong> / <strong id="annot-target">20</strong></span>
+                      <span>Labeled <strong id="annot-lc">0</strong> / <strong id="annot-target">30</strong></span>
                       <span style="color:var(--t3)">Total: <span id="annot-total">—</span> รูป</span>
                     </div>
                   </div>
@@ -1291,29 +1305,27 @@ select{
                 </div>
               </div>
 
-              <!-- Post-annotation: Colab seed training (still simulated for now) -->
-              <div id="ls-done" style="display:none;margin-top:16px">
-                <div class="info-box ok">✅ <strong>Label ครบเป้า</strong> — พร้อม seed training</div>
-                <div style="text-align:center;margin-top:10px">
-                  <button class="btn btn-primary" onclick="openColab()" id="btn-open-colab">
-                    🚀 เริ่ม Seed Training (เปิด Colab)
+              <!-- Prelabel (edit-draft only): borrow the deployed detector -->
+              <div id="prelabel-bar" style="display:none; margin-top:14px;">
+                <div class="info-box">
+                  🪄 <strong>Prelabel อัตโนมัติ</strong> —
+                  ใช้ detector ตัวที่ deploy อยู่ ใส่กรอบให้รูปที่ยังไม่ label
+                  <span style="color:var(--t3)">(ตรวจ/แก้ได้ภายหลัง)</span>
+                </div>
+                <div style="text-align:center; margin-top:10px;">
+                  <button class="btn btn-secondary" id="btn-prelabel" onclick="runPrelabel()"
+                    title="ใช้ deployed detector ใส่กรอบรูปที่ยังไม่ label อัตโนมัติ">
+                    🪄 Prelabel รูปที่ยังไม่ label
                   </button>
                 </div>
-                <div id="seed-prog" class="train-prog"></div>
               </div>
-              <div id="colab-done" style="display:none;margin-top:12px">
-                <div class="info-box">
-                  <strong>📒 Colab tab เปิดแล้ว</strong> — ใน Colab:
-                  <ol style="margin:6px 0 0 18px;padding:0;font-size:12px;line-height:1.7">
-                    <li>กด <kbd style="font-family:'JetBrains Mono',monospace;background:var(--s2);padding:1px 5px;border-radius:3px;border:1px solid var(--bd)">Runtime → Run all</kbd> (หรือ Ctrl+F9)</li>
-                    <li>ตอน Colab ขอ auth → กด Allow (อัปโหลด model กลับ Drive)</li>
-                    <li>รอประมาณ <strong>10-15 นาที</strong> — เมื่อขึ้น <strong>"TRAINING DONE"</strong></li>
-                    <li>กลับมาคลิกปุ่มข้างล่าง</li>
-                  </ol>
-                </div>
-                <div style="margin-top:10px;text-align:center">
-                  <button class="btn btn-primary" onclick="trainingSeedDone()" id="btn-step3-next">
-                    Training done — Pull model + pre-label →
+
+              <!-- Ready → next, once labeled target is met -->
+              <div id="ls-done" style="display:none; margin-top:16px;">
+                <div class="info-box ok">✅ <strong>Label ครบเป้า</strong> — พร้อมไปตั้งค่า Config</div>
+                <div style="text-align:center; margin-top:10px;">
+                  <button class="btn btn-primary" id="btn-step3-next" onclick="goStep(4)">
+                    ถัดไป: ตั้งค่า Config →
                   </button>
                 </div>
               </div>
@@ -1519,7 +1531,7 @@ async function api(method, path, body) {
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]); }
 
 let _toastTimer = null;
-function showToast(msg, ms = 2800) {
+function showToast(msg, ms = 2800, action = null) {
   let t = document.getElementById('toast');
   if (!t) {
     t = document.createElement('div');
@@ -1530,6 +1542,18 @@ function showToast(msg, ms = 2800) {
     document.body.appendChild(t);
   }
   t.textContent = msg;
+  t.classList.toggle('has-action', !!action);
+  if (action) {
+    const btn = document.createElement('button');
+    btn.className = 'toast-action';
+    btn.textContent = action.label;
+    btn.onclick = () => {
+      t.classList.remove('show');
+      clearTimeout(_toastTimer);
+      action.onClick();
+    };
+    t.appendChild(btn);
+  }
   t.classList.add('show');
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => t.classList.remove('show'), ms);
@@ -1693,7 +1717,7 @@ function renderSteps() {
 }
 
 // ─── DASHBOARD ─────────────────────────────
-// _editMap: parent_key → edit-draft key, populated from /api/packagings response
+// _editMap: parent_key → {key, status} ของ edit-draft, populated from /api/packagings response
 let _editMap = {};
 
 async function loadDashboard() {
@@ -1711,7 +1735,7 @@ async function loadDashboard() {
     for (const pkg of items) {
       if (pkg.key && pkg.key.endsWith('__edit')) {
         const parentKey = pkg.key.slice(0, -'__edit'.length);
-        _editMap[parentKey] = pkg.key;
+        _editMap[parentKey] = { key: pkg.key, status: pkg.status };
       }
     }
 
@@ -1745,8 +1769,8 @@ async function loadDashboard() {
 function renderCard(pkg) {
   const isActive = pkg.status === 'active';
   const isArchived = pkg.status === 'archived';
-  const editingDraftKey = _editMap[pkg.key];
-  const hasEdit = isActive && !!editingDraftKey;
+  const editingDraft = _editMap[pkg.key];
+  const hasEdit = isActive && !!editingDraft;
 
   // Badge resolution — archived/editing trump live/data status
   let badgeClass, badgeText;
@@ -1860,8 +1884,64 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('.pkg-card-add')) return; // click on "+" = wizard
   if (e.target.closest('.sidebar')) return;      // click sidebar nav = ignore
   if (e.target.closest('.topbar')) return;       // click topbar = ignore
+  if (e.target.closest('.toast')) return;        // click toast (e.g. Undo) = ignore
   closeDrawer();
 });
+
+// ─── Conf threshold tuning (ADR 0004) ──────
+function onConfInput() {
+  const input = document.getElementById('conf-input');
+  const btn = document.getElementById('conf-save');
+  if (!input || !btn) return;
+  const changed = parseFloat(input.value) !== parseFloat(input.dataset.orig);
+  btn.style.display = changed ? '' : 'none';
+}
+
+function applyConfToDrawer(key, value) {
+  const input = document.getElementById('conf-input');
+  if (!input || currentDrawerKey !== key) return;
+  input.value = value.toFixed(2);
+  input.dataset.orig = input.value;
+  const btn = document.getElementById('conf-save');
+  if (btn) btn.style.display = 'none';
+}
+
+async function saveConfThreshold(key) {
+  const input = document.getElementById('conf-input');
+  const btn = document.getElementById('conf-save');
+  const val = parseFloat(input.value);
+  if (!(val >= 0.5 && val <= 0.95)) {
+    showToast('ค่า Conf ต้องอยู่ระหว่าง 0.50 – 0.95');
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const res = await api('PUT', `/api/packagings/${encodeURIComponent(key)}/conf`,
+      { conf_threshold: val });
+    applyConfToDrawer(key, res.conf_threshold);
+    loadDashboard(); // refresh card stats
+    showToast(`Conf ${res.previous.toFixed(2)} → ${res.conf_threshold.toFixed(2)}`, 8000, {
+      label: 'Undo',
+      onClick: () => undoConfThreshold(key, res.previous),
+    });
+  } catch (err) {
+    showToast('บันทึก Conf ไม่สำเร็จ: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function undoConfThreshold(key, previous) {
+  try {
+    const res = await api('PUT', `/api/packagings/${encodeURIComponent(key)}/conf`,
+      { conf_threshold: previous });
+    applyConfToDrawer(key, res.conf_threshold);
+    loadDashboard();
+    showToast(`คืนค่า Conf เป็น ${res.conf_threshold.toFixed(2)} แล้ว`);
+  } catch (err) {
+    showToast('Undo ไม่สำเร็จ: ' + err.message);
+  }
+}
 
 function renderDrawerBody(pkg, samplesRes) {
   const isActive = pkg.status === 'active';
@@ -1870,12 +1950,26 @@ function renderDrawerBody(pkg, samplesRes) {
   const accClass = pkg.accuracy == null ? '' : (pkg.accuracy >= 0.9 ? 'g' : pkg.accuracy >= 0.8 ? '' : 'w');
   const confVal = pkg.conf_threshold != null ? pkg.conf_threshold.toFixed(2) : '—';
 
+  // Conf — editable in-place for active packagings (runtime tuning, ADR 0004)
+  const confCell = (isActive && pkg.conf_threshold != null)
+    ? `<div class="dsec-stat">
+         <div class="dsec-stat-lbl">Conf</div>
+         <div class="conf-edit">
+           <input type="number" id="conf-input" class="conf-input"
+                  min="0.50" max="0.95" step="0.05"
+                  value="${confVal}" data-orig="${confVal}" oninput="onConfInput()">
+           <button id="conf-save" class="btn btn-primary btn-sm" style="display:none"
+                   onclick="saveConfThreshold('${esc(pkg.key)}')">บันทึก</button>
+         </div>
+       </div>`
+    : `<div class="dsec-stat"><div class="dsec-stat-lbl">Conf</div><div class="dsec-stat-val">${confVal}</div></div>`;
+
   // Stats section
   let html = `
     <div class="dsec">
       <div class="dsec-label">Overview</div>
       <div class="dsec-stats">
-        <div class="dsec-stat"><div class="dsec-stat-lbl">Conf</div><div class="dsec-stat-val">${confVal}</div></div>
+        ${confCell}
         <div class="dsec-stat"><div class="dsec-stat-lbl">Accuracy</div><div class="dsec-stat-val ${accClass}">${accVal}</div></div>
         <div class="dsec-stat"><div class="dsec-stat-lbl">Images</div><div class="dsec-stat-val">${pkg.image_count}</div></div>
       </div>
@@ -2009,10 +2103,10 @@ function renderDrawerActions(pkg) {
 
   // ACTIVE — Edit + Archive, with state for in-progress edits
   if (pkg.status === 'active') {
-    const editingKey = _editMap[pkg.key];
-    if (editingKey) {
+    const editing = _editMap[pkg.key];
+    if (editing) {
       actions.innerHTML = `
-        <button class="btn btn-danger btn-sm" onclick="discardEditDraft('${esc(editingKey)}')">
+        <button class="btn btn-danger btn-sm" onclick="discardEditDraft('${esc(editing.key)}')">
           ทิ้ง draft แก้ไข
         </button>
         <div style="flex:1"></div>
@@ -2022,7 +2116,7 @@ function renderDrawerActions(pkg) {
           </svg>
           ปิดใช้งาน
         </button>
-        <button class="btn btn-primary btn-sm" onclick="continueDraft('${esc(editingKey)}', 'uploading')">
+        <button class="btn btn-primary btn-sm" onclick="continueDraft('${esc(editing.key)}', '${esc(editing.status)}')">
           แก้ไขต่อ →
         </button>`;
     } else {
@@ -2056,7 +2150,7 @@ async function cloneActive(key) {
   try {
     const draft = await api('POST', `/api/packagings/${encodeURIComponent(key)}/clone`);
     showToast(`Cloned to ${draft.key} — เริ่มแก้ไข`);
-    continueDraft(draft.key, 'uploading');
+    continueDraft(draft.key, draft.status);  // 'draft' → step 2 (ยังไม่มีรูปใหม่)
   } catch (err) {
     alert(`Clone ไม่สำเร็จ: ${err.message}`);
   }
@@ -2113,7 +2207,6 @@ function continueDraft(key, status) {
   const stepMap = {
     draft: 2,            // เพิ่งสร้าง — ไปอัพรูป
     uploading: 3,        // มีรูปแล้ว — ไป annotate
-    training_seed: 3,    // seed training ค้าง — กลับ annotator
     labeled_full: 3,     // pre-labeled แล้ว — verify ใน annotator
     configured: 5,       // config ครบ — ไป eval/deploy
     training_full: 5,    // full training ค้าง — กลับ step 5
@@ -2260,7 +2353,7 @@ const annot = {
   canvasSize:  {w:0, h:0},
   drag: null,       // {startX, startY, curX, curY} during drag
   saveTimer: null,  // debounce save
-  ANNOT_TARGET: 20,
+  ANNOT_TARGET: 30,
   subRegions: ['lot'],   // populated from draft meta
   currentLabel: 'lot',   // active label for new bbox
 };
@@ -2288,6 +2381,8 @@ async function loadAnnotator() {
     document.getElementById('annot-target').textContent = Math.min(annot.ANNOT_TARGET, annot.images.length);
     document.getElementById('annot-total').textContent = annot.images.length;
     renderThumbStrip();
+    const isEditDraft = curDraftKey && curDraftKey.endsWith('__edit');
+    document.getElementById('prelabel-bar').style.display = isEditDraft ? 'block' : 'none';
     updateProgressUI();
     if (annot.images.length === 0) {
       document.getElementById('annot-empty').style.display = 'flex';
@@ -2548,7 +2643,7 @@ function updateProgressUI() {
   const target = Math.min(annot.ANNOT_TARGET, annot.images.length);
   document.getElementById('annot-lc').textContent = labeled;
   document.getElementById('annot-pbar').style.width = Math.min(100, labeled / target * 100) + '%';
-  // Reveal "ready for seed training" once target met
+  // Reveal "ready → Config" once target met
   document.getElementById('ls-done').style.display = labeled >= target ? 'block' : 'none';
 }
 
@@ -2647,47 +2742,21 @@ function trainProgressStart(key, mountEl) {
   };
 }
 
-async function openColab() {
+async function runPrelabel() {
   if (!curDraftKey) { alert('ยังไม่ได้สร้าง draft'); return; }
-  const btn = document.getElementById('btn-open-colab');
+  const btn = document.getElementById('btn-prelabel');
+  const original = btn.textContent;
   btn.disabled = true;
-  btn.textContent = '⏳ กำลัง upload bundle ขึ้น Drive...';
-  const prog = trainProgressStart(curDraftKey, document.getElementById('seed-prog'));
+  btn.textContent = '⏳ กำลัง prelabel...';
   try {
-    const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/seed/start`);
-    prog.finish(true);
-    btn.textContent = '✓ เปิด Colab — รัน Run all (~15 นาที)';
-    // เปิด Colab tab
-    window.open(res.colab_url, '_blank');
-    // แสดง next-stage UI: "Training done?"
-    document.getElementById('colab-done').style.display = 'block';
-    document.getElementById('btn-step3-next').textContent = 'Training done — Pull model + pre-label →';
-    document.getElementById('btn-step3-next').onclick = () => trainingSeedDone();
-    document.getElementById('btn-step3-next').disabled = false;
-  } catch (err) {
-    prog.finish(false);
-    btn.disabled = false;
-    btn.textContent = '🚀 ลองอีกครั้ง';
-    alert(`Start training ไม่สำเร็จ: ${err.message}`);
-  }
-}
-
-async function trainingSeedDone() {
-  const btn = document.getElementById('btn-step3-next');
-  btn.disabled = true;
-  btn.textContent = '⏳ ดึง model + pre-label รูปที่เหลือ...';
-  try {
-    const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/seed/done`);
-    alert(`✓ เสร็จแล้ว!\n\nPre-labeled: ${res.prelabeled} รูป\nข้าม (label มืออยู่แล้ว): ${res.skipped_already_labeled}\nผิดพลาด: ${res.errors}\n\nกลับไป annotator เพื่อ verify pre-labels`);
-    // Reload annotator with pre-annotations
+    const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/prelabel`);
+    showToast(`✓ Prelabel แล้ว ${res.prelabeled} รูป · ข้าม ${res.skipped_already_labeled} · ผิดพลาด ${res.errors}`);
     await loadAnnotator();
-    btn.textContent = 'ถัดไป: ตั้งค่า Config →';
-    btn.onclick = () => goStep(4);
-    btn.disabled = false;
   } catch (err) {
+    alert(`Prelabel ไม่สำเร็จ: ${err.message}`);
+  } finally {
     btn.disabled = false;
-    btn.textContent = 'Training done — ลองอีกครั้ง';
-    alert(`Pull model ไม่สำเร็จ: ${err.message}`);
+    btn.textContent = original;
   }
 }
 
