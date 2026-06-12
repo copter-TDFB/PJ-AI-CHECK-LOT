@@ -1,9 +1,9 @@
-"""Active-learning loop — use seed model to pre-annotate remaining images.
+"""Prelabel draft images with an existing detector to cut manual annotation.
 
-After ops verifies + manual-labels 20 รูป, seed model is trained on those.
-This service runs the seed model on ALL OTHER images of the draft and saves
-the predictions as pre-annotations (so ops verifies/edits instead of labeling
-from scratch).
+Used by the edit-draft prelabel-on-demand flow (ADR 0005): the deployed
+detector runs over a draft's unlabeled images and saves its predictions as
+pre-annotations (filtered by the parent packaging's class prefixes), so ops
+verifies/edits instead of labeling from scratch.
 """
 
 import logging
