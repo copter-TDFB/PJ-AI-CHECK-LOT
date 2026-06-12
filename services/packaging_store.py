@@ -148,7 +148,7 @@ def clone_from_active(
         "description": description or f"Edit draft cloned from active {parent_key}",
         "pipeline": active_yaml.get("pipeline", "detector_ocr"),
         "sub_regions": active_yaml.get("sub_regions", []) or ["lot"],
-        "status": "uploading",  # ready for user to add images
+        "status": "draft",  # no images of its own yet — first upload bumps to "uploading"
         "created_at": _now_iso(),
         "updated_at": _now_iso(),
         "config": config,
