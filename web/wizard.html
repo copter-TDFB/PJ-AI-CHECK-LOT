@@ -1308,24 +1308,24 @@ select{
               <!-- Prelabel (edit-draft only): borrow the deployed detector -->
               <div id="prelabel-bar" style="display:none; margin-top:14px;">
                 <div class="info-box">
-                  🪄 <strong>Prelabel อัตโนมัติ</strong> —
+                  <span aria-hidden="true">🪄</span> <strong>Prelabel อัตโนมัติ</strong> —
                   ใช้ detector ตัวที่ deploy อยู่ ใส่กรอบให้รูปที่ยังไม่ label
                   <span style="color:var(--t3)">(ตรวจ/แก้ได้ภายหลัง)</span>
                 </div>
                 <div style="text-align:center; margin-top:10px;">
                   <button class="btn btn-secondary" id="btn-prelabel" onclick="runPrelabel()"
                     title="ใช้ deployed detector ใส่กรอบรูปที่ยังไม่ label อัตโนมัติ">
-                    🪄 Prelabel รูปที่ยังไม่ label
+                    <span aria-hidden="true">🪄</span> Prelabel รูปที่ยังไม่ label
                   </button>
                 </div>
               </div>
 
               <!-- Ready → next, once labeled target is met -->
               <div id="ls-done" style="display:none; margin-top:16px;">
-                <div class="info-box ok">✅ <strong>Label ครบเป้า</strong> — พร้อมไปตั้งค่า Config</div>
+                <div class="info-box ok"><span aria-hidden="true">✅</span> <strong>Label ครบเป้า</strong> — พร้อมไปตั้งค่า Config</div>
                 <div style="text-align:center; margin-top:10px;">
                   <button class="btn btn-primary" id="btn-step3-next" onclick="goStep(4)">
-                    ถัดไป: ตั้งค่า Config →
+                    ถัดไป: ตั้งค่า Config <span aria-hidden="true">→</span>
                   </button>
                 </div>
               </div>
@@ -2747,7 +2747,8 @@ async function runPrelabel() {
   const btn = document.getElementById('btn-prelabel');
   const original = btn.textContent;
   btn.disabled = true;
-  btn.textContent = '⏳ กำลัง prelabel...';
+  btn.setAttribute('aria-busy', 'true');
+  btn.textContent = '⏳ กำลัง prelabel…';
   try {
     const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/prelabel`);
     showToast(`✓ Prelabel แล้ว ${res.prelabeled} รูป · ข้าม ${res.skipped_already_labeled} · ผิดพลาด ${res.errors}`);
@@ -2756,6 +2757,7 @@ async function runPrelabel() {
     alert(`Prelabel ไม่สำเร็จ: ${err.message}`);
   } finally {
     btn.disabled = false;
+    btn.removeAttribute('aria-busy');
     btn.textContent = original;
   }
 }
