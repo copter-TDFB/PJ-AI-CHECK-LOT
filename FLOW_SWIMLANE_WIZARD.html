@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>OCR Lot Checker — Wizard Process Flow</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', 'Sarabun', 'Tahoma', system-ui, -apple-system, sans-serif;
+    background: #eef1f5; color: #1a1a1a; line-height: 1.5;
+  }
+  header {
+    background: linear-gradient(135deg, #1565C0 0%, #0D47A1 100%);
+    color: white; padding: 28px 40px; border-bottom: 4px solid #FFC107;
+  }
+  header h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.3px; }
+  header p { font-size: 13px; opacity: 0.88; margin-top: 6px; }
+  header .meta { font-size: 11px; opacity: 0.7; margin-top: 10px; font-family: 'Consolas', monospace; }
+
+  .container { max-width: 1340px; margin: 0 auto; padding: 24px; }
+
+  .legend {
+    background: white; border-radius: 8px; padding: 18px 22px;
+    margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .legend h2 { font-size: 14px; margin-bottom: 12px; color: #333; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .legend-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 18px; }
+  .legend-item { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #333; }
+  .legend-item svg { flex-shrink: 0; width: 56px; height: 38px; }
+  .legend-item strong { font-weight: 600; color: #111; }
+  .legend-item span { color: #555; }
+  .arrow-legend { margin-top: 12px; display: flex; gap: 20px; flex-wrap: wrap; font-size: 12px; color: #444; }
+  .arrow-legend .item { display: flex; align-items: center; gap: 8px; }
+  .arrow-legend svg { width: 56px; height: 12px; }
+
+  .controls {
+    background: white; border-radius: 8px; padding: 12px 18px;
+    margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .controls .hint { font-size: 12px; color: #555; margin-right: auto; }
+  .controls .hint kbd { background: #f0f2f5; border: 1px solid #d0d4da; border-radius: 3px; padding: 1px 6px; font-family: 'Consolas', monospace; font-size: 11px; color: #333; }
+  .controls button {
+    font-family: inherit; font-size: 12px; font-weight: 600;
+    padding: 7px 14px; border: 1px solid #c0c4ca; border-radius: 6px;
+    background: #f7f8fa; color: #333; cursor: pointer; transition: all 0.15s;
+  }
+  .controls button:hover { background: #1565C0; color: white; border-color: #1565C0; }
+  .controls button.danger:hover { background: #C62828; border-color: #C62828; }
+  .controls .badge { font-size: 11px; color: #2E7D32; background: #E8F5E9; padding: 4px 10px; border-radius: 12px; font-weight: 600; }
+  .controls .badge.dirty { color: #E65100; background: #FFF3E0; }
+
+  .ed {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center; line-height: 1.18;
+    padding: 2px 6px; outline: none;
+    white-space: pre-wrap; cursor: text; user-select: text;
+    font-family: 'Segoe UI', 'Sarabun', 'Tahoma', system-ui, sans-serif;
+    overflow: hidden; box-sizing: border-box; border-radius: 3px;
+  }
+  .ed:hover { background: rgba(21, 101, 192, 0.06); }
+  .ed:focus { background: rgba(255, 235, 59, 0.25); box-shadow: 0 0 0 2px #FBC02D inset; }
+
+  .diagram-wrap { background: white; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow-x: auto; }
+  svg.flowchart { display: block; margin: 0 auto; font-family: inherit; }
+
+  footer { text-align: center; color: #888; font-size: 12px; padding: 20px; font-family: 'Consolas', monospace; }
+</style>
+</head>
+<body>
+<header>
+  <h1>OCR Lot Checker — Wizard Process Flow</h1>
+  <p>เพิ่ม/แก้ packaging ผ่าน wizard → single-stage training → deploy (ADR 0005)</p>
+  <div class="meta">source : CONTEXT.md + api/packagings.py · 2026-06-12</div>
+</header>
+
+<div class="container">
+  <section class="legend">
+    <h2>สัญลักษณ์มาตรฐาน · Standard Flowchart Symbols</h2>
+    <div class="legend-grid" id="legend"></div>
+    <div class="arrow-legend">
+      <div class="item"><svg viewBox="0 0 60 12"><line x1="2" y1="6" x2="50" y2="6" stroke="#333" stroke-width="1.8"/><polygon points="50,2 58,6 50,10" fill="#333"/></svg><span>Flow ปกติ</span></div>
+      <div class="item"><svg viewBox="0 0 60 12"><line x1="2" y1="6" x2="58" y2="6" stroke="#444" stroke-width="1.8"/><polygon points="2,2 -6,6 2,10" fill="#444" transform="translate(8,0)"/><polygon points="50,2 58,6 50,10" fill="#444"/></svg><span>Bidirectional (req/response)</span></div>
+      <div class="item"><svg viewBox="0 0 60 12"><line x1="2" y1="6" x2="50" y2="6" stroke="#C62828" stroke-width="1.8" stroke-dasharray="6 4"/><polygon points="50,2 58,6 50,10" fill="#C62828"/></svg><span>Loop-back / NO branch</span></div>
+      <div class="item"><svg viewBox="0 0 60 12"><line x1="2" y1="6" x2="50" y2="6" stroke="#2E7D32" stroke-width="1.8"/><polygon points="50,2 58,6 50,10" fill="#2E7D32"/></svg><span>Fire-and-forget</span></div>
+    </div>
+  </section>
+
+  <div class="controls">
+    <span class="hint">💡 คลิกข้อความใดก็ได้เพื่อแก้ — บันทึกอัตโนมัติลง browser  •  กด <kbd>Esc</kbd> เพื่อยกเลิก</span>
+    <span id="editBadge" class="badge">บันทึกแล้ว</span>
+    <button onclick="exportEdits()">💾 Export JSON</button>
+    <button onclick="importEdits()">📂 Import JSON</button>
+    <button class="danger" onclick="resetEdits()">↺ คืนค่าเดิมทั้งหมด</button>
+  </div>
+
+  <div class="diagram-wrap">
+    <svg class="flowchart" id="chart" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+</div>
+
+<footer>FLOW_SWIMLANE.html · generated by /flow-process</footer>
+
+<script>
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function el(tag, attrs = {}, parent) {
+  const e = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+// ===== Editable text persistence =====
+const EDIT_KEY = 'flow-edit:';
+function loadEdit(id, fallback) {
+  const v = localStorage.getItem(EDIT_KEY + id);
+  return v !== null ? v : fallback;
+}
+function saveEdit(id, value, fallback) {
+  if (value === fallback) localStorage.removeItem(EDIT_KEY + id);
+  else localStorage.setItem(EDIT_KEY + id, value);
+  updateBadge();
+}
+function updateBadge() {
+  const badge = document.getElementById('editBadge');
+  if (!badge) return;
+  let count = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    if (localStorage.key(i).startsWith(EDIT_KEY)) count++;
+  }
+  if (count === 0) { badge.textContent = 'ค่าเดิม'; badge.classList.remove('dirty'); }
+  else { badge.textContent = `แก้แล้ว ${count} จุด`; badge.classList.add('dirty'); }
+}
+function editText(parent, x, y, w, h, id, defaultText, opts = {}) {
+  const fo = el('foreignObject', { x, y, width: w, height: h }, parent);
+  const div = document.createElement('div');
+  div.className = 'ed';
+  div.setAttribute('contenteditable', 'plaintext-only');
+  div.style.fontSize = (opts.fontSize || 11.5) + 'px';
+  div.style.fontWeight = opts.fontWeight || 600;
+  div.style.color = opts.color || '#1a1a1a';
+  if (opts.letterSpacing) div.style.letterSpacing = opts.letterSpacing;
+  div.textContent = loadEdit(id, defaultText);
+  div.addEventListener('blur', () => saveEdit(id, div.textContent, defaultText));
+  div.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') { div.textContent = defaultText; div.blur(); }
+    if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); div.blur(); }
+  });
+  fo.appendChild(div);
+  return fo;
+}
+function exportEdits() {
+  const edits = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k.startsWith(EDIT_KEY)) edits[k.slice(EDIT_KEY.length)] = localStorage.getItem(k);
+  }
+  const blob = new Blob([JSON.stringify(edits, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().slice(0,16).replace(':','-');
+  a.href = url; a.download = `flow-edits-${ts}.json`; a.click();
+  URL.revokeObjectURL(url);
+}
+function importEdits() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.json,application/json';
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      for (const [k, v] of Object.entries(data)) localStorage.setItem(EDIT_KEY + k, v);
+      location.reload();
+    } catch (e) { alert('ไฟล์ไม่ถูกต้อง: ' + e.message); }
+  };
+  inp.click();
+}
+function resetEdits() {
+  if (!confirm('ลบการแก้ไขทั้งหมดและกลับไปใช้ค่าเดิม?')) return;
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k.startsWith(EDIT_KEY)) keys.push(k);
+  }
+  keys.forEach(k => localStorage.removeItem(k));
+  location.reload();
+}
+
+// ===== Lane / node / edge data (injected by /flow-process) =====
+const lanes = [
+  { id: 'user',    name: 'USER (ops)',    bg: '#FFFBF0', strip: '#F57F17' },
+  { id: 'wizard',  name: 'WIZARD (UI)',   bg: '#EBF4FF', strip: '#1565C0' },
+  { id: 'backend', name: 'BACKEND (API)', bg: '#F3E5F5', strip: '#6A1B9A' },
+  { id: 'drive',   name: 'GOOGLE DRIVE',  bg: '#E8F5E9', strip: '#2E7D32' },
+  { id: 'colab',   name: 'COLAB',         bg: '#FFF3E0', strip: '#E65100' },
+];
+const nodeDefs = [
+  ['start',       0, 0,  'terminator',  'เปิด wizard.html'],
+  ['s1name',      1, 1,  'manualInput', 'Step 1\nตั้งชื่อ + key + pipeline'],
+  ['createDraft', 2, 2,  'process',     'POST /packagings\ndraft (status=draft)'],
+  ['s2upload',    0, 3,  'manualInput', 'Step 2\nอัพรูป ≥50 (แนะนำ)'],
+  ['saveImg',     2, 4,  'process',     'save_image\ndraft → uploading'],
+  ['s3annot',     0, 5,  'manualInput', 'Step 3\nลาก bbox รอบ lot'],
+  ['isEdit',      1, 6,  'decision',    'edit-draft?\n(key__edit)'],
+  ['prelabel',    2, 7,  'subprocess',  'POST training/prelabel\nactive detector → bbox\n(filter parent prefixes)'],
+  ['gate30',      1, 8,  'decision',    'labeled ≥ 30 ?'],
+  ['s4config',    0, 9,  'manualInput', 'Step 4\nlot pattern + fields\n→ status configured'],
+  ['fullStart',   2, 10, 'process',     'POST training/full/start'],
+  ['publishDS',   3, 11, 'data',        'publish dataset\nimages + labels'],
+  ['genNb',       3, 12, 'document',    'gen + upload\nColab notebook'],
+  ['openColab',   0, 13, 'manualInput', 'เปิด Colab → Run all\n(~15 นาที)'],
+  ['trainColab',  4, 14, 'subprocess',  'train YOLO detector'],
+  ['modelOnDrive',3, 15, 'data',        'upload full_detector.pt\n+ eval.json'],
+  ['fullDone',    2, 16, 'process',     'POST training/full/done\npull model + eval'],
+  ['deploy',      2, 17, 'process',     'Deploy & overwrite parent'],
+  ['endN',        2, 18, 'terminator',  'Active packaging\n(production)'],
+];
+const edges = [
+  { from: 'start',       fs: 'b', to: 's1name',      ts: 't' },
+  { from: 's1name',      fs: 'b', to: 'createDraft',  ts: 't' },
+  { from: 'createDraft', fs: 'b', to: 's2upload',     ts: 't' },
+  { from: 's2upload',    fs: 'b', to: 'saveImg',      ts: 't' },
+  { from: 'saveImg',     fs: 'b', to: 's3annot',      ts: 't' },
+  { from: 's3annot',     fs: 'b', to: 'isEdit',       ts: 't' },
+  { from: 'isEdit',      fs: 'r', to: 'prelabel',     ts: 't', label: 'YES' },
+  { from: 'isEdit',      fs: 'b', to: 'gate30',       ts: 't', label: 'NO · label เอง' },
+  { from: 'prelabel',    fs: 'l', to: 'gate30',       ts: 'r' },
+  { from: 'gate30',      fs: 'l', to: 's3annot',      ts: 'l', label: 'NO · ยังไม่ครบ 30', style: 'loop' },
+  { from: 'gate30',      fs: 'b', to: 's4config',     ts: 't', label: 'YES · ≥30' },
+  { from: 's4config',    fs: 'b', to: 'fullStart',    ts: 't' },
+  { from: 'fullStart',   fs: 'b', to: 'publishDS',    ts: 't' },
+  { from: 'publishDS',   fs: 'b', to: 'genNb',        ts: 't' },
+  { from: 'genNb',       fs: 'b', to: 'openColab',    ts: 't' },
+  { from: 'openColab',   fs: 'b', to: 'trainColab',   ts: 't' },
+  { from: 'trainColab',  fs: 'b', to: 'modelOnDrive', ts: 't' },
+  { from: 'modelOnDrive',fs: 'b', to: 'fullDone',     ts: 't' },
+  { from: 'fullDone',    fs: 'b', to: 'deploy',       ts: 't' },
+  { from: 'deploy',      fs: 'b', to: 'endN',         ts: 't' },
+];
+
+// ===== Sizes =====
+const HEADER_H = 60;
+const NODE_W = 190;
+const NODE_H_2 = 66;
+const NODE_H_3 = 82;
+const NODE_H_4 = 98;
+const DEC_W = 210;
+const DEC_H = 110;
+
+// Phase 1 additions
+const LANE_PAD = 32;          // horizontal padding inside each lane
+const MAX_NODE_W = 220;       // cap on node width (text wraps if longer)
+const ROW_GAP_NORMAL = 30;    // vertical gap after a normal row
+const ROW_GAP_DECISION = 80;  // vertical gap after a row containing a decision diamond
+const ROW_GAP_LOOPBACK = 50;  // vertical gap before a row that is a loop-back target
+const ROW_MODE_THRESHOLD = 100; // y/row values < this trigger row-based layout
+
+// Intrinsic shape size (independent of lane width)
+function intrinsicSize(def) {
+  const [, , , type, label, hOverride] = def;
+  let h;
+  if (type === 'decision') h = DEC_H;
+  else if (hOverride) h = hOverride;
+  else {
+    const lines = (label || '').split('\n').length;
+    h = lines >= 4 ? NODE_H_4 : lines === 3 ? NODE_H_3 : NODE_H_2;
+  }
+  const w = type === 'decision' ? DEC_W : NODE_W;
+  return { w, h };
+}
+
+// ===== Mode detection (row-based vs px-based) =====
+const ROW_MODE = nodeDefs.length > 0 && nodeDefs.every(d => d[2] < ROW_MODE_THRESHOLD);
+
+// ===== Loop-back targets (for adaptive row gap) =====
+const loopbackTargets = new Set();
+for (const e of edges) {
+  if (e.style === 'loop' && e.to) loopbackTargets.add(e.to);
+}
+
+// ===== Auto-fit lane widths =====
+const laneMaxW = lanes.map(() => 0);
+for (const def of nodeDefs) {
+  const lane = def[1];
+  if (lane >= 0 && lane < lanes.length) {
+    laneMaxW[lane] = Math.max(laneMaxW[lane], intrinsicSize(def).w);
+  }
+}
+let cursor = 0;
+for (let i = 0; i < lanes.length; i++) {
+  const ln = lanes[i];
+  if (ln.x === undefined) ln.x = cursor;
+  const contentW = Math.max(laneMaxW[i], NODE_W);
+  const autoW = contentW + 2 * LANE_PAD;
+  // honor explicit ln.w (user intent), auto-fit only when unset
+  ln.w = (ln.w !== undefined) ? ln.w : autoW;
+  cursor = ln.x + ln.w;
+}
+const TOTAL_W = lanes.reduce((s, l) => Math.max(s, l.x + l.w), 0);
+
+const laneCenter = i => lanes[i].x + lanes[i].w / 2;
+const laneLeft   = i => lanes[i].x;
+const laneRight  = i => lanes[i].x + lanes[i].w;
+
+// ===== Row → y mapping (row-mode only) =====
+const rowY = {};
+if (ROW_MODE) {
+  const rowsMap = {};
+  for (const def of nodeDefs) {
+    const r = def[2];
+    if (!rowsMap[r]) rowsMap[r] = [];
+    rowsMap[r].push(def);
+  }
+  const sortedRows = Object.keys(rowsMap).map(Number).sort((a, b) => a - b);
+  let cumY = HEADER_H + 20;
+  for (const r of sortedRows) {
+    rowY[r] = cumY;
+    const defs = rowsMap[r];
+    const maxH = Math.max(...defs.map(d => intrinsicSize(d).h));
+    const hasDecision = defs.some(d => d[3] === 'decision');
+    const hasLoopbackTarget = defs.some(d => loopbackTargets.has(d[0]));
+    const gap = hasDecision ? ROW_GAP_DECISION
+              : hasLoopbackTarget ? ROW_GAP_LOOPBACK
+              : ROW_GAP_NORMAL;
+    cumY += maxH + gap;
+  }
+}
+
+// ===== Build nodeMap =====
+const N = {};
+for (const def of nodeDefs) {
+  const [id, lane, yOrRow, type, label, hOverride] = def;
+  const { w, h: intrinsicH } = intrinsicSize(def);
+  const h = (type === 'decision') ? DEC_H : (hOverride || intrinsicH);
+  const y = ROW_MODE ? rowY[yOrRow] : yOrRow;
+  N[id] = { id, lane, y, type, label, w, h, cx: laneCenter(lane), cy: y + h/2 };
+}
+
+// Compute total height from nodes
+const TOTAL_H = Math.max(...Object.values(N).map(n => n.y + n.h)) + 80;
+
+// ===== SVG setup =====
+const svg = document.getElementById('chart');
+svg.setAttribute('viewBox', `0 0 ${TOTAL_W} ${TOTAL_H}`);
+svg.setAttribute('width', '100%');
+svg.style.maxWidth = TOTAL_W + 'px';
+
+// Defs
+const defs = el('defs', {}, svg);
+function defArrow(id, color) {
+  const m = el('marker', { id, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' }, defs);
+  el('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: color }, m);
+}
+function defArrowBack(id, color) {
+  const m = el('marker', { id, viewBox: '0 0 10 10', refX: 1, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto' }, defs);
+  el('path', { d: 'M 10 0 L 0 5 L 10 10 z', fill: color }, m);
+}
+defArrow('arrow',     '#333');
+defArrow('arrowLoop', '#C62828');
+defArrow('arrowOk',   '#2E7D32');
+defArrowBack('arrowB','#333');
+
+// ===== Lanes =====
+const laneGroup = el('g', { id: 'lanes' }, svg);
+for (let i = 0; i < lanes.length; i++) {
+  const ln = lanes[i];
+  el('rect', { x: ln.x, y: 0, width: ln.w, height: TOTAL_H, fill: ln.bg || '#fafafa', stroke: '#d0d4da', 'stroke-width': 1 }, laneGroup);
+  el('rect', { x: ln.x, y: 0, width: ln.w, height: HEADER_H, fill: ln.strip || '#666', stroke: 'none' }, laneGroup);
+  editText(laneGroup, ln.x, 0, ln.w, HEADER_H, 'lane:' + (ln.id || i), ln.name, { fontSize: 14, fontWeight: 700, color: 'white', letterSpacing: '1px' });
+}
+
+// ===== Shape drawing =====
+function drawShape(parent, node) {
+  const { type, cx, y, w, h, label } = node;
+  const x = cx - w/2;
+  let textFill = '#1a1a1a';
+
+  switch (type) {
+    case 'terminator':
+      el('rect', { x, y, width: w, height: h, rx: h/2, ry: h/2, fill: '#2E7D32', stroke: '#1B5E20', 'stroke-width': 2 }, parent);
+      textFill = 'white'; break;
+    case 'process':
+      el('rect', { x, y, width: w, height: h, fill: '#FFFFFF', stroke: '#333', 'stroke-width': 1.6 }, parent); break;
+    case 'decision':
+      el('polygon', { points: `${cx},${y} ${x+w},${y+h/2} ${cx},${y+h} ${x},${y+h/2}`, fill: '#FFF59D', stroke: '#F57F17', 'stroke-width': 1.8 }, parent); break;
+    case 'data': {
+      const sl = 14;
+      el('polygon', { points: `${x+sl},${y} ${x+w},${y} ${x+w-sl},${y+h} ${x},${y+h}`, fill: '#B3E5FC', stroke: '#0277BD', 'stroke-width': 1.6 }, parent); break;
+    }
+    case 'manualInput':
+      el('polygon', { points: `${x},${y+12} ${x+w},${y} ${x+w},${y+h} ${x},${y+h}`, fill: '#FFE082', stroke: '#FF8F00', 'stroke-width': 1.6 }, parent); break;
+    case 'subprocess': {
+      const g = el('g', {}, parent);
+      el('rect', { x, y, width: w, height: h, fill: '#FFFFFF', stroke: '#333', 'stroke-width': 1.6 }, g);
+      el('line', { x1: x+9, y1: y, x2: x+9, y2: y+h, stroke: '#333', 'stroke-width': 1.6 }, g);
+      el('line', { x1: x+w-9, y1: y, x2: x+w-9, y2: y+h, stroke: '#333', 'stroke-width': 1.6 }, g); break;
+    }
+    case 'delay': {
+      const r = h/2;
+      el('path', { d: `M ${x},${y} L ${x+w-r},${y} A ${r},${r} 0 0 1 ${x+w-r},${y+h} L ${x},${y+h} Z`, fill: '#FFCCBC', stroke: '#BF360C', 'stroke-width': 1.6 }, parent); break;
+    }
+    case 'document': {
+      const wave = 8;
+      el('path', { d: `M ${x},${y} L ${x+w},${y} L ${x+w},${y+h-wave} Q ${x+3*w/4},${y+h+wave} ${x+w/2},${y+h-wave/2} Q ${x+w/4},${y+h-wave*1.5} ${x},${y+h-wave/2} Z`, fill: '#FFCC80', stroke: '#E65100', 'stroke-width': 1.6 }, parent); break;
+    }
+    case 'cylinder': {
+      const g = el('g', {}, parent);
+      const ry = 8;
+      el('path', { d: `M ${x},${y+ry} L ${x},${y+h-ry} A ${w/2},${ry} 0 0 0 ${x+w},${y+h-ry} L ${x+w},${y+ry} Z`, fill: '#A5D6A7', stroke: '#1B5E20', 'stroke-width': 1.6 }, g);
+      el('ellipse', { cx: x+w/2, cy: y+ry, rx: w/2, ry, fill: '#A5D6A7', stroke: '#1B5E20', 'stroke-width': 1.6 }, g); break;
+    }
+  }
+
+  if (node.id !== undefined) {
+    editText(parent, x, y, w, h, 'node:' + node.id, label, { fontSize: type === 'decision' ? 11 : 11.5, fontWeight: 600, color: textFill });
+  } else {
+    const lines = label.split('\n'); const lineH = 13;
+    const startY = y + h/2 - (lines.length - 1) * lineH / 2 + 4;
+    const text = el('text', { x: cx, y: startY, 'text-anchor': 'middle', 'font-size': type === 'decision' ? 11 : 11.5, 'font-weight': 600, fill: textFill }, parent);
+    lines.forEach((line, i) => { const ts = el('tspan', { x: cx, dy: i === 0 ? 0 : lineH }, text); ts.textContent = line; });
+  }
+}
+
+// ===== Edge helpers (Phase 2: smart routing + anchor distribution) =====
+
+// --- Anchor distribution ---
+// Group edges by (nodeId:side) so multiple edges sharing an endpoint can be spread out.
+const endpointGroups = {};
+for (const e of edges) {
+  const fk = e.from + ':' + e.fs;
+  const tk = e.to + ':' + e.ts;
+  (endpointGroups[fk] = endpointGroups[fk] || []).push({ e, role: 'from' });
+  (endpointGroups[tk] = endpointGroups[tk] || []).push({ e, role: 'to' });
+}
+
+const edgeAnchors = new Map();
+for (const e of edges) edgeAnchors.set(e, { aOff: { dx: 0, dy: 0 }, bOff: { dx: 0, dy: 0 } });
+
+function offsetForSide(side, idx, total, span) {
+  if (total <= 1) return { dx: 0, dy: 0 };
+  const spread = Math.min(span * 0.6, (total - 1) * 24);
+  const step = spread / (total - 1);
+  const v = -spread / 2 + idx * step;
+  return (side === 't' || side === 'b') ? { dx: v, dy: 0 } : { dx: 0, dy: v };
+}
+
+for (const k in endpointGroups) {
+  const grp = endpointGroups[k];
+  if (grp.length <= 1) continue;
+  const [nodeId, side] = k.split(':');
+  const n = N[nodeId];
+  if (!n) continue;
+  const span = (side === 't' || side === 'b') ? n.w : n.h;
+  // Sort by the OPPOSITE endpoint coordinate so adjacent slots untangle.
+  grp.sort((g1, g2) => {
+    const otherId1 = g1.role === 'from' ? g1.e.to : g1.e.from;
+    const otherId2 = g2.role === 'from' ? g2.e.to : g2.e.from;
+    const n1 = N[otherId1], n2 = N[otherId2];
+    if (!n1 || !n2) return 0;
+    return (side === 't' || side === 'b') ? (n1.cx - n2.cx) : (n1.cy - n2.cy);
+  });
+  grp.forEach((g, i) => {
+    const off = offsetForSide(side, i, grp.length, span);
+    const slot = edgeAnchors.get(g.e);
+    if (g.role === 'from') slot.aOff = off; else slot.bOff = off;
+  });
+}
+
+function anchor(id, side, off) {
+  const n = N[id];
+  const o = off || { dx: 0, dy: 0 };
+  switch (side) {
+    case 't': return { x: n.cx + o.dx, y: n.y };
+    case 'b': return { x: n.cx + o.dx, y: n.y + n.h };
+    case 'l': return { x: n.cx - n.w/2, y: n.y + n.h/2 + o.dy };
+    case 'r': return { x: n.cx + n.w/2, y: n.y + n.h/2 + o.dy };
+  }
+}
+
+function buildPath(points) {
+  let d = `M ${points[0][0]},${points[0][1]}`;
+  for (let i = 1; i < points.length; i++) d += ` L ${points[i][0]},${points[i][1]}`;
+  return d;
+}
+
+// --- Node-collision avoidance (post-pass) ---
+// Re-route any orthogonal segment that cuts through a node body. Three repairs:
+//   shift — both segment ends are interior corners → slide the whole segment aside
+//   jog   — one end is an anchor → bend around the node starting from the anchored side
+//   U-jog — both ends are anchors → step over the node and come back
+// Dodges go on the side of the node facing the path's destination.
+const AVOID_PAD = 12;
+const AVOID_PASSES = 8;
+function segCutsBox(x1, y1, x2, y2, b) {
+  if (Math.abs(y1 - y2) < 0.5) {  // horizontal segment
+    return y1 > b.y1 + 1 && y1 < b.y2 - 1 &&
+           Math.max(x1, x2) > b.x1 + 1 && Math.min(x1, x2) < b.x2 - 1;
+  }
+  if (Math.abs(x1 - x2) < 0.5) {  // vertical segment
+    return x1 > b.x1 + 1 && x1 < b.x2 - 1 &&
+           Math.max(y1, y2) > b.y1 + 1 && Math.min(y1, y2) < b.y2 - 1;
+  }
+  return false; // diagonal (manual via) — the author's explicit intent
+}
+function avoidNodeCollisions(pts, e) {
+  const boxes = Object.values(N)
+    .filter(n => n.id !== e.from && n.id !== e.to)
+    .map(n => ({ id: n.id, x1: n.cx - n.w/2, x2: n.cx + n.w/2, y1: n.y, y2: n.y + n.h }));
+  const target = pts[pts.length - 1];
+  for (let pass = 0; pass < AVOID_PASSES; pass++) {
+    let fixed = false;
+    for (let i = 0; i < pts.length - 1 && !fixed; i++) {
+      const [x1, y1] = pts[i], [x2, y2] = pts[i + 1];
+      const hit = boxes.find(b => segCutsBox(x1, y1, x2, y2, b));
+      if (!hit) continue;
+      const startFixed = i === 0, endFixed = i + 1 === pts.length - 1;
+      if (Math.abs(y1 - y2) < 0.5) {  // horizontal
+        const ny = [hit.y1 - AVOID_PAD, hit.y2 + AVOID_PAD]
+          .sort((p, q) => Math.abs(p - target[1]) - Math.abs(q - target[1]))[0];
+        const d = Math.sign(x2 - x1) || 1;
+        const inX  = (d > 0 ? hit.x1 : hit.x2) - d * AVOID_PAD;
+        const outX = (d > 0 ? hit.x2 : hit.x1) + d * AVOID_PAD;
+        if (!startFixed && !endFixed) {
+          pts[i][1] = ny; pts[i + 1][1] = ny;
+        } else if (startFixed && endFixed) {
+          pts.splice(i + 1, 0, [inX, y1], [inX, ny], [outX, ny], [outX, y1]);
+        } else if (startFixed) {
+          pts[i + 1][1] = ny;
+          pts.splice(i + 1, 0, [inX, y1], [inX, ny]);
+        } else {
+          const inX2 = (d > 0 ? hit.x2 : hit.x1) + d * AVOID_PAD;
+          pts[i][1] = ny;
+          pts.splice(i + 1, 0, [inX2, ny], [inX2, y2]);
+        }
+      } else {                         // vertical
+        const nx = [hit.x1 - AVOID_PAD, hit.x2 + AVOID_PAD]
+          .sort((p, q) => Math.abs(p - target[0]) - Math.abs(q - target[0]))[0];
+        const d = Math.sign(y2 - y1) || 1;
+        const inY  = (d > 0 ? hit.y1 : hit.y2) - d * AVOID_PAD;
+        const outY = (d > 0 ? hit.y2 : hit.y1) + d * AVOID_PAD;
+        if (!startFixed && !endFixed) {
+          pts[i][0] = nx; pts[i + 1][0] = nx;
+        } else if (startFixed && endFixed) {
+          pts.splice(i + 1, 0, [x1, inY], [nx, inY], [nx, outY], [x1, outY]);
+        } else if (startFixed) {
+          pts[i + 1][0] = nx;
+          pts.splice(i + 1, 0, [x1, inY], [nx, inY]);
+        } else {
+          const inY2 = (d > 0 ? hit.y2 : hit.y1) + d * AVOID_PAD;
+          pts[i][0] = nx;
+          pts.splice(i + 1, 0, [nx, inY2], [x1, inY2]);
+        }
+      }
+      fixed = true;
+    }
+    if (!fixed) break;
+  }
+  return pts;
+}
+
+// --- Gutter selection ---
+// Find a clear vertical channel between y1 and y2 to route a long edge through.
+// Returns { x, lane } where x is the channel x and lane is which lane edge it sits on.
+function chooseGutter(fromLane, toLane, y1, y2) {
+  const yMin = Math.min(y1, y2) - 10;
+  const yMax = Math.max(y1, y2) + 10;
+  const candidates = [];
+  // For each lane, evaluate right-edge as a possible gutter.
+  for (let i = 0; i < lanes.length; i++) {
+    const xR = laneRight(i) - 14;
+    let busy = 0;
+    for (const id in N) {
+      const node = N[id];
+      if (node.y + node.h < yMin || node.y > yMax) continue;
+      const nr = node.cx + node.w / 2;
+      const nl = node.cx - node.w / 2;
+      // Penalize if xR sits inside or very close to this node's horizontal extent.
+      if (xR > nl - 16 && xR < nr + 16) busy += 1;
+    }
+    candidates.push({ x: xR, busy, lane: i, side: 'r' });
+  }
+  // Also consider leftmost edge (lane 0 left)
+  candidates.push({ x: laneLeft(0) + 14, busy: 0, lane: -1, side: 'l' });
+  candidates.sort((a, b) => a.busy - b.busy);
+  // Among least-busy, pick one nearest the OUTER side of the span (right of max lane)
+  const minBusy = candidates[0].busy;
+  const free = candidates.filter(c => c.busy === minBusy);
+  const outerLane = Math.max(fromLane, toLane);
+  free.sort((a, b) => {
+    // Prefer right-side gutters when source is on the right; else closest to outer lane
+    const da = a.lane === -1 ? outerLane + 10 : Math.abs(a.lane - outerLane);
+    const db = b.lane === -1 ? outerLane + 10 : Math.abs(b.lane - outerLane);
+    return da - db;
+  });
+  return free[0].x;
+}
+
+function autoPoints(a, b, fs, ts, via, e) {
+  if (via) {
+    const pts = [[a.x, a.y]];
+    for (const v of via) pts.push(v);
+    pts.push([b.x, b.y]);
+    return pts;
+  }
+  const fromN = e ? N[e.from] : null;
+  const toN   = e ? N[e.to]   : null;
+  const isLoop = e && e.style === 'loop';
+
+  // 1. Loop-back: route through a free gutter
+  //    Override fs/ts so the path exits toward the gutter (no body-crossing),
+  //    and adds a vertical "dogleg" approach when ts is t/b.
+  if (isLoop && fromN && toN) {
+    const gx = chooseGutter(fromN.lane, toN.lane, a.y, b.y);
+    // Override fs: exit side closest to gutter
+    const fsAdj = (gx > fromN.cx) ? 'r' : 'l';
+    const aAdj = anchor(e.from, fsAdj, edgeAnchors.get(e) && edgeAnchors.get(e).aOff);
+    // Override ts only if ts is opposite-side relative to gutter; otherwise keep user intent
+    const tsAdj = (ts === 't' || ts === 'b') ? ts
+                : (gx > toN.cx) ? 'r' : 'l';
+    const bAdj = anchor(e.to, tsAdj, edgeAnchors.get(e) && edgeAnchors.get(e).bOff);
+
+    const pts = [[aAdj.x, aAdj.y]];
+    pts.push([gx, aAdj.y]);
+
+    if (tsAdj === 't' || tsAdj === 'b') {
+      // Dogleg: drop or rise PAST b, then approach b vertically
+      const stop = (tsAdj === 'b') ? bAdj.y + 28 : bAdj.y - 28;
+      pts.push([gx, stop]);
+      pts.push([bAdj.x, stop]);
+    } else {
+      pts.push([gx, bAdj.y]);
+    }
+    pts.push([bAdj.x, bAdj.y]);
+    return pts;
+  }
+
+  const pts = [[a.x, a.y]];
+
+  // 2. Path-collapse mitigation for adjacent-lane l↔r
+  if ((fs === 'r' && ts === 'l') || (fs === 'l' && ts === 'r')) {
+    if (Math.abs(a.y - b.y) < 0.5) {
+      // Same-row neighbours: keep one straight segment so the label centers in the gap
+      pts.push([b.x, b.y]);
+      return pts;
+    }
+    const gap = Math.abs(a.x - b.x);
+    if (gap < 30) {
+      // Endpoints sit at almost the same x (lane boundary). Divert via mid-y channel.
+      const mid = (a.y + b.y) / 2;
+      pts.push([a.x, mid], [b.x, mid]);
+      pts.push([b.x, b.y]);
+      return pts;
+    }
+    const mx = (a.x + b.x) / 2;
+    pts.push([mx, a.y], [mx, b.y]);
+    pts.push([b.x, b.y]);
+    return pts;
+  }
+
+  // 3. Default orthogonal routing (unchanged from Phase 1)
+  if (Math.abs(a.x - b.x) < 0.5 || Math.abs(a.y - b.y) < 0.5) {
+    // straight
+  } else if (fs === 'b' && ts === 't') { const m = (a.y + b.y) / 2; pts.push([a.x, m], [b.x, m]); }
+  else if (fs === 't' && ts === 'b') { const m = (a.y + b.y) / 2; pts.push([a.x, m], [b.x, m]); }
+  else if ((fs === 'b' && ts === 'l') || (fs === 'b' && ts === 'r')) pts.push([a.x, b.y]);
+  else if ((fs === 't' && ts === 'l') || (fs === 't' && ts === 'r')) pts.push([a.x, b.y]);
+  else if ((fs === 'r' && ts === 't') || (fs === 'l' && ts === 't')) pts.push([b.x, a.y]);
+  else if ((fs === 'r' && ts === 'b') || (fs === 'l' && ts === 'b')) pts.push([b.x, a.y]);
+  pts.push([b.x, b.y]);
+  return pts;
+}
+
+function pickLabelPos(points) {
+  let maxLen = 0; let best = null;
+  for (let i = 0; i < points.length - 1; i++) {
+    const [x1, y1] = points[i]; const [x2, y2] = points[i+1];
+    const len = Math.hypot(x2-x1, y2-y1);
+    if (len > maxLen) {
+      maxLen = len;
+      best = {
+        x: (x1+x2)/2, y: (y1+y2)/2,
+        dir: Math.abs(x2-x1) > Math.abs(y2-y1) ? 'h' : 'v',
+        segIdx: i,
+      };
+    }
+  }
+  return best;
+}
+
+// --- Label collision avoidance ---
+// Shift label if it overlaps any node bbox or an already-placed label box.
+function labelOverlapsNode(lx, ly, bw, bh) {
+  for (const id in N) {
+    const n = N[id];
+    if (lx + bw/2 < n.cx - n.w/2 - 4) continue;
+    if (lx - bw/2 > n.cx + n.w/2 + 4) continue;
+    if (ly + bh/2 < n.y - 4) continue;
+    if (ly - bh/2 > n.y + n.h + 4) continue;
+    return true;
+  }
+  return false;
+}
+function labelBlocked(lx, ly, bw, bh, placed) {
+  if (labelOverlapsNode(lx, ly, bw, bh)) return true;
+  for (const p of placed || []) {
+    if (lx + bw/2 > p.x - p.w/2 - 4 && lx - bw/2 < p.x + p.w/2 + 4 &&
+        ly + bh/2 > p.y - p.h/2 - 4 && ly - bh/2 < p.y + p.h/2 + 4) return true;
+  }
+  return false;
+}
+
+function adjustLabelPos(initial, bw, bh, points, placed) {
+  if (!labelBlocked(initial.x, initial.y, bw, bh, placed)) return { x: initial.x, y: initial.y };
+  // Try a small perpendicular nudge first — keeps the label visually on its line.
+  const perp = initial.dir === 'h'
+    ? [{ dx: 0, dy: -(bh/2 + 8) }, { dx: 0, dy: bh/2 + 8 }]
+    : [{ dx: -(bw/2 + 8), dy: 0 }, { dx: bw/2 + 8, dy: 0 }];
+  for (const o of perp) {
+    if (!labelBlocked(initial.x + o.dx, initial.y + o.dy, bw, bh, placed))
+      return { x: initial.x + o.dx, y: initial.y + o.dy };
+  }
+  // Walk along each segment from longest to shortest, find clear point.
+  const segs = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const [x1, y1] = points[i], [x2, y2] = points[i+1];
+    segs.push({ x1, y1, x2, y2, len: Math.hypot(x2-x1, y2-y1) });
+  }
+  segs.sort((a, b) => b.len - a.len);
+  for (const s of segs) {
+    const steps = 12;
+    for (let t = 1; t < steps; t++) {
+      const x = s.x1 + (s.x2 - s.x1) * t / steps;
+      const y = s.y1 + (s.y2 - s.y1) * t / steps;
+      if (!labelBlocked(x, y, bw, bh, placed)) return { x, y };
+    }
+  }
+  return { x: initial.x, y: initial.y };
+}
+
+// ===== Render edges (paths only — labels drawn after nodes) =====
+const edgeLayer = el('g', { id: 'edges' }, svg);
+const pendingLabels = []; // { lx, ly, edgeId, defaultText, stroke }
+
+const renderedPaths = []; // { e, points } — kept for the layout self-check
+
+for (const e of edges) {
+  const off = edgeAnchors.get(e) || { aOff: {dx:0,dy:0}, bOff: {dx:0,dy:0} };
+  const a = anchor(e.from, e.fs, off.aOff);
+  const b = anchor(e.to,   e.ts, off.bOff);
+  let points = autoPoints(a, b, e.fs, e.ts, e.via, e);
+  if (!e.via) points = avoidNodeCollisions(points, e);
+  renderedPaths.push({ e, points });
+  const d = buildPath(points);
+
+  let stroke = '#333', dash = 'none';
+  const attrs = { d, fill: 'none', 'stroke-width': 1.7, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', 'marker-end': 'url(#arrow)' };
+  if (e.style === 'loop') { stroke = '#C62828'; dash = '6 4'; attrs['marker-end'] = 'url(#arrowLoop)'; }
+  else if (e.style === 'ok') { stroke = '#2E7D32'; attrs['marker-end'] = 'url(#arrowOk)'; }
+  else if (e.style === 'bi') { attrs['marker-start'] = 'url(#arrowB)'; }
+  attrs.stroke = stroke; attrs['stroke-dasharray'] = dash;
+  el('path', attrs, edgeLayer);
+
+  if (e.label) {
+    const pos = pickLabelPos(points);
+    if (!pos) continue;
+    pendingLabels.push({
+      initial: pos,
+      points,
+      edgeId: 'edge:' + e.from + '>' + e.to,
+      defaultText: e.label,
+      stroke,
+    });
+  }
+}
+
+// ===== Render nodes =====
+const nodeLayer = el('g', { id: 'nodes' }, svg);
+for (const id in N) drawShape(nodeLayer, N[id]);
+
+// ===== Render edge labels ON TOP (above nodes), with collision avoidance =====
+// Box width comes from canvas measureText — estimating by char count overflows the
+// inter-lane gap and parks labels on top of nodes.
+const _measureCtx = document.createElement('canvas').getContext('2d');
+function measureTextW(lines, fontSize) {
+  _measureCtx.font = `600 ${fontSize}px 'Segoe UI', 'Sarabun', 'Tahoma', sans-serif`;
+  return Math.max(...lines.map(l => _measureCtx.measureText(l).width));
+}
+const edgeLabelLayer = el('g', { id: 'edge-labels' }, svg);
+const placedLabels = []; // { x, y, w, h } — labels already on the canvas
+for (const L of pendingLabels) {
+  const { initial, points, edgeId, defaultText, stroke } = L;
+  const actual = loadEdit(edgeId, defaultText);
+  const lines = actual.split('\n'); const lh = 13;
+  const bw = Math.max(40, measureTextW(lines, 10.5) + 16);
+  const bh = lines.length * lh + 8;
+  const adj = adjustLabelPos(initial, bw, bh, points, placedLabels);
+  const lx = adj.x, ly = adj.y;
+  placedLabels.push({ x: lx, y: ly, w: bw, h: bh });
+  el('rect', { x: lx - bw/2, y: ly - bh/2, width: bw, height: bh, fill: '#fff', stroke, 'stroke-width': 0.8, opacity: 0.95, rx: 4 }, edgeLabelLayer);
+  editText(edgeLabelLayer, lx - bw/2, ly - bh/2, bw, bh, edgeId, defaultText, { fontSize: 10.5, fontWeight: 600, color: stroke });
+}
+
+// ===== Legend =====
+const legendItems = [
+  { type: 'terminator',   title: 'Terminator',         desc: 'จุดเริ่ม / จบ flow' },
+  { type: 'process',      title: 'Process',            desc: 'ขั้นตอนทำงานปกติ' },
+  { type: 'decision',     title: 'Decision',           desc: 'จุดตัดสินใจ (YES/NO)' },
+  { type: 'data',         title: 'Data / I-O',         desc: 'รับ/ส่งข้อมูล' },
+  { type: 'manualInput',  title: 'Manual Input',       desc: 'user ป้อนข้อมูลเอง' },
+  { type: 'subprocess',   title: 'Predefined Process', desc: 'subroutine / worker thread' },
+  { type: 'delay',        title: 'Delay / Wait',       desc: 'รอ event หรือเวลา' },
+  { type: 'document',     title: 'Document',           desc: 'เอกสาร / API resource' },
+  { type: 'cylinder',     title: 'Database',           desc: 'ระบบภายนอก / DB' },
+];
+const legend = document.getElementById('legend');
+for (const li of legendItems) {
+  const wrap = document.createElement('div'); wrap.className = 'legend-item';
+  const svgL = document.createElementNS(SVG_NS, 'svg'); svgL.setAttribute('viewBox', '0 0 70 40');
+  const fakeNode = { type: li.type, cx: 35, y: 6, w: 50, h: 28, label: '' };
+  if (li.type === 'decision') { fakeNode.w = 50; fakeNode.h = 32; fakeNode.y = 4; }
+  drawShape(svgL, fakeNode);
+  wrap.appendChild(svgL);
+  const txt = document.createElement('div');
+  txt.innerHTML = `<strong>${li.title}</strong><br><span>${li.desc}</span>`;
+  wrap.appendChild(txt);
+  legend.appendChild(wrap);
+}
+
+updateBadge();
+
+// ===== Layout self-check — warns in the console if anything still overlaps =====
+(function selfCheck() {
+  const warns = [];
+  const nb = Object.values(N).map(n => ({ id: n.id, x1: n.cx - n.w/2, x2: n.cx + n.w/2, y1: n.y, y2: n.y + n.h }));
+  for (const { e, points } of renderedPaths) {
+    for (let i = 0; i < points.length - 1; i++) {
+      for (const b of nb) {
+        if (b.id === e.from || b.id === e.to) continue;
+        if (segCutsBox(points[i][0], points[i][1], points[i+1][0], points[i+1][1], b))
+          warns.push(`edge ${e.from}→${e.to} cuts through node "${b.id}"${e.via ? ' (manual via — adjust waypoints)' : ''}`);
+      }
+    }
+  }
+  for (const p of placedLabels) {
+    for (const b of nb) {
+      if (p.x + p.w/2 > b.x1 + 2 && p.x - p.w/2 < b.x2 - 2 &&
+          p.y + p.h/2 > b.y1 + 2 && p.y - p.h/2 < b.y2 - 2)
+        warns.push(`an edge label overlaps node "${b.id}"`);
+    }
+  }
+  if (warns.length) warns.forEach(w => console.warn('[flow-process] ' + w));
+  else console.info('[flow-process] layout self-check: no overlaps');
+})();
+</script>
+</body>
+</html>
