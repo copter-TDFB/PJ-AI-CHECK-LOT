@@ -17,4 +17,4 @@ post_ocr_fixes: [lot_alpha_prefix]
 
 message_template_key: default_full
 model_classifier_label: grade_bag
-detector_yolo_prefixes: [grade_bag_lot]
+detector_yolo_prefixes: [grade_bag_lot, grade_bag_product]
