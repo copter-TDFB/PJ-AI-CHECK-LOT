@@ -93,6 +93,7 @@ def create_packaging(body: PackagingCreate):
             description=body.description,
             pipeline=body.pipeline.value,
             sub_regions=body.sub_regions,
+            detection_mode=body.detection_mode.value,
         )
     except ValueError as exc:
         raise HTTPException(409, str(exc))
@@ -469,6 +470,17 @@ def training_full_start(key: str):
     labeled = [it for it in status if it["labeled"]]
     if len(labeled) < 30:
         raise HTTPException(400, f"need at least 30 labeled images (have {len(labeled)})")
+
+    if draft.get("detection_mode") == "multi_field":
+        cfg = draft.get("config") or {}
+        subs = draft.get("sub_regions", [])
+        missing = [f for f in cfg.get("fields_extracted", []) if f not in subs]
+        if missing:
+            raise HTTPException(
+                400,
+                f"multi_field: fields {missing} have no crop sub-region — "
+                "add them in step 1 or untick them in step 4",
+            )
 
     from services import dataset_publisher, notebook_generator, progress_store
     from services.drive_client import DriveClient

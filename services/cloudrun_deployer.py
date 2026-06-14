@@ -59,6 +59,14 @@ def write_packaging_yaml(key: str, draft_meta: dict[str, Any]) -> Path:
         "message_template_key": cfg.get("message_template_key"),
     }
 
+    sub_regions_final = draft_meta.get("sub_regions") or existing.get("sub_regions", [])
+    detection_mode = draft_meta.get("detection_mode") or existing.get("detection_mode", "single")
+    default_prefixes = (
+        [f"{key}_{sr}" for sr in sub_regions_final]
+        if detection_mode == "multi_field" and sub_regions_final
+        else [f"{key}_lot"]
+    )
+
     data = {
         "key": key,
         "display_name": draft_meta.get("display_name") or existing.get("display_name", key),
@@ -67,7 +75,8 @@ def write_packaging_yaml(key: str, draft_meta: dict[str, Any]) -> Path:
         "accuracy": existing.get("accuracy"),  # cleared by /eval if retrained
         "gate_on_lot": existing.get("gate_on_lot", True),
         "lot_short_fallback": existing.get("lot_short_fallback", False),
-        "sub_regions": draft_meta.get("sub_regions") or existing.get("sub_regions", []),
+        "sub_regions": sub_regions_final,
+        "detection_mode": detection_mode,
         "lot_patterns": edited["lot_patterns"] if edited["lot_patterns"] is not None
             else existing.get("lot_patterns", []),
         "fields_extracted": edited["fields_extracted"] if edited["fields_extracted"] is not None
@@ -79,7 +88,7 @@ def write_packaging_yaml(key: str, draft_meta: dict[str, Any]) -> Path:
             if edited["message_template_key"] is not None
             else existing.get("message_template_key", "lot_only"),
         "model_classifier_label": existing.get("model_classifier_label", key),
-        "detector_yolo_prefixes": existing.get("detector_yolo_prefixes", [f"{key}_lot"]),
+        "detector_yolo_prefixes": existing.get("detector_yolo_prefixes", default_prefixes),
     }
 
     _PACKAGING_DIR.mkdir(parents=True, exist_ok=True)

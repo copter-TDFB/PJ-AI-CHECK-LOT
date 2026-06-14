@@ -75,3 +75,54 @@ def test_multi_field_routes_each_crop_to_its_field(monkeypatch):
     assert result["lot_box"] is None
     assert result["status"] == "ok"
     assert bbox == [0, 0, 1, 1]
+
+
+import pytest
+from pydantic import ValidationError
+from api.schemas import PackagingCreate
+
+
+def test_multi_field_requires_lot_sub_region():
+    with pytest.raises(ValidationError):
+        PackagingCreate(key="k", display_name="K",
+                        detection_mode="multi_field", sub_regions=["exp", "size"])
+
+
+def test_multi_field_accepts_lot_plus_fields():
+    m = PackagingCreate(key="k", display_name="K",
+                        detection_mode="multi_field",
+                        sub_regions=["lot", "exp", "product", "size"])
+    assert m.detection_mode == "multi_field"
+    assert "lot" in m.sub_regions
+
+
+def test_cross_check_requires_two_sub_regions():
+    with pytest.raises(ValidationError):
+        PackagingCreate(key="k", display_name="K",
+                        detection_mode="cross_check", sub_regions=["box"])
+
+
+def test_default_detection_mode_is_single():
+    m = PackagingCreate(key="k", display_name="K")
+    assert m.detection_mode == "single"
+
+
+def test_deployer_writes_multi_field_mode_and_prefixes(tmp_path, monkeypatch):
+    import services.cloudrun_deployer as dep
+    monkeypatch.setattr(dep, "_PACKAGING_DIR", tmp_path)
+    draft_meta = {
+        "display_name": "New Pkg",
+        "pipeline": "detector_ocr",
+        "sub_regions": ["lot", "exp", "product", "size"],
+        "detection_mode": "multi_field",
+        "config": {
+            "lot_patterns": ["LOT(\\w+)"], "fields_extracted": ["lot", "exp", "product", "size"],
+            "sheet_checks": ["lot"], "message_template_key": "default_full",
+        },
+    }
+    out = dep.write_packaging_yaml("newpkg", draft_meta)
+    import yaml
+    data = yaml.safe_load(out.read_text(encoding="utf-8"))
+    assert data["detection_mode"] == "multi_field"
+    assert data["detector_yolo_prefixes"] == [
+        "newpkg_lot", "newpkg_exp", "newpkg_product", "newpkg_size"]

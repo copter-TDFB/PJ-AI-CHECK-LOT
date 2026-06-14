@@ -58,6 +58,7 @@ def create_draft(
     description: str | None,
     pipeline: str,
     sub_regions: list[str] | None = None,
+    detection_mode: str = "single",
 ) -> dict:
     """สร้าง draft ใหม่ — raise ValueError ถ้ามี key ซ้ำ."""
     draft_path = _DRAFT_DIR / key
@@ -73,6 +74,7 @@ def create_draft(
         "description": description,
         "pipeline": pipeline,
         "sub_regions": sub_regions or ["lot"],
+        "detection_mode": detection_mode,
         "status": "draft",
         "created_at": _now_iso(),
         "updated_at": _now_iso(),
@@ -148,6 +150,7 @@ def clone_from_active(
         "description": description or f"Edit draft cloned from active {parent_key}",
         "pipeline": active_yaml.get("pipeline", "detector_ocr"),
         "sub_regions": active_yaml.get("sub_regions", []) or ["lot"],
+        "detection_mode": active_yaml.get("detection_mode", "single"),
         "status": "draft",  # no images of its own yet — first upload bumps to "uploading"
         "created_at": _now_iso(),
         "updated_at": _now_iso(),

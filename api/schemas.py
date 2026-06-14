@@ -4,12 +4,18 @@ import re
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class PipelineType(str, Enum):
     detector_ocr = "detector_ocr"
     qr_scanner = "qr_scanner"
+
+
+class DetectionMode(str, Enum):
+    single = "single"
+    cross_check = "cross_check"
+    multi_field = "multi_field"
 
 
 class PackagingCreate(BaseModel):
@@ -18,6 +24,7 @@ class PackagingCreate(BaseModel):
     description: str | None = Field(None, max_length=500)
     pipeline: PipelineType = PipelineType.detector_ocr
     sub_regions: list[str] = Field(default_factory=lambda: ["lot"])
+    detection_mode: DetectionMode = DetectionMode.single
 
     @field_validator("sub_regions")
     @classmethod
@@ -35,6 +42,16 @@ class PackagingCreate(BaseModel):
         if not cleaned:
             return ["lot"]
         return cleaned
+
+    @model_validator(mode="after")
+    def _check_detection_mode(self):
+        if self.detection_mode == DetectionMode.multi_field:
+            if "lot" not in self.sub_regions:
+                raise ValueError("multi_field ต้องมี sub-region 'lot' (ทุก field ต้องมีกรอบของตัวเอง)")
+        elif self.detection_mode == DetectionMode.cross_check:
+            if len(self.sub_regions) < 2:
+                raise ValueError("cross_check ต้องมีอย่างน้อย 2 sub-regions (เช่น box, sachet)")
+        return self
 
 
 class PackagingUpdate(BaseModel):
