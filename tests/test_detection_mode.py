@@ -1,5 +1,9 @@
 """Multi-field detection mode — config load, routing, schema, label mapping."""
 
+import pytest
+from pydantic import ValidationError
+
+from api.schemas import PackagingCreate
 from pipeline.detector import DetectionResult
 from pipeline.packaging_registry import PackagingRegistry
 
@@ -77,11 +81,6 @@ def test_multi_field_routes_each_crop_to_its_field(monkeypatch):
     assert bbox == [0, 0, 1, 1]
 
 
-import pytest
-from pydantic import ValidationError
-from api.schemas import PackagingCreate
-
-
 def test_multi_field_requires_lot_sub_region():
     with pytest.raises(ValidationError):
         PackagingCreate(key="k", display_name="K",
@@ -126,3 +125,18 @@ def test_deployer_writes_multi_field_mode_and_prefixes(tmp_path, monkeypatch):
     assert data["detection_mode"] == "multi_field"
     assert data["detector_yolo_prefixes"] == [
         "newpkg_lot", "newpkg_exp", "newpkg_product", "newpkg_size"]
+
+
+def test_multi_field_label_lines_map_each_field_to_its_class():
+    from services.dataset_publisher import label_lines, merge_class_names
+    sub_regions = ["lot", "exp", "product", "size"]
+    merged = merge_class_names([], [f"k_{s}" for s in sub_regions])
+    label_to_id = {s: merged.index(f"k_{s}") for s in sub_regions}
+
+    bboxes = [
+        {"x1": 0, "y1": 0, "x2": 10, "y2": 10, "label": "size"},
+        {"x1": 0, "y1": 20, "x2": 10, "y2": 30, "label": "lot"},
+    ]
+    lines = label_lines(bboxes, label_to_id, 100, 100, default_label="lot")
+    class_ids = [int(line.split()[0]) for line in lines]
+    assert class_ids == [label_to_id["size"], label_to_id["lot"]]
