@@ -22,6 +22,7 @@ _CONF_THRESHOLD = float(os.getenv("DETECTOR_CONF", "0.25"))
 class DetectionResult:
     cropped_bytes: bytes   # JPEG bytes ของ region ที่ crop แล้ว
     bbox: Bbox | None      # [x1, y1, x2, y2] relative ต่อรูปต้นฉบับ
+    class_name: str | None = None   # YOLO class of the matched box (e.g. "back_label_size")
 
 
 
@@ -111,7 +112,11 @@ class RegionDetector:
             logger.info("YOLO box: class=%s bbox=[%d,%d,%d,%d] conf=%.3f",
                         image_class, x1, y1, x2, y2, conf)
             cropped = img[y1:y2, x1:x2]
-            detections.append(DetectionResult(cropped_bytes=_to_jpeg(cropped), bbox=[x1, y1, x2, y2]))
+            detections.append(DetectionResult(
+                cropped_bytes=_to_jpeg(cropped),
+                bbox=[x1, y1, x2, y2],
+                class_name=class_names.get(cls_ids[idx]),
+            ))
 
         return detections
 
