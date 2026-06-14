@@ -186,7 +186,9 @@ async def predict(
 
     template = registry.get_template(config.message_template_key)
     lot_for_message = (
-        result.get("lot_box") if config.sub_regions else result.get("lot_number")
+        result.get("lot_box")
+        if config.detection_mode == "cross_check"
+        else result.get("lot_number")
     )
     verify_message = build_verify_message(config, template, sheet, lot_for_message)
 

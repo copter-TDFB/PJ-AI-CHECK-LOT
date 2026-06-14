@@ -21,3 +21,57 @@ def test_detection_result_has_class_name_default_none():
     assert d.class_name is None
     d2 = DetectionResult(cropped_bytes=b"x", bbox=[0, 0, 1, 1], class_name="k_lot")
     assert d2.class_name == "k_lot"
+
+
+import pipeline.pipeline_runner as pr
+from pipeline.pipeline_runner import PipelineRunner
+from pipeline.packaging_registry import PackagingConfig
+
+
+def _cfg_multi(key="k"):
+    return PackagingConfig(
+        key=key, display_name="K", pipeline="detector_ocr",
+        lot_patterns=[], fields_extracted=["lot", "exp", "product", "size"],
+        sheet_checks=["lot"], post_ocr_fixes=[], message_template_key="default_full",
+        model_classifier_label=key, detector_yolo_prefixes=[f"{key}_lot"],
+        conf_threshold=0.6, accuracy=None, gate_on_lot=True, lot_short_fallback=False,
+        sub_regions=["lot", "exp", "product", "size"], detection_mode="multi_field",
+    )
+
+
+class _FakeDetector:
+    def __init__(self, dets): self._dets = dets
+    def crop_all(self, image_bytes, key): return self._dets
+
+
+class _FakePre:
+    def run(self, b, key): return b
+
+
+class _FakeOcr:
+    def run(self, b, config=None):
+        return {"raw_text": b.decode(), "lot_number": None}
+
+
+def test_multi_field_routes_each_crop_to_its_field(monkeypatch):
+    dets = [
+        DetectionResult(cropped_bytes=b"LOTTEXT", bbox=[0, 0, 1, 1], class_name="k_lot"),
+        DetectionResult(cropped_bytes=b"EXPTEXT", bbox=[0, 1, 1, 2], class_name="k_exp"),
+        DetectionResult(cropped_bytes=b"NAMETEXT", bbox=[0, 2, 1, 3], class_name="k_product"),
+        DetectionResult(cropped_bytes=b"SIZETEXT", bbox=[0, 3, 1, 4], class_name="k_size"),
+    ]
+    monkeypatch.setattr(pr, "find_lot", lambda t, image_class=None, patterns=None: f"LOT::{t}")
+    monkeypatch.setattr(pr, "find_expiry", lambda t: f"EXP::{t}")
+    monkeypatch.setattr(pr, "find_product_name", lambda t: f"PROD::{t}")
+    monkeypatch.setattr(pr, "find_size", lambda t: f"SIZE::{t}")
+
+    runner = PipelineRunner(_FakeDetector(dets), _FakePre(), _FakeOcr(), object())
+    result, bbox = runner._run_multi_field(b"img", _cfg_multi())
+
+    assert result["lot_number"] == "LOT::LOTTEXT"
+    assert result["exp_date"] == "EXP::EXPTEXT"
+    assert result["product_name"] == "PROD::NAMETEXT"
+    assert result["size"] == "SIZE::SIZETEXT"
+    assert result["lot_box"] is None
+    assert result["status"] == "ok"
+    assert bbox == [0, 0, 1, 1]
