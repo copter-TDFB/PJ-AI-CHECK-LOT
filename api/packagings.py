@@ -782,7 +782,7 @@ def _resolve_pipeline(key: str) -> tuple[str, list[str]]:
             return cfg.pipeline, cfg.sub_regions
     draft = packaging_store.get_draft(key)
     if draft is not None and draft.get("config"):
-        return draft["config"].get("pipeline", "detector_ocr"), []
+        return draft.get("pipeline", "detector_ocr"), draft.get("sub_regions", [])
     return "detector_ocr", []
 
 
