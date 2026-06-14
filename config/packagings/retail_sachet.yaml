@@ -6,6 +6,7 @@ accuracy: 0.95
 gate_on_lot: true
 lot_short_fallback: false
 sub_regions: []
+detection_mode: single
 
 lot_patterns:
   - '(?i)LOT\s*[:\.\-]?\s*(\d{4})\b'

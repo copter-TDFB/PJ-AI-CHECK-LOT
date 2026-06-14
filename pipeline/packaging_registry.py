@@ -27,6 +27,7 @@ class PackagingConfig:
     gate_on_lot: bool
     lot_short_fallback: bool
     sub_regions: list[str]           # ['box', 'sachet'] for container_label
+    detection_mode: str = "single"   # 'single' | 'cross_check' | 'multi_field'
 
 
 @dataclass
@@ -85,6 +86,7 @@ class PackagingRegistry:
                 gate_on_lot=bool(data.get("gate_on_lot", True)),
                 lot_short_fallback=bool(data.get("lot_short_fallback", False)),
                 sub_regions=data.get("sub_regions", []),
+                detection_mode=data.get("detection_mode", "single"),
             )
             self._configs[cfg.key] = cfg
             logger.debug("Loaded packaging config: %s", cfg.key)
