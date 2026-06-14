@@ -379,6 +379,110 @@ select{
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238A8FA5' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 12px center;
 }
+/* Dark dropdown popup (native option list defaults to white otherwise) */
+select option,select optgroup{
+  background:var(--s1);color:var(--t1);
+}
+
+/* ── Crop-region builder ─────────────────────────── */
+.sr-builder{display:flex;flex-direction:column;gap:9px}
+.sr-list{display:flex;flex-direction:column;gap:8px}
+.sr-row{
+  display:flex;align-items:center;gap:10px;
+  background:var(--s2);border:1px solid var(--bd);
+  border-radius:8px;padding:6px 8px 6px 12px;
+  transition:border-color .15s,background .15s;
+  animation:srPop .22s cubic-bezier(.16,1,.3,1);
+}
+.sr-row:hover{border-color:var(--bd2)}
+.sr-row:focus-within{border-color:var(--acc-bd);background:var(--s3)}
+@keyframes srPop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.sr-dot{
+  width:9px;height:9px;border-radius:50%;flex:0 0 auto;
+  box-shadow:0 0 0 3px rgba(255,255,255,.025);transition:background .15s;
+}
+.sr-idx{
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:var(--t3);min-width:11px;text-align:center;flex:0 0 auto;
+}
+.sr-row input[type=text]{
+  flex:1;width:auto;margin:0;border:none;background-color:transparent;
+  padding:5px 2px;font-family:'JetBrains Mono',monospace;
+  font-size:13px;color:var(--t1);border-radius:0;
+}
+.sr-row select{
+  flex:1;width:auto;margin:0;border:none;background-color:var(--s2);
+  padding:5px 22px 5px 2px;font-family:'JetBrains Mono',monospace;
+  font-size:13px;color:var(--t1);border-radius:0;
+  background-position:right 4px center;
+}
+.sr-row:focus-within select{background-color:var(--s3)}
+.sr-row input[type=text]:focus,.sr-row select:focus{border-color:transparent}
+.sr-row input[type=text]::placeholder{color:var(--t3)}
+.sr-mini{
+  flex:0 0 auto;width:26px;height:26px;border-radius:6px;border:none;
+  background:transparent;color:var(--t3);cursor:pointer;font-size:15px;line-height:1;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;
+}
+.sr-mini:hover{background:var(--s3);color:var(--t1)}
+.sr-del:hover{background:var(--err-bg);color:var(--err)}
+.sr-add{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:7px;
+  background:transparent;border:1px dashed var(--bd2);border-radius:8px;
+  padding:10px;color:var(--t2);font-size:12px;font-weight:600;
+  font-family:inherit;cursor:pointer;transition:all .15s;
+}
+.sr-add svg{transition:transform .2s}
+.sr-add:hover:not(:disabled){border-color:var(--acc-bd);color:var(--acc);background:var(--acc-bg)}
+.sr-add:hover:not(:disabled) svg{transform:rotate(90deg)}
+.sr-add:disabled{opacity:.35;cursor:not-allowed}
+.sr-foot{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;font-size:11px;color:var(--t3);line-height:1.6}
+.sr-foot-count{font-family:'JetBrains Mono',monospace;color:var(--t2)}
+.sr-foot-count b{color:var(--acc);font-weight:600}
+.sr-foot-eg code{color:var(--t2);font-family:'JetBrains Mono',monospace;font-size:10.5px}
+/* Single (default) crop region */
+.sr-single-card{
+  display:flex;align-items:flex-start;gap:11px;
+  background:var(--s2);border:1px solid var(--bd);
+  border-left:3px solid var(--acc);border-radius:7px;
+  padding:11px 13px;
+}
+.sr-single-card .sr-dot{margin-top:5px}
+.sr-single-name{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--t1);font-weight:600}
+.sr-single-desc{font-size:11.5px;color:var(--t2);line-height:1.6;margin-top:3px}
+.sr-hint-step4{
+  font-size:11.5px;color:var(--t2);line-height:1.6;
+  background:var(--acc-bg);border-radius:6px;padding:8px 11px;margin-top:9px;
+}
+.sr-hint-step4 b{color:var(--acc2);font-weight:600}
+.sr-adv-toggle{
+  display:block;width:100%;text-align:left;margin-top:9px;
+  background:transparent;border:none;cursor:pointer;
+  font-family:inherit;font-size:11px;color:var(--t3);
+  padding:2px 0;transition:color .15s;
+}
+.sr-adv-toggle:hover{color:var(--acc)}
+.sr-adv-toggle b{color:var(--t2);font-weight:600}
+.sr-adv-toggle:hover b{color:var(--acc)}
+#sr-multi{display:flex;flex-direction:column;gap:9px}
+.sr-multi-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font-size:11px;color:var(--t3);line-height:1.5;
+}
+.sr-adv-collapse{
+  flex:0 0 auto;background:transparent;border:none;cursor:pointer;
+  font-family:inherit;font-size:11px;color:var(--t3);padding:2px 4px;transition:color .15s;
+}
+.sr-adv-collapse:hover{color:var(--acc)}
+/* Mode tabs — 3-way crop mode selector */
+.sr-mode-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.sr-mode-tab{
+  flex:1 1 auto;padding:6px 10px;border-radius:6px;border:1px solid var(--bd);
+  background:var(--s2);color:var(--t2);font-family:inherit;font-size:11.5px;
+  cursor:pointer;transition:background .15s,color .15s,border-color .15s;text-align:center;
+}
+.sr-mode-tab:hover{color:var(--acc);border-color:var(--acc)}
+.sr-mode-tab.on{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:600}
 
 /* Info box */
 .info-box{
@@ -1177,19 +1281,61 @@ select{
               </div>
               <div class="fgroup">
                 <label>ประเภท Pipeline <span class="req">*</span></label>
-                <select id="inp-pipeline">
+                <select id="inp-pipeline" onchange="onPipelineChange()">
                   <option value="detector_ocr" selected>Detector + OCR (สำหรับ packaging ทั่วไป)</option>
                   <option value="qr_scanner">QR Scanner (สำหรับที่มี QR code)</option>
                 </select>
               </div>
-              <div class="fgroup">
-                <label>Sub-regions <span class="hint">บริเวณที่จะ crop — comma-separated (default: lot)</span></label>
-                <input type="text" id="inp-sub-regions" value="lot" placeholder="lot, name, size"
-                  style="font-family:'JetBrains Mono',monospace;font-size:13px">
-                <div style="font-size:11px;color:var(--t3);margin-top:5px;line-height:1.6">
-                  ตัวอย่าง: <code style="color:var(--acc)">lot</code> (รูปเดียว),
-                  <code style="color:var(--acc)">lot, name, size</code> (3 จุดเหมือน back_label),
-                  <code style="color:var(--acc)">box, sachet</code> (2 จุดเหมือน container_label)
+              <div class="fgroup" id="crop-fgroup">
+                <label>จุดที่จะ Crop <span class="hint">บริเวณที่ AI จะหากรอบมาอ่าน</span></label>
+
+                <div class="sr-mode-tabs">
+                  <button type="button" class="sr-mode-tab on" data-mode="single" onclick="srSetMode('single')">ข้อมูลอยู่ใกล้กัน — กรอบเดียว</button>
+                  <button type="button" class="sr-mode-tab" data-mode="multi_field" onclick="srSetMode('multi_field')">แต่ละข้อมูลอยู่คนละมุม</button>
+                  <button type="button" class="sr-mode-tab" data-mode="cross_check" onclick="srSetMode('cross_check')">lot อยู่หลายที่ ต้องเทียบ</button>
+                </div>
+
+                <!-- SINGLE (default) — one region called "lot" -->
+                <div id="sr-single">
+                  <div class="sr-single-card">
+                    <span class="sr-dot" style="background:#E8A020"></span>
+                    <div class="sr-single-body">
+                      <div class="sr-single-name">lot</div>
+                      <div class="sr-single-desc">AI หา "บริเวณ lot" ให้ — ลากกรอบครอบให้คลุม<b>ข้อความที่อยากอ่านทั้งหมด</b> (lot + วันหมดอายุ/ชื่อสินค้า/ขนาด ที่อยู่ใกล้กัน) ลากได้หลายกรอบในบริเวณเดียวกัน</div>
+                    </div>
+                  </div>
+                  <div class="sr-hint-step4">
+                    เลือก field ที่จะดึง (<b>วันหมดอายุ / ชื่อสินค้า / ขนาด</b>) ได้ใน <b>Step 4 (Config)</b> — แต่ค่าจะดึงจาก<b>ข้อความในกรอบที่คุณลาก</b> ฉะนั้นถ้าข้อความอยู่คนละมุม ลากกรอบครอบให้คลุมด้วย (ยังนับเป็นจุด lot จุดเดียว ไม่ต้องใช้โหมดขั้นสูง)
+                  </div>
+                  <button type="button" class="sr-adv-toggle" onclick="srToggleAdvanced(true)">
+                    ⚙ ขั้นสูง: lot พิมพ์ทั้งบน<b>กล่องนอก</b> + <b>ซองใน</b>? (เช่น container_label)
+                  </button>
+                </div>
+
+                <!-- MULTI (advanced) — physically-separate locations, cross-checked -->
+                <div id="sr-multi" style="display:none">
+                  <div class="sr-multi-head">
+                    <span>lot/วันที่ ปรากฏหลายตำแหน่ง — ครอบแยกเพื่อเทียบว่าตรงกัน</span>
+                    <button type="button" class="sr-adv-collapse" onclick="srToggleAdvanced(false)">↩ กลับเป็นจุดเดียว</button>
+                  </div>
+                  <div class="sr-list" id="sr-list"></div>
+                  <button type="button" class="sr-add" id="sr-add" onclick="srAdd()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    เพิ่มตำแหน่ง
+                  </button>
+                  <div class="sr-foot">
+                    <span class="sr-foot-count"><b id="sr-count">2</b> ตำแหน่ง</span>
+                    <span class="sr-foot-eg">เช่น <code>box · sachet</code> แบบ container_label (เทียบวันบนกล่องนอกกับซองใน)</span>
+                  </div>
+                </div>
+
+                <!-- MULTI_FIELD — each field has its own crop class -->
+                <div id="sr-fields" style="display:none">
+                  <div class="sr-multi-head"><span>ติ๊ก field ที่มีกรอบ/ตำแหน่งของตัวเอง — แต่ละอันจะเป็นคลาส YOLO แยก</span></div>
+                  <label class="cbitem on disabled"><input type="checkbox" data-field="lot" checked disabled> lot</label>
+                  <label class="cbitem"><input type="checkbox" data-field="exp"> วันหมดอายุ</label>
+                  <label class="cbitem"><input type="checkbox" data-field="product"> ชื่อสินค้า</label>
+                  <label class="cbitem"><input type="checkbox" data-field="size"> ขนาด</label>
                 </div>
               </div>
             </div>
@@ -1609,6 +1755,9 @@ function showView(id) {
 function startWizard() {
   closeDrawer();
   curStep = 1; curDraftKey = null;
+  cropRegions = [{ value: 'box', custom: false }, { value: 'sachet', custom: false }];
+  srSetMode('single');
+  onPipelineChange();
   renderSteps();
   showView('wizard');
   syncUrl();
@@ -1621,6 +1770,7 @@ function goStep(n) {
   if (content) content.scrollTo({top: 0, behavior: 'smooth'});
   if (n === 2) initStep2();
   if (n === 3) loadAnnotator();
+  if (n === 4) prefillFieldsFromSubRegions();
   if (n === 5) loadStep5();
   syncUrl();
 }
@@ -2250,26 +2400,147 @@ function cancelWizardStep1() {
   showView('dashboard');
 }
 
+// ─── Crop-region picker (step 1) ──────────────
+// A "sub-region" is a PHYSICAL crop location (becomes a YOLO detector class),
+// NOT a field. Default = one region named "lot"; one crop yields many fields
+// (lot/exp/…), chosen in step 4. Advanced = 2+ physically-separate locations
+// (box/sachet) cross-checked, like container_label. See CONTEXT.md.
+const SR_PRESETS = ['box', 'sachet'];   // physical locations only — never field names
+const SR_MAX = 4;
+let cropMode = 'single';                // 'single' | 'multi_field' | 'cross_check'
+// multi-mode entries: {value, custom} — custom=true → free-text input row
+let cropRegions = [{ value: 'box', custom: false }, { value: 'sachet', custom: false }];
+
+function srColor(i) { return ANNOT_COLORS[i % ANNOT_COLORS.length]; }
+
+function onPipelineChange() {
+  // QR pipeline reads a code, not a cropped region — hide the crop picker
+  const isQr = document.getElementById('inp-pipeline').value === 'qr_scanner';
+  const fg = document.getElementById('crop-fgroup');
+  if (fg) fg.style.display = isQr ? 'none' : '';
+}
+
+function srSetMode(mode) {
+  cropMode = mode;   // 'single' | 'multi_field' | 'cross_check'
+  document.querySelectorAll('.sr-mode-tab').forEach(t =>
+    t.classList.toggle('on', t.dataset.mode === mode));
+  const show = (id, on) => { const e = document.getElementById(id); if (e) e.style.display = on ? '' : 'none'; };
+  show('sr-single', mode === 'single');
+  show('sr-fields', mode === 'multi_field');
+  show('sr-multi', mode === 'cross_check');
+  if (mode === 'cross_check') srRender();
+}
+
+function srToggleAdvanced(on) {
+  if (on && cropRegions.length < 2) {
+    cropRegions = [{ value: 'box', custom: false }, { value: 'sachet', custom: false }];
+  }
+  srSetMode(on ? 'cross_check' : 'single');
+}
+
+function srRender() {
+  const list = document.getElementById('sr-list');
+  if (!list) return;
+  const canDelete = cropRegions.length > 2;   // multi needs ≥ 2 locations
+  list.innerHTML = cropRegions.map((r, i) => {
+    const dot = `<span class="sr-dot" style="background:${srColor(i)}"></span>`;
+    const idx = `<span class="sr-idx">${i + 1}</span>`;
+    let control;
+    if (r.custom) {
+      control = `<input type="text" value="${esc(r.value)}" maxlength="24" spellcheck="false"
+                   placeholder="ชื่อตำแหน่ง (a-z, 0-9, _)"
+                   oninput="srEditCustom(${i}, this.value)">
+                 <button type="button" class="sr-mini" title="เลือกจากรายการ" onclick="srUsePreset(${i})">↩</button>`;
+    } else {
+      const opts = SR_PRESETS.map(p =>
+        `<option value="${p}"${p === r.value ? ' selected' : ''}>${p}</option>`).join('')
+        + `<option value="__custom__">✎ กำหนดเอง…</option>`;
+      control = `<select onchange="srPick(${i}, this.value)">${opts}</select>`;
+    }
+    const del = canDelete
+      ? `<button type="button" class="sr-mini sr-del" title="ลบตำแหน่งนี้" onclick="srRemove(${i})">×</button>`
+      : '';
+    return `<div class="sr-row">${dot}${idx}${control}${del}</div>`;
+  }).join('');
+  document.getElementById('sr-count').textContent = cropRegions.length;
+  document.getElementById('sr-add').disabled = cropRegions.length >= SR_MAX;
+}
+
+function srPick(i, val) {
+  if (val === '__custom__') {
+    cropRegions[i] = { value: '', custom: true };
+    srRender();
+    document.querySelectorAll('#sr-list .sr-row')[i]?.querySelector('input')?.focus();
+    return;
+  }
+  cropRegions[i] = { value: val, custom: false };
+  srRender();
+}
+
+function srEditCustom(i, val) {
+  // edit in place without re-render (keeps focus); sanitise on submit
+  cropRegions[i].value = val.trim().toLowerCase();
+}
+
+function srUsePreset(i) {
+  const used = cropRegions.map(r => r.value);
+  const free = SR_PRESETS.find(p => !used.includes(p)) || 'box';
+  cropRegions[i] = { value: free, custom: false };
+  srRender();
+}
+
+function srAdd() {
+  if (cropRegions.length >= SR_MAX) return;
+  const used = cropRegions.map(r => r.value);
+  const free = SR_PRESETS.find(p => !used.includes(p));
+  cropRegions.push(free ? { value: free, custom: false } : { value: '', custom: true });
+  srRender();
+}
+
+function srRemove(i) {
+  cropRegions.splice(i, 1);
+  srRender();
+}
+
+function srValues() {
+  return cropRegions.map(r => r.value.trim().toLowerCase()).filter(Boolean);
+}
+
+function srFieldValues() {
+  const out = ['lot'];
+  document.querySelectorAll('#sr-fields input[data-field]').forEach(cb => {
+    if (cb.checked && cb.dataset.field !== 'lot') out.push(cb.dataset.field);
+  });
+  return out;
+}
+
 async function step1Next() {
   const btn = document.getElementById('btn-step1-next');
   const display_name = document.getElementById('inp-display-name').value.trim();
   const key = document.getElementById('inp-key').value.trim();
   const description = document.getElementById('inp-desc').value.trim() || null;
   const pipeline = document.getElementById('inp-pipeline').value;
-  const sub_regions = document.getElementById('inp-sub-regions').value
-    .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  // single → one region "lot"; multi_field → each field its own crop; cross_check → physical locations
+  let detection_mode = cropMode;
+  let sub_regions;
+  if (cropMode === 'single') { sub_regions = ['lot']; }
+  else if (cropMode === 'multi_field') { sub_regions = srFieldValues(); }
+  else { sub_regions = srValues(); }   // cross_check
 
   if (!display_name || !key) { alert('กรุณากรอกชื่อและ key'); return; }
   if (!/^[a-z][a-z0-9_]*$/.test(key)) { alert('Key ต้องเป็น lowercase + _ เท่านั้น'); return; }
-  if (!sub_regions.length) { alert('กรุณากรอก sub-regions อย่างน้อย 1'); return; }
-  for (const r of sub_regions) {
-    if (!/^[a-z0-9_]+$/.test(r)) { alert(`Sub-region "${r}" ผิด — ใช้ a-z, 0-9, _ เท่านั้น`); return; }
+  if (cropMode === 'cross_check') {
+    if (sub_regions.length < 2) { alert('โหมดหลายตำแหน่งต้องมีอย่างน้อย 2 ตำแหน่ง — หรือกลับเป็นจุดเดียว'); return; }
+    for (const r of sub_regions) {
+      if (!/^[a-z0-9_]+$/.test(r)) { alert(`ชื่อตำแหน่ง "${r}" ผิด — ใช้ a-z, 0-9, _ เท่านั้น`); return; }
+    }
+    if (new Set(sub_regions).size !== sub_regions.length) { alert('มีตำแหน่งซ้ำกัน — แต่ละตำแหน่งต้องไม่ซ้ำ'); return; }
   }
 
   btn.disabled = true; btn.textContent = '⏳ กำลังสร้าง...';
   try {
     const body = await api('POST', '/api/packagings',
-      { key, display_name, description, pipeline, sub_regions });
+      { key, display_name, description, pipeline, sub_regions, detection_mode });
     curDraftKey = body.key;
     goStep(2);
   } catch (err) {
@@ -2812,6 +3083,15 @@ updateRegex();
 function toggleCb(el) { if (!el.classList.contains('disabled')) el.classList.toggle('on'); }
 function pickTpl(el)  { document.querySelectorAll('.tpl-opt').forEach(t => t.classList.remove('on')); el.classList.add('on'); }
 
+function prefillFieldsFromSubRegions() {
+  if (cropMode !== 'multi_field') return;
+  const want = new Set(srFieldValues());
+  document.querySelectorAll('#sp4 [data-group="fields"] .cbitem[data-field]').forEach(el => {
+    if (el.dataset.field === 'lot') return;
+    el.classList.toggle('on', want.has(el.dataset.field));
+  });
+}
+
 function collectConfig() {
   const fields = ['lot'];
   document.querySelectorAll('#sp4 [data-group="fields"] .cbitem.on[data-field]').forEach(el => {
@@ -3073,6 +3353,8 @@ async function doDeploy() {
 }
 
 renderSteps();
+srSetMode('single');
+onPipelineChange();
 // Bootstrap: ถ้า URL มี draft+step → resume wizard, ไม่งั้นไป dashboard
 (async () => {
   const resumed = await restoreFromUrl();
