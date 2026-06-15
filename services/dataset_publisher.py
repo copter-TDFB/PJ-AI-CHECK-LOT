@@ -185,8 +185,8 @@ def _relativize(path: str, split: str) -> str:
 
 def _resolve_dest_folders(drive, det_root: str, data_yaml: dict) -> dict:
     """Map (split, kind) → Drive folder id, derived from data.yaml paths."""
-    train_rel = str(data_yaml.get("train") or "train/images")
-    val_rel = str(data_yaml.get("val") or "val/images")
+    train_rel = _relativize(str(data_yaml.get("train") or "train/images"), "train")
+    val_rel = _relativize(str(data_yaml.get("val") or "val/images"), "val")
     rels = {
         ("train", "images"): train_rel,
         ("train", "labels"): labels_relpath(train_rel),

@@ -168,6 +168,20 @@ def test_publish_uploads_images_labels_and_classifier_copies(draft, env, fake_dr
     assert kinds.count("upload_bytes") == 3  # 3 label files
 
 
+def test_publish_handles_absolute_data_yaml_paths(draft, env, fake_drive):
+    """Absolute train/val paths in data.yaml must still resolve to train/val
+    folders under det-root, not a 'content/drive/...' tree."""
+    fake_drive.read_text.return_value = (
+        "train: /content/drive/MyDrive/data check lot/train/images\n"
+        "val: /content/drive/MyDrive/data check lot/val/images\n"
+        "nc: 2\nnames: [old_a, old_b]\n"
+    )
+    dp.publish(draft, drive=fake_drive)
+    ensured = [c.args[0] for c in fake_drive.ensure_folder.call_args_list]
+    assert "content" not in ensured
+    assert "train" in ensured and "images" in ensured
+
+
 def test_publish_uses_global_class_ids(draft, env, fake_drive):
     dp.publish(draft, drive=fake_drive)
     label_events = [e for e in fake_drive.events if e[0] == "upload_bytes"]
