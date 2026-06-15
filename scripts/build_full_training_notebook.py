@@ -12,7 +12,12 @@ Usage: python scripts/build_full_training_notebook.py
 import json
 import logging
 import re
+import sys
 from pathlib import Path
+
+# Run from repo root regardless of cwd — `python scripts/...` puts scripts/ on
+# sys.path, not the repo root, so `services` would otherwise be unimportable.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from dotenv import load_dotenv
 
