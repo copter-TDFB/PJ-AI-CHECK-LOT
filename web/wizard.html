@@ -805,6 +805,17 @@ select option,select optgroup{
   width:8px;height:8px;border-radius:50%;
   background:var(--c-stroke, var(--acc));
 }
+.sr-grp-set{border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin:0;display:flex;flex-direction:column;gap:8px}
+.sr-grp-legend{font-size:11px;color:var(--t3);padding:0 6px;letter-spacing:.04em;text-transform:uppercase}
+.sr-grp-row{display:flex;align-items:center;gap:10px}
+.sr-grp-row .cbitem{flex:1;margin:0}
+.sr-grp-box{background-color:var(--s1);color:var(--t1);border:1px solid var(--bd);border-radius:8px;padding:5px 8px;font-size:12px;min-width:88px;min-height:32px;cursor:pointer}
+.sr-grp-box option{background:var(--s1);color:var(--t1)}
+.sr-grp-box:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.sr-grp-box:disabled{opacity:.4;cursor:not-allowed}
+.sr-grp-preview{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;min-height:26px}
+.sr-grp-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:999px;color:var(--t1)}
+.sr-grp-pill-dot{width:8px;height:8px;border-radius:50%;flex:none}
 .annot-thumbs{
   display:flex;gap:6px;
   overflow-x:auto;overflow-y:hidden;
@@ -1329,13 +1340,29 @@ select option,select optgroup{
                   </div>
                 </div>
 
-                <!-- MULTI_FIELD — each field has its own crop class -->
+                <!-- MULTI_FIELD — each box holds ≥1 field; same box number = shared crop -->
                 <div id="sr-fields" style="display:none">
-                  <div class="sr-multi-head"><span>ติ๊ก field ที่มีกรอบ/ตำแหน่งของตัวเอง — แต่ละอันจะเป็นคลาส YOLO แยก</span></div>
-                  <label class="cbitem on disabled"><input type="checkbox" data-field="lot" checked disabled> lot</label>
-                  <label class="cbitem"><input type="checkbox" data-field="exp"> วันหมดอายุ</label>
-                  <label class="cbitem"><input type="checkbox" data-field="product"> ชื่อสินค้า</label>
-                  <label class="cbitem"><input type="checkbox" data-field="size"> ขนาด</label>
+                  <div class="sr-multi-head"><span>ติ๊ก field ที่ packaging นี้มี แล้วเลือก "กรอบที่" — field ที่อยู่กรอบเลขเดียวกันจะถูกอ่านจากกรอบเดียวกัน (เช่น lot กับวันหมดอายุ พิมพ์ติดกัน)</span></div>
+                  <fieldset class="sr-grp-set">
+                    <legend class="sr-grp-legend">Field และกรอบ</legend>
+                    <div class="sr-grp-row">
+                      <label class="cbitem on disabled"><input type="checkbox" data-field="lot" checked disabled> lot</label>
+                      <select class="sr-grp-box" data-box-for="lot" aria-label="กรอบของ lot" onchange="srPickBox('lot', this.value)"></select>
+                    </div>
+                    <div class="sr-grp-row">
+                      <label class="cbitem"><input type="checkbox" data-field="exp" onchange="srGroupChanged()"> วันหมดอายุ</label>
+                      <select class="sr-grp-box" data-box-for="exp" aria-label="กรอบของ วันหมดอายุ" onchange="srPickBox('exp', this.value)"></select>
+                    </div>
+                    <div class="sr-grp-row">
+                      <label class="cbitem"><input type="checkbox" data-field="product" onchange="srGroupChanged()"> ชื่อสินค้า</label>
+                      <select class="sr-grp-box" data-box-for="product" aria-label="กรอบของ ชื่อสินค้า" onchange="srPickBox('product', this.value)"></select>
+                    </div>
+                    <div class="sr-grp-row">
+                      <label class="cbitem"><input type="checkbox" data-field="size" onchange="srGroupChanged()"> ขนาด</label>
+                      <select class="sr-grp-box" data-box-for="size" aria-label="กรอบของ ขนาด" onchange="srPickBox('size', this.value)"></select>
+                    </div>
+                  </fieldset>
+                  <div class="sr-grp-preview" id="sr-grp-preview" aria-live="polite"></div>
                 </div>
               </div>
             </div>
@@ -2411,6 +2438,59 @@ let cropMode = 'single';                // 'single' | 'multi_field' | 'cross_che
 // multi-mode entries: {value, custom} — custom=true → free-text input row
 let cropRegions = [{ value: 'box', custom: false }, { value: 'sachet', custom: false }];
 
+// ── multi_field box-number grouping (step 1) ──
+// Fields sharing a box number form one YOLO group: tokens joined by '_'.
+const FIELD_ORDER = ['lot', 'exp', 'product', 'size'];
+let mfBox = { lot: 1, exp: 2, product: 3, size: 4 };   // field → box number
+
+function mfTickedFields() {
+  return FIELD_ORDER.filter(f => {
+    const cb = document.querySelector(`#sr-fields input[data-field="${f}"]`);
+    return cb && cb.checked;
+  });
+}
+
+function srGroupChanged() {
+  const k = Math.max(1, mfTickedFields().length);
+  FIELD_ORDER.forEach(f => {
+    const sel = document.querySelector(`#sr-fields select[data-box-for="${f}"]`);
+    const cb = document.querySelector(`#sr-fields input[data-field="${f}"]`);
+    if (!sel || !cb) return;
+    sel.disabled = !cb.checked;
+    let cur = mfBox[f] || 1;
+    if (cur > k) { cur = k; }
+    mfBox[f] = cur;
+    sel.innerHTML = Array.from({ length: k }, (_, i) => i + 1)
+      .map(n => `<option value="${n}"${n === cur ? ' selected' : ''}>กรอบ ${n}</option>`)
+      .join('');
+  });
+  renderGroupPreview();
+}
+
+function srPickBox(field, val) {
+  mfBox[field] = parseInt(val, 10) || 1;
+  srGroupChanged();
+}
+
+function srFieldGroups() {
+  const byBox = {};
+  mfTickedFields().forEach(f => { (byBox[mfBox[f]] ||= []).push(f); });
+  return Object.keys(byBox).sort((a, b) => a - b)
+    .map(b => FIELD_ORDER.filter(f => byBox[b].includes(f)).join('_'));
+}
+
+function prettyGroup(g) { return g.split('_').join(' + '); }
+
+function renderGroupPreview() {
+  const el = document.getElementById('sr-grp-preview');
+  if (!el) return;
+  el.innerHTML = srFieldGroups().map((g, i) => {
+    const color = ANNOT_COLORS[i % ANNOT_COLORS.length];
+    return `<span class="sr-grp-pill" style="background:${color}22;border:1px solid ${color}66">
+      <span class="sr-grp-pill-dot" style="background:${color}"></span>กรอบ ${i + 1}: ${esc(prettyGroup(g))}</span>`;
+  }).join('');
+}
+
 function srColor(i) { return ANNOT_COLORS[i % ANNOT_COLORS.length]; }
 
 function onPipelineChange() {
@@ -2429,6 +2509,7 @@ function srSetMode(mode) {
   show('sr-fields', mode === 'multi_field');
   show('sr-multi', mode === 'cross_check');
   if (mode === 'cross_check') srRender();
+  if (mode === 'multi_field') srGroupChanged();
 }
 
 function srToggleAdvanced(on) {
@@ -2524,7 +2605,7 @@ async function step1Next() {
   let detection_mode = cropMode;
   let sub_regions;
   if (cropMode === 'single') { sub_regions = ['lot']; }
-  else if (cropMode === 'multi_field') { sub_regions = srFieldValues(); }
+  else if (cropMode === 'multi_field') { sub_regions = srFieldGroups(); }
   else { sub_regions = srValues(); }   // cross_check
 
   if (!display_name || !key) { alert('กรุณากรอกชื่อและ key'); return; }
@@ -2535,6 +2616,12 @@ async function step1Next() {
       if (!/^[a-z0-9_]+$/.test(r)) { alert(`ชื่อตำแหน่ง "${r}" ผิด — ใช้ a-z, 0-9, _ เท่านั้น`); return; }
     }
     if (new Set(sub_regions).size !== sub_regions.length) { alert('มีตำแหน่งซ้ำกัน — แต่ละตำแหน่งต้องไม่ซ้ำ'); return; }
+  }
+  if (cropMode === 'multi_field') {
+    const union = sub_regions.join('_').split('_');
+    if (!sub_regions.length || !union.includes('lot')) {
+      alert('โหมดแยก field ต้องมี lot อย่างน้อย 1 กรอบ'); return;
+    }
   }
 
   btn.disabled = true; btn.textContent = '⏳ กำลังสร้าง...';
@@ -2685,7 +2772,7 @@ function renderLabelBar() {
       return `<span class="annot-label-chip ${active?'active':''}"
         style="--c-stroke:${color};--c-bg:${color}22"
         onclick="annotSetLabel('${esc(r)}')">
-        <span class="annot-label-chip-dot"></span>${esc(r)}
+        <span class="annot-label-chip-dot"></span>${esc(r.split('_').join(' + '))}
         <span style="opacity:.5;font-size:9px;margin-left:3px">${i+1}</span>
       </span>`;
     }).join('');
