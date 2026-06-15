@@ -23,6 +23,7 @@ from api.schemas import (
 )
 from services import packaging_store
 from services.regex_generator import generate_regex, preview_matches
+from utils.field_groups import parse_group
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/packagings", tags=["packagings"])
@@ -53,6 +54,8 @@ def list_packagings():
                 image_count=_count_active_images(key),
                 conf_threshold=cfg.conf_threshold,
                 accuracy=cfg.accuracy,
+                sub_regions=cfg.sub_regions,
+                detection_mode=cfg.detection_mode,
             ))
 
         # Archived packagings — YAML still on disk but renamed to *.yaml.archived
@@ -117,6 +120,8 @@ def get_packaging(key: str):
                 image_count=_count_active_images(key),
                 conf_threshold=cfg.conf_threshold,
                 accuracy=cfg.accuracy,
+                sub_regions=cfg.sub_regions,
+                detection_mode=cfg.detection_mode,
             )
         if main.registry.is_archived(key):
             arch_yaml = Path("config/packagings") / f"{key}.yaml.archived"
@@ -474,7 +479,10 @@ def training_full_start(key: str):
     if draft.get("detection_mode") == "multi_field":
         cfg = draft.get("config") or {}
         subs = draft.get("sub_regions", [])
-        missing = [f for f in cfg.get("fields_extracted", []) if f not in subs]
+        # sub_regions entries are groups (e.g. "lot_exp") — expand to member
+        # fields before checking that every extracted field has a crop.
+        crop_fields = {f for sr in subs for f in parse_group(sr)}
+        missing = [f for f in cfg.get("fields_extracted", []) if f not in crop_fields]
         if missing:
             raise HTTPException(
                 400,

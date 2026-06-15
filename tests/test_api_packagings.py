@@ -121,6 +121,23 @@ def test_get_active(client):
     assert r.json()["status"] == "active"
 
 
+def test_get_draft_returns_sub_regions_for_annotator(client):
+    """Regression: GET must surface sub_regions/detection_mode so the wizard
+    annotator shows the per-field label chips (renderLabelBar needs len > 1)."""
+    r = client.post("/api/packagings", json={
+        "key": "mf_box",
+        "display_name": "Multi Field Box",
+        "pipeline": "detector_ocr",
+        "sub_regions": ["lot", "exp", "product", "size"],
+        "detection_mode": "multi_field",
+    })
+    assert r.status_code == 201, r.text
+
+    body = client.get("/api/packagings/mf_box").json()
+    assert body["detection_mode"] == "multi_field"
+    assert body["sub_regions"] == ["lot", "exp", "product", "size"]
+
+
 def test_patch_draft(client):
     r = client.patch("/api/packagings/test_box", json={
         "display_name": "Renamed Box",
@@ -791,6 +808,48 @@ def test_training_full_start_rejects_below_30(client, monkeypatch):
     res = client.post("/api/packagings/under30/training/full/start")
     assert res.status_code == 400
     assert "30" in res.json()["detail"]
+
+
+def test_training_full_start_allows_grouped_multi_field(client, monkeypatch):
+    """Regression: a multi_field draft whose sub_regions are GROUPS (e.g. lot_exp)
+    must pass the field-coverage gate. fields_extracted lists individual tokens
+    while sub_regions lists composite groups, so the gate must compare against the
+    groups' member fields, not the raw composite strings."""
+    from services import packaging_store
+
+    monkeypatch.setattr(
+        packaging_store, "get_draft",
+        lambda key: {
+            "key": key, "display_name": "G", "pipeline": "detector_ocr",
+            "detection_mode": "multi_field",
+            "sub_regions": ["lot_exp", "product_size"],
+            "config": {"fields_extracted": ["lot", "exp", "product", "size"]},
+        },
+    )
+    monkeypatch.setattr(
+        packaging_store, "list_annotation_status",
+        lambda key: [{"name": f"i{n}.jpg", "labeled": True, "bbox_count": 1}
+                     for n in range(30)],
+    )
+    monkeypatch.setattr(
+        "services.dataset_publisher.publish",
+        MagicMock(return_value={
+            "images_uploaded": 10, "images_skipped": 0,
+            "train_count": 8, "val_count": 2,
+            "new_classes": ["groupdraft_lot_exp"], "class_ids": {"lot_exp": 9},
+            "total_classes": 10,
+        }),
+    )
+    drive_mock = MagicMock()
+    drive_mock.create_folder.return_value = "run-folder"
+    drive_mock.upload_bytes.return_value = "nb-id"
+    monkeypatch.setattr(
+        "services.drive_client.DriveClient", MagicMock(return_value=drive_mock))
+    monkeypatch.setattr(
+        "services.notebook_generator.build_full_notebook", MagicMock(return_value=b"{}"))
+
+    res = client.post("/api/packagings/groupdraft/training/full/start")
+    assert res.status_code == 200, res.text
 
 
 # ─── Training progress polling ───────────────────────────
