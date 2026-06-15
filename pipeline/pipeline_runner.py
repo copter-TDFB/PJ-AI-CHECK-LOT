@@ -1,6 +1,7 @@
 import logging
 
 from pipeline.packaging_registry import PackagingConfig
+from utils.field_groups import parse_group
 from utils.image_utils import stack_images_vertically
 from utils.validators import find_lot, find_expiry, find_product_name, find_size
 
@@ -100,14 +101,17 @@ class PipelineRunner:
         detections = self._detector.crop_all(image_bytes, config.key)
         prefix = f"{config.key}_"
         texts: dict[str, list[str]] = {}
+        raw_parts: list[str] = []
         for det in detections:
             cls = det.class_name or ""
             if not cls.startswith(prefix):
                 continue
-            field = cls[len(prefix):]
+            group = cls[len(prefix):]
             processed = self._preprocessor.run(det.cropped_bytes, config.key)
             text = self._ocr_engine.run(processed, config=config)["raw_text"]
-            texts.setdefault(field, []).append(text)
+            raw_parts.append(text)
+            for field in parse_group(group):
+                texts.setdefault(field, []).append(text)
 
         def joined(field: str) -> str:
             return "\n".join(texts.get(field, [])).strip()
@@ -123,7 +127,7 @@ class PipelineRunner:
             "mfg_date":     None,
             "product_name": find_product_name(joined("product")) if texts.get("product") else None,
             "size":         find_size(joined("size")) if texts.get("size") else None,
-            "raw_text":     "\n".join(joined(f) for f in texts),
+            "raw_text":     "\n".join(raw_parts),
             "confidence":   None,
             "lot_box":      None,
             "lot_sachet":   None,

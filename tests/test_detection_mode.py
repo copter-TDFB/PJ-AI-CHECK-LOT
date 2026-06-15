@@ -140,3 +140,44 @@ def test_multi_field_label_lines_map_each_field_to_its_class():
     lines = label_lines(bboxes, label_to_id, 100, 100, default_label="lot")
     class_ids = [int(line.split()[0]) for line in lines]
     assert class_ids == [label_to_id["size"], label_to_id["lot"]]
+
+
+def _cfg_grouped(sub_regions):
+    cfg = _cfg_multi()
+    return cfg.__class__(**{**cfg.__dict__, "sub_regions": sub_regions})
+
+
+def test_multi_field_shared_box_feeds_both_extractors(monkeypatch):
+    # one crop holds lot AND exp; one crop holds product AND size
+    dets = [
+        DetectionResult(cropped_bytes=b"LOTEXP", bbox=[0, 0, 1, 1], class_name="k_lot_exp"),
+        DetectionResult(cropped_bytes=b"PRODSIZE", bbox=[0, 1, 1, 2], class_name="k_product_size"),
+    ]
+    monkeypatch.setattr(pr, "find_lot", lambda t, image_class=None, patterns=None: f"LOT::{t}")
+    monkeypatch.setattr(pr, "find_expiry", lambda t: f"EXP::{t}")
+    monkeypatch.setattr(pr, "find_product_name", lambda t: f"PROD::{t}")
+    monkeypatch.setattr(pr, "find_size", lambda t: f"SIZE::{t}")
+
+    runner = PipelineRunner(_FakeDetector(dets), _FakePre(), _FakeOcr(), object())
+    result, _ = runner._run_multi_field(b"img", _cfg_grouped(["lot_exp", "product_size"]))
+
+    assert result["lot_number"] == "LOT::LOTEXP"
+    assert result["exp_date"] == "EXP::LOTEXP"        # exp read from the SAME crop as lot
+    assert result["product_name"] == "PROD::PRODSIZE"
+    assert result["size"] == "SIZE::PRODSIZE"
+    assert result["status"] == "ok"
+
+
+def test_multi_field_raw_text_not_duplicated_for_shared_crop(monkeypatch):
+    dets = [
+        DetectionResult(cropped_bytes=b"LOTEXP", bbox=[0, 0, 1, 1], class_name="k_lot_exp"),
+    ]
+    monkeypatch.setattr(pr, "find_lot", lambda t, image_class=None, patterns=None: "L")
+    monkeypatch.setattr(pr, "find_expiry", lambda t: "E")
+    monkeypatch.setattr(pr, "find_product_name", lambda t: None)
+    monkeypatch.setattr(pr, "find_size", lambda t: None)
+
+    runner = PipelineRunner(_FakeDetector(dets), _FakePre(), _FakeOcr(), object())
+    result, _ = runner._run_multi_field(b"img", _cfg_grouped(["lot_exp"]))
+
+    assert result["raw_text"].count("LOTEXP") == 1
