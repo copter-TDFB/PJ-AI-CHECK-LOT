@@ -168,6 +168,21 @@ def _load_data_yaml(drive, det_root: str) -> tuple[str, dict, list[str]]:
     return yaml_id, data_yaml, list(data_yaml.get("names") or [])
 
 
+def _relativize(path: str, split: str) -> str:
+    """Reduce a data.yaml split path to one relative to the dataset root.
+
+    YOLO data.yaml may store absolute Colab paths
+    (e.g. /content/drive/MyDrive/data check lot/train/images). Splitting that
+    raw string would make _resolve_dest_folders nest folders under a bogus
+    'content/drive/MyDrive/...' tree, so the published images never land in
+    train/val. We keep only the segments from the '<split>' folder onward.
+    """
+    parts = [p for p in path.strip("/").split("/") if p not in ("", ".")]
+    if split in parts:
+        return "/".join(parts[parts.index(split):])
+    return path.strip("/")
+
+
 def _resolve_dest_folders(drive, det_root: str, data_yaml: dict) -> dict:
     """Map (split, kind) → Drive folder id, derived from data.yaml paths."""
     train_rel = str(data_yaml.get("train") or "train/images")

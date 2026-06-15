@@ -47,6 +47,21 @@ def test_labels_relpath_raises_without_images_segment():
         dp.labels_relpath("train/imgs")
 
 
+# ─── _relativize ─────────────────────────────────────────
+
+def test_relativize_strips_absolute_drive_prefix():
+    abs_path = "/content/drive/MyDrive/data check lot/train/images"
+    assert dp._relativize(abs_path, "train") == "train/images"
+
+
+def test_relativize_passthrough_when_already_relative():
+    assert dp._relativize("val/images", "val") == "val/images"
+
+
+def test_relativize_falls_back_when_split_absent():
+    assert dp._relativize("/a/b/c", "train") == "a/b/c"
+
+
 # ─── label_lines ─────────────────────────────────────────
 
 def test_label_lines_uses_global_ids_and_normalises():
