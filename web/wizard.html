@@ -3036,7 +3036,7 @@ const TRAIN_PHASE_LABELS = {
   bundle:        'กำลังรวมรูปเป็น bundle…',
   upload_bundle: 'อัปโหลด bundle ขึ้น Drive',
   upload_images: 'อัปโหลดรูปขึ้น Drive',
-  notebook:      'สร้าง Colab notebook…',
+  notebook:      'เตรียม notebook…',
   done:          'เสร็จแล้ว',
 };
 const fmtMB = b => (b / 1048576).toFixed(1);
@@ -3251,7 +3251,7 @@ function renderStep5_preTraining(pkg) {
       </div>
       <div style="text-align:center;margin-top:14px">
         <button class="btn btn-primary" id="btn-full-start" onclick="startFullTraining()">
-          🚀 เริ่ม Full Training (เปิด Colab)
+          🚀 Publish dataset + เปิด Training Notebook
         </button>
       </div>
       <div id="full-prog" class="train-prog"></div>
@@ -3263,12 +3263,11 @@ function renderStep5_training(pkg) {
     <div class="wiz-card">
       <div class="wiz-card-title">Full Training — รอ Colab</div>
       <div class="info-box">
-        <strong>📒 Colab tab เปิดไว้แล้ว</strong> — กลับมาคลิกปุ่มข้างล่างหลัง Colab แสดง "TRAINING DONE"
-      </div>
-      <div style="text-align:center;margin-top:14px">
-        <button class="btn btn-primary" id="btn-full-done" onclick="fullTrainingDone()">
-          Training done — Pull model + eval →
-        </button>
+        <strong>📒 Training notebook เปิดแล้ว</strong> — กด <code>Runtime → Run all</code>
+        (detector ~60 นาที + classifier ~30 นาที). Model จะเซฟลง Drive
+        (<code>data check lot/</code> + <code>data classify check lot/models/</code>).
+        จากนั้น <strong>sync model เข้าระบบเอง</strong> ผ่าน model registry/manifest
+        — wizard ไม่ดึงให้อัตโนมัติ
       </div>
     </div>`;
 }
@@ -3384,20 +3383,6 @@ async function startFullTraining() {
     btn.disabled = false;
     btn.textContent = '🚀 ลองอีกครั้ง';
     alert(`Start full training ไม่สำเร็จ: ${err.message}`);
-  }
-}
-
-async function fullTrainingDone() {
-  const btn = document.getElementById('btn-full-done');
-  btn.disabled = true;
-  btn.textContent = '⏳ ดึง model + eval...';
-  try {
-    await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/full/done`);
-    await loadStep5();
-  } catch (err) {
-    btn.disabled = false;
-    btn.textContent = 'Training done — ลองอีกครั้ง';
-    alert(`Pull failed: ${err.message}`);
   }
 }
 

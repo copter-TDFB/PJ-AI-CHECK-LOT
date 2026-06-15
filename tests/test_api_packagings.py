@@ -842,6 +842,19 @@ def test_training_full_start_allows_grouped_multi_field(client, monkeypatch):
     assert res.status_code == 200, res.text
 
 
+def test_training_full_done_is_manual_now(client, monkeypatch):
+    """Manual model sync: done returns a 400 telling the user to sync via the
+    model registry, instead of pulling from a (no-longer-created) output folder."""
+    from services import packaging_store
+    monkeypatch.setattr(
+        packaging_store, "get_draft",
+        lambda key: {"key": key, "training_run": {"kind": "full"}},
+    )
+    res = client.post("/api/packagings/anykey/training/full/done")
+    assert res.status_code == 400
+    assert "manual" in res.json()["detail"].lower()
+
+
 # ─── Training progress polling ───────────────────────────
 
 def test_training_progress_idle_when_nothing_running(client):

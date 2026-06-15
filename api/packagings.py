@@ -581,48 +581,17 @@ def training_prelabel(key: str):
 
 @router.post("/{key}/training/full/done")
 def training_full_done(key: str):
-    """Pull full model + eval.json จาก Drive → store locally → ready for deploy."""
+    """Full training เป็น manual แล้ว — model sync ผ่าน model registry/manifest
+    เอง (wizard ไม่ดึง model จาก Drive ให้อัตโนมัติอีกต่อไป)."""
     draft = packaging_store.get_draft(key)
     if draft is None:
         raise HTTPException(404, f"draft '{key}' not found")
-    run = draft.get("training_run")
-    if not run or run.get("kind") != "full":
-        raise HTTPException(400, "ยังไม่ได้เริ่ม full training — กด 'เริ่ม Full Training' ก่อน")
-
-    from services.drive_client import DriveClient
-
-    drive = DriveClient()
-    output_folder_id = run["output_folder_id"]
-
-    model_id = drive.find_in_folder(output_folder_id, "full_detector.pt")
-    if not model_id:
-        raise HTTPException(404, "ยังหา full_detector.pt ใน Drive ไม่เจอ — รัน notebook ใน Colab ให้เสร็จก่อน")
-
-    model_dir = Path("data/drafts") / key / "models"
-    model_dir.mkdir(parents=True, exist_ok=True)
-    model_path = model_dir / "full_detector.pt"
-    try:
-        drive.download_file(model_id, model_path)
-    except Exception as e:
-        logger.exception("download full_detector failed")
-        raise HTTPException(500, f"download model failed: {e}")
-
-    # Pull eval.json
-    eval_id = drive.find_in_folder(output_folder_id, "full_eval.json")
-    eval_summary: dict = {}
-    if eval_id:
-        try:
-            eval_summary = drive.read_json(eval_id)
-            # Persist locally for /eval endpoint
-            (model_dir / "eval.json").write_text(
-                json.dumps(eval_summary, indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
-        except Exception:
-            logger.warning("could not read eval.json")
-
-    packaging_store.update_draft(key, status="trained")
-    return {"model_downloaded": True, "eval": eval_summary}
+    raise HTTPException(
+        400,
+        "Full training เป็น manual แล้ว — รัน notebook ใน Colab ให้เสร็จ, "
+        "model จะเซฟลง Drive, แล้ว sync เข้าระบบผ่าน model registry/manifest "
+        "(ดู docs/superpowers/specs/2026-06-15-direct-notebook-training-design.md)",
+    )
 
 
 @router.post("/{key}/deploy")
