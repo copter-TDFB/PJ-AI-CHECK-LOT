@@ -33,6 +33,10 @@ _CROP_CACHE_DIR = Path(os.getenv("CROP_CACHE_DIR", "data/crops"))
 _DETECTOR_MODEL_PATH = Path(os.getenv("MODEL_DETECTOR_PATH", "models/detector.pt"))
 _IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
+# Combined Full Training notebook in Drive (built by
+# scripts/build_full_training_notebook.py).
+COMBINED_NOTEBOOK_FILE_ID = "1iQQQqMxeWbLXKjKnZPfyFMGBmHggiaY-"
+
 
 @router.get("", response_model=list[PackagingResponse])
 def list_packagings():
@@ -465,8 +469,8 @@ def training_progress(key: str):
 
 @router.post("/{key}/training/full/start")
 def training_full_start(key: str):
-    """Full training — publishes dataset images directly to Drive, then generates
-    and uploads a Colab notebook. No zip bundle is created."""
+    """Full training — publishes dataset images directly to Drive, then returns a
+    static link to the combined Colab notebook. No notebook is generated."""
     draft = packaging_store.get_draft(key)
     if draft is None:
         raise HTTPException(404, f"draft '{key}' not found")
@@ -490,7 +494,7 @@ def training_full_start(key: str):
                 "add them in step 1 or untick them in step 4",
             )
 
-    from services import dataset_publisher, notebook_generator, progress_store
+    from services import dataset_publisher, progress_store
     from services.drive_client import DriveClient
 
     progress_store.report(key, "starting")
@@ -520,38 +524,21 @@ def training_full_start(key: str):
         progress_store.report(key, "error", detail=str(e))
         raise HTTPException(500, f"Dataset publish failed: {e}")
 
-    try:
-        progress_store.report(key, "notebook")
-        run_folder_id = drive.create_folder(f"lot-checker-training-{key}-full")
-        nb_bytes = notebook_generator.build_full_notebook(
-            packaging_key=key,
-            output_folder_id=run_folder_id,
-        )
-        nb_file_id = drive.upload_bytes(
-            nb_bytes, name=f"{key}-full-training.ipynb", parent_id=run_folder_id,
-            mime_type="application/vnd.google.colaboratory",
-        )
-        progress_store.report(key, "done")
-    except Exception as e:
-        logger.exception("training/full/start failed for %s", key)
-        progress_store.report(key, "error", detail=str(e))
-        raise HTTPException(500, f"Drive upload failed: {e}")
-
+    progress_store.report(key, "done")
     packaging_store.update_draft(
         key,
         training_run={
-            "notebook_file_id": nb_file_id,
-            "output_folder_id": run_folder_id,
             "started_at": datetime.now(timezone.utc).isoformat(),
             "kind": "full",
             "dataset": dataset_summary,
         },
         status="training_full",
     )
+    colab_url = (
+        f"https://colab.research.google.com/drive/{COMBINED_NOTEBOOK_FILE_ID}"
+    )
     return {
-        "colab_url": notebook_generator.colab_url(nb_file_id),
-        "notebook_file_id": nb_file_id,
-        "output_folder_id": run_folder_id,
+        "colab_url": colab_url,
         "dataset": dataset_summary,
         "labeled_count": len(labeled),
     }

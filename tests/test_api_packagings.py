@@ -778,23 +778,15 @@ def test_training_full_start_publishes_dataset(client, monkeypatch):
     monkeypatch.setattr(
         "services.drive_client.DriveClient", MagicMock(return_value=drive_mock)
     )
-    # build_full_notebook still has the old bundle_file_id signature until
-    # Task 5 — mock it so this wiring test stays green in between
-    monkeypatch.setattr(
-        "services.notebook_generator.build_full_notebook",
-        MagicMock(return_value=b"{}"),
-    )
-
     res = client.post("/api/packagings/fullpub/training/full/start")
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["dataset"] == fake_summary
     assert "colab.research.google.com" in body["colab_url"]
     publish_mock.assert_called_once_with("fullpub", drive=ANY, progress_cb=ANY)
-    # zip bundle must NOT be uploaded anymore
-    for call in drive_mock.upload_bytes.call_args_list:
-        all_args = list(call.args) + list(call.kwargs.values())
-        assert not any(str(a).endswith(".zip") for a in all_args)
+    # no notebook is generated/uploaded anymore — start only publishes the dataset
+    drive_mock.upload_bytes.assert_not_called()
+    drive_mock.create_folder.assert_not_called()
 
 
 def test_training_full_start_rejects_below_30(client, monkeypatch):
@@ -845,8 +837,6 @@ def test_training_full_start_allows_grouped_multi_field(client, monkeypatch):
     drive_mock.upload_bytes.return_value = "nb-id"
     monkeypatch.setattr(
         "services.drive_client.DriveClient", MagicMock(return_value=drive_mock))
-    monkeypatch.setattr(
-        "services.notebook_generator.build_full_notebook", MagicMock(return_value=b"{}"))
 
     res = client.post("/api/packagings/groupdraft/training/full/start")
     assert res.status_code == 200, res.text
