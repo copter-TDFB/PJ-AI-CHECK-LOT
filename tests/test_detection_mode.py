@@ -127,6 +127,28 @@ def test_deployer_writes_multi_field_mode_and_prefixes(tmp_path, monkeypatch):
         "newpkg_lot", "newpkg_exp", "newpkg_product", "newpkg_size"]
 
 
+def test_deployer_writes_grouped_class_prefixes(tmp_path, monkeypatch):
+    import services.cloudrun_deployer as dep
+    monkeypatch.setattr(dep, "_PACKAGING_DIR", tmp_path)
+    draft_meta = {
+        "display_name": "Grouped Pkg",
+        "pipeline": "detector_ocr",
+        "sub_regions": ["lot_exp", "product_size"],
+        "detection_mode": "multi_field",
+        "config": {
+            "lot_patterns": ["LOT(\\w+)"],
+            "fields_extracted": ["lot", "exp", "product", "size"],
+            "sheet_checks": ["lot"], "message_template_key": "default_full",
+        },
+    }
+    out = dep.write_packaging_yaml("grouppkg", draft_meta)
+    import yaml
+    data = yaml.safe_load(out.read_text(encoding="utf-8"))
+    assert data["detection_mode"] == "multi_field"
+    assert data["sub_regions"] == ["lot_exp", "product_size"]
+    assert data["detector_yolo_prefixes"] == ["grouppkg_lot_exp", "grouppkg_product_size"]
+
+
 def test_multi_field_label_lines_map_each_field_to_its_class():
     from services.dataset_publisher import label_lines, merge_class_names
     sub_regions = ["lot", "exp", "product", "size"]
