@@ -118,7 +118,8 @@ def publish(
     label_to_id = {sr: merged.index(f"{key}_{sr}") for sr in sub_regions}
 
     dest = _resolve_dest_folders(drive, det_root, data_yaml)
-    cls_folder = drive.ensure_folder(key, cls_root)
+    cls_images = drive.ensure_folder("images", cls_root)
+    cls_folder = drive.ensure_folder(key, cls_images)
     # Snapshot read once per publish() run. Files created mid-run by a
     # concurrent/partial uploader aren't visible here; they'll be seen on the
     # next call (acceptable: retry rebuilds the snapshot cleanly).

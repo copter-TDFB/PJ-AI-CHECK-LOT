@@ -182,6 +182,17 @@ def test_publish_handles_absolute_data_yaml_paths(draft, env, fake_drive):
     assert "train" in ensured and "images" in ensured
 
 
+def test_publish_classifier_copies_land_under_images_subfolder(draft, env, fake_drive):
+    """Classifier copies must go to images/<key>/ (where the notebook reads),
+    not to <key>/ at the classifier-root top level."""
+    dp.publish(draft, drive=fake_drive)
+    # ensure_folder side_effect: f-{parent}-{name}
+    cls_parent = "f-f-cls-root-images-newpack"
+    cls_copies = [e for e in fake_drive.events
+                  if e[0] == "upload_file" and e[1] == cls_parent]
+    assert len(cls_copies) == 3
+
+
 def test_publish_uses_global_class_ids(draft, env, fake_drive):
     dp.publish(draft, drive=fake_drive)
     label_events = [e for e in fake_drive.events if e[0] == "upload_bytes"]
