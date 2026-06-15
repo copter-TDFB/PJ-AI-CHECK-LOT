@@ -58,3 +58,43 @@ def test_validate_groups_rejects_empty_group():
 def test_validate_groups_rejects_duplicate_group_after_canonicalize():
     with pytest.raises(ValueError, match="ซ้ำ"):
         validate_groups(["lot_exp", "exp_lot"])
+
+
+from pydantic import ValidationError
+from api.schemas import PackagingCreate
+
+
+def test_schema_accepts_grouped_multi_field_and_canonicalizes():
+    m = PackagingCreate(
+        key="k", display_name="K",
+        detection_mode="multi_field",
+        sub_regions=["exp_lot", "size_product"],
+    )
+    assert m.sub_regions == ["lot_exp", "product_size"]
+
+
+def test_schema_rejects_field_shared_across_groups():
+    with pytest.raises(ValidationError):
+        PackagingCreate(
+            key="k", display_name="K",
+            detection_mode="multi_field",
+            sub_regions=["lot_exp", "exp_size"],
+        )
+
+
+def test_schema_rejects_grouped_multi_field_without_lot():
+    with pytest.raises(ValidationError):
+        PackagingCreate(
+            key="k", display_name="K",
+            detection_mode="multi_field",
+            sub_regions=["exp_product", "size"],
+        )
+
+
+def test_schema_single_token_multi_field_still_valid():
+    m = PackagingCreate(
+        key="k", display_name="K",
+        detection_mode="multi_field",
+        sub_regions=["lot", "exp"],
+    )
+    assert m.sub_regions == ["lot", "exp"]

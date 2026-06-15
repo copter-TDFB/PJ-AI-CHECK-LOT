@@ -6,6 +6,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from utils.field_groups import validate_groups
+
 
 class PipelineType(str, Enum):
     detector_ocr = "detector_ocr"
@@ -46,8 +48,7 @@ class PackagingCreate(BaseModel):
     @model_validator(mode="after")
     def _check_detection_mode(self):
         if self.detection_mode == DetectionMode.multi_field:
-            if "lot" not in self.sub_regions:
-                raise ValueError("multi_field ต้องมี sub-region 'lot' (ทุก field ต้องมีกรอบของตัวเอง)")
+            self.sub_regions = validate_groups(self.sub_regions)
         elif self.detection_mode == DetectionMode.cross_check:
             if len(self.sub_regions) < 2:
                 raise ValueError("cross_check ต้องมีอย่างน้อย 2 sub-regions (เช่น box, sachet)")
@@ -86,6 +87,8 @@ class PackagingResponse(BaseModel):
     image_count: int = 0
     conf_threshold: float | None = None
     accuracy: float | None = None
+    sub_regions: list[str] | None = None
+    detection_mode: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
     config: dict | None = None
