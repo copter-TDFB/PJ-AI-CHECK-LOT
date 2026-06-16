@@ -73,6 +73,85 @@ services:
       - backend
 """
 
+START_BAT = """\
+@echo off
+setlocal
+cd /d "%~dp0"
+
+echo ============================================
+echo   OCR Lot Checker - Test Wizard
+echo ============================================
+echo.
+
+docker info >nul 2>&1
+if errorlevel 1 (
+  echo [!] Docker is not running. Install/open Docker Desktop, then run START.bat again.
+  pause
+  exit /b 1
+)
+
+echo Starting containers ^(first run builds the image, ~2-5 min^)...
+docker compose up -d --build
+if errorlevel 1 (
+  echo [!] Failed to start - see the error above.
+  pause
+  exit /b 1
+)
+
+echo.
+echo Waiting for the backend to be ready...
+set /a tries=0
+:wait
+set /a tries+=1
+curl -sf -o nul http://localhost:8081/openapi.json
+if not errorlevel 1 goto ready
+if %tries% GEQ 60 (
+  echo [!] Backend did not become ready. Check logs:  docker compose logs
+  pause
+  exit /b 1
+)
+timeout /t 3 >nul
+goto wait
+
+:ready
+echo Backend is up. Opening the wizard in your browser...
+start "" http://localhost:8091/wizard.html
+echo.
+echo   Wizard:  http://localhost:8091/wizard.html
+echo   To stop: double-click STOP.bat
+echo.
+pause
+"""
+
+STOP_BAT = """\
+@echo off
+cd /d "%~dp0"
+echo Stopping containers...
+docker compose down
+echo Done.
+pause
+"""
+
+START_SH = """\
+#!/usr/bin/env bash
+# macOS / Linux launcher
+cd "$(dirname "$0")"
+if ! docker info >/dev/null 2>&1; then
+  echo "[!] Docker is not running. Install/open Docker Desktop, then run again."
+  exit 1
+fi
+echo "Starting containers (first run builds the image, ~2-5 min)..."
+docker compose up -d --build || exit 1
+echo "Waiting for the backend to be ready..."
+for i in $(seq 1 60); do
+  curl -sf -o /dev/null http://localhost:8081/openapi.json && break
+  sleep 3
+done
+URL="http://localhost:8091/wizard.html"
+( command -v open >/dev/null && open "$URL" ) || ( command -v xdg-open >/dev/null && xdg-open "$URL" ) || echo "Open: $URL"
+echo "Wizard: $URL   |   stop: docker compose down"
+"""
+
 README = """\
 # OCR Lot Checker — Test Wizard Bundle
 
@@ -80,15 +159,21 @@ Self-contained TEST harness. **Never touches production** (TEST_MODE: deploy is
 simulated; Drive writes go only to the shared `OCR-LOT-TEST` test folder).
 
 ## Requirements
-- Docker Desktop (that's it — Python/deps are inside the image)
+- Docker Desktop installed and **running** (Python/deps are inside the image)
 
-## Run
-```
-docker compose up          # first run builds the image (~few minutes)
-```
-Then open: **http://localhost:8091/wizard.html**
+## Run — one click
+- **Windows:** double-click **`START.bat`**
+- **macOS/Linux:** run `./start.sh`
 
-Stop with Ctrl+C (or `docker compose down`).
+It builds + starts everything, waits for the backend, and opens the wizard in your
+browser automatically: **http://localhost:8091/wizard.html**
+
+To stop: double-click **`STOP.bat`** (or `docker compose down`).
+
+### Manual alternative
+```
+docker compose up          # then open http://localhost:8091/wizard.html
+```
 
 ## What you can test
 Create a packaging draft -> upload images -> annotate -> Full Training
@@ -176,8 +261,12 @@ def main() -> None:
         lines.append(f"{k}={env.get(k, '')}")
     (BUNDLE / ".env").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    # 6. compose + readme
+    # 6. compose + launchers + readme
     (BUNDLE / "docker-compose.yml").write_text(COMPOSE, encoding="utf-8")
+    # .bat files use CRLF so Windows double-click runs them cleanly
+    (BUNDLE / "START.bat").write_text(START_BAT.replace("\n", "\r\n"), encoding="utf-8")
+    (BUNDLE / "STOP.bat").write_text(STOP_BAT.replace("\n", "\r\n"), encoding="utf-8")
+    (BUNDLE / "start.sh").write_text(START_SH, encoding="utf-8", newline="\n")
     (BUNDLE / "README.md").write_text(README, encoding="utf-8")
 
     # summary
