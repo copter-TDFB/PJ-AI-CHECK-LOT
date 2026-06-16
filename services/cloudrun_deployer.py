@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 def _packaging_dir() -> Path:
     """Packagings dir — `OCR_CONFIG_DIR` env (test harness) or repo `config/packagings`."""
     return Path(os.getenv("OCR_CONFIG_DIR", "config")) / "packagings"
+
+
 _MODELS_DIR = Path(os.getenv("MODELS_DIR", "models"))
 _BACKUP_KEEP = 3
 _CLOUD_RUN_PROJECT = os.getenv("CLOUD_RUN_PROJECT", "pj-ai-detect-lot-no")
