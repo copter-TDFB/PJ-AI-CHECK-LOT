@@ -28,6 +28,8 @@ class PackagingConfig:
     lot_short_fallback: bool
     sub_regions: list[str]           # ['box', 'sachet'] for container_label
     detection_mode: str = "single"   # 'single' | 'cross_check' | 'multi_field'
+    product_aliases: list[dict] = field(default_factory=list)
+    # [{'canonical': str, 'keywords': [str]}] — config-driven product matching
 
 
 @dataclass
@@ -87,6 +89,7 @@ class PackagingRegistry:
                 lot_short_fallback=bool(data.get("lot_short_fallback", False)),
                 sub_regions=data.get("sub_regions", []),
                 detection_mode=data.get("detection_mode", "single"),
+                product_aliases=data.get("product_aliases", []),
             )
             self._configs[cfg.key] = cfg
             logger.debug("Loaded packaging config: %s", cfg.key)

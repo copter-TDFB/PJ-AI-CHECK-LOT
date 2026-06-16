@@ -57,6 +57,7 @@ def write_packaging_yaml(key: str, draft_meta: dict[str, Any]) -> Path:
         "fields_extracted": cfg.get("fields_extracted"),
         "sheet_checks": cfg.get("sheet_checks"),
         "message_template_key": cfg.get("message_template_key"),
+        "product_aliases": cfg.get("product_aliases"),
     }
 
     sub_regions_final = draft_meta.get("sub_regions") or existing.get("sub_regions", [])
@@ -87,6 +88,9 @@ def write_packaging_yaml(key: str, draft_meta: dict[str, Any]) -> Path:
         "message_template_key": edited["message_template_key"]
             if edited["message_template_key"] is not None
             else existing.get("message_template_key", "lot_only"),
+        "product_aliases": edited["product_aliases"]
+            if edited["product_aliases"] is not None
+            else existing.get("product_aliases", []),
         "model_classifier_label": existing.get("model_classifier_label", key),
         "detector_yolo_prefixes": existing.get("detector_yolo_prefixes", default_prefixes),
     }
