@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -7,7 +8,13 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-_CONFIG_DIR = Path(__file__).parent.parent / "config"
+_DEFAULT_CONFIG_DIR = Path(__file__).parent.parent / "config"
+
+
+def _config_dir() -> Path:
+    """Config root — `OCR_CONFIG_DIR` env (test harness) or the repo `config/`."""
+    override = os.getenv("OCR_CONFIG_DIR")
+    return Path(override) if override else _DEFAULT_CONFIG_DIR
 
 
 @dataclass
@@ -65,7 +72,7 @@ class PackagingRegistry:
             return yaml_value
 
     def _load(self, overrides: dict[str, dict]) -> None:
-        pkg_dir = _CONFIG_DIR / "packagings"
+        pkg_dir = _config_dir() / "packagings"
         # *.yaml glob skips *.yaml.archived and *.yaml.bak-* by extension
         for path in sorted(pkg_dir.glob("*.yaml")):
             if path.stem.startswith("_"):
@@ -94,7 +101,7 @@ class PackagingRegistry:
             self._configs[cfg.key] = cfg
             logger.debug("Loaded packaging config: %s", cfg.key)
 
-        tmpl_dir = _CONFIG_DIR / "message_templates"
+        tmpl_dir = _config_dir() / "message_templates"
         for path in sorted(tmpl_dir.glob("*.yaml")):
             data = yaml.safe_load(path.read_text(encoding="utf-8"))
             tmpl = MessageTemplate(
@@ -124,11 +131,11 @@ class PackagingRegistry:
         """True if there's an archived YAML for this key (active YAML must NOT exist)."""
         if key in self._configs:
             return False
-        return (_CONFIG_DIR / "packagings" / f"{key}.yaml.archived").exists()
+        return (_config_dir() / "packagings" / f"{key}.yaml.archived").exists()
 
     def archived_keys(self) -> list[str]:
         """List packagings that are currently archived."""
-        pkg_dir = _CONFIG_DIR / "packagings"
+        pkg_dir = _config_dir() / "packagings"
         if not pkg_dir.exists():
             return []
         return sorted(
