@@ -70,3 +70,7 @@ Thumbs.db
 .ruff_cache/
 htmlcov/
 .coverage
+
+# Test wizard harness
+.env.test
+data/test/
