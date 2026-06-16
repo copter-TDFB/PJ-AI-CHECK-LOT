@@ -64,6 +64,18 @@ def _make_json_file(svc, name: str, parent: str, payload: dict) -> str:
     return svc.files().create(body=body, media_body=media, fields="id").execute()["id"]
 
 
+def _make_text_file(svc, name: str, parent: str, text: str, mime: str) -> str:
+    body = {"name": name, "parents": [parent]}
+    media = MediaIoBaseUpload(io.BytesIO(text.encode("utf-8")), mimetype=mime)
+    return svc.files().create(body=body, media_body=media, fields="id").execute()["id"]
+
+
+# Starter YOLO data.yaml the detector dataset folder must contain — dataset_publisher
+# reads it to learn existing class names (it only ever APPENDS). Empty to start;
+# relative split paths are normalized by dataset_publisher._relativize.
+_STARTER_DATA_YAML = "train: train/images\nval: val/images\nnc: 0\nnames: []\n"
+
+
 def main() -> None:
     load_dotenv()
     reset = "--reset" in sys.argv
@@ -90,6 +102,9 @@ def main() -> None:
     det = _make_folder(svc, "data check lot", root)
     cls = _make_folder(svc, "data classify check lot", root)
     overrides = _make_json_file(svc, "config_overrides.json", root, {})
+    # The detector folder must ship a data.yaml or dataset_publisher.publish()
+    # fails fast with "data.yaml not found".
+    _make_text_file(svc, "data.yaml", det, _STARTER_DATA_YAML, "text/yaml")
 
     logger.info("\n# --- paste into .env.test ---")
     logger.info("DRIVE_DETECTOR_DATASET_FOLDER_ID=%s", det)
