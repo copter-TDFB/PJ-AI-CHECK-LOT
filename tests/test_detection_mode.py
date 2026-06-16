@@ -108,7 +108,7 @@ def test_default_detection_mode_is_single():
 
 def test_deployer_writes_multi_field_mode_and_prefixes(tmp_path, monkeypatch):
     import services.cloudrun_deployer as dep
-    monkeypatch.setattr(dep, "_PACKAGING_DIR", tmp_path)
+    monkeypatch.setenv("OCR_CONFIG_DIR", str(tmp_path))
     draft_meta = {
         "display_name": "New Pkg",
         "pipeline": "detector_ocr",
@@ -129,7 +129,7 @@ def test_deployer_writes_multi_field_mode_and_prefixes(tmp_path, monkeypatch):
 
 def test_deployer_writes_grouped_class_prefixes(tmp_path, monkeypatch):
     import services.cloudrun_deployer as dep
-    monkeypatch.setattr(dep, "_PACKAGING_DIR", tmp_path)
+    monkeypatch.setenv("OCR_CONFIG_DIR", str(tmp_path))
     draft_meta = {
         "display_name": "Grouped Pkg",
         "pipeline": "detector_ocr",
