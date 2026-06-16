@@ -619,7 +619,7 @@ def deploy_packaging(key: str):
         raise HTTPException(409, f"key '{key}' already active — use /clone to edit it")
 
     # 1. Hard-floor gate (before any backup — fail cheap)
-    eval_path = Path("data/drafts") / key / "models" / "eval.json"
+    eval_path = Path(os.getenv("DRAFT_DIR", "data/drafts")) / key / "models" / "eval.json"
     if not eval_path.exists():
         raise HTTPException(400, "ยังไม่มี eval — รัน full training ก่อน")
     eval_data = json.loads(eval_path.read_text(encoding="utf-8"))
@@ -687,7 +687,7 @@ def get_eval(key: str):
     """Return latest eval metrics + hard-floor check."""
     from services import eval_thresholds
 
-    eval_path = Path("data/drafts") / key / "models" / "eval.json"
+    eval_path = Path(os.getenv("DRAFT_DIR", "data/drafts")) / key / "models" / "eval.json"
     if not eval_path.exists():
         raise HTTPException(404, "ยังไม่มี eval — รัน full training ก่อน")
     eval_data = json.loads(eval_path.read_text(encoding="utf-8"))

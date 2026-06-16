@@ -7,6 +7,7 @@ verifies/edits instead of labeling from scratch.
 """
 
 import logging
+import os
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -14,7 +15,7 @@ from services import packaging_store
 
 logger = logging.getLogger(__name__)
 
-_DRAFT_DIR = Path("data/drafts")
+_DRAFT_DIR = Path(os.getenv("DRAFT_DIR", "data/drafts"))
 _IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 _PRELABEL_CONF = 0.25  # min YOLO confidence to keep a prediction
 

@@ -388,8 +388,8 @@ def test_eval_404_without_training(client, annot_draft):
 def test_eval_with_existing_eval_json(client, annot_draft, tmp_path):
     """If eval.json exists locally, /eval returns it + hard-floor check."""
     import json as _json
-    from pathlib import Path
-    eval_dir = Path(f"data/drafts/{annot_draft}/models")
+    from services import packaging_store as _ps
+    eval_dir = _ps._DRAFT_DIR / annot_draft / "models"
     eval_dir.mkdir(parents=True, exist_ok=True)
     eval_data = {
         "detector_mAP_50": 0.78,
@@ -399,23 +399,18 @@ def test_eval_with_existing_eval_json(client, annot_draft, tmp_path):
     }
     (eval_dir / "eval.json").write_text(_json.dumps(eval_data))
 
-    try:
-        r = client.get(f"/api/packagings/{annot_draft}/eval")
-        assert r.status_code == 200
-        body = r.json()
-        assert body["eval"]["detector_mAP_50"] == 0.78
-        assert body["hard_floor"]["passed"] is True
-    finally:
-        # เขียนลง data/drafts จริง (ไม่ใช่ DRAFT_DIR ที่ isolate) — ต้องลบ
-        # ไม่งั้น test_eval_404_without_training fail ในรอบรันถัดไป
-        shutil.rmtree(f"data/drafts/{annot_draft}", ignore_errors=True)
+    r = client.get(f"/api/packagings/{annot_draft}/eval")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["eval"]["detector_mAP_50"] == 0.78
+    assert body["hard_floor"]["passed"] is True
 
 
 def test_eval_hard_floor_fails(client, annot_draft):
     """Eval below thresholds → hard_floor.passed False."""
     import json as _json
-    from pathlib import Path
-    eval_dir = Path(f"data/drafts/{annot_draft}/models")
+    from services import packaging_store as _ps
+    eval_dir = _ps._DRAFT_DIR / annot_draft / "models"
     eval_dir.mkdir(parents=True, exist_ok=True)
     (eval_dir / "eval.json").write_text(_json.dumps({
         "detector_mAP_50": 0.40,  # < 0.65
@@ -423,16 +418,13 @@ def test_eval_hard_floor_fails(client, annot_draft):
         "recall": 0.30,
     }))
 
-    try:
-        r = client.get(f"/api/packagings/{annot_draft}/eval")
-        assert r.status_code == 200
-        floor = r.json()["hard_floor"]
-        assert floor["passed"] is False
-        assert len(floor["failures"]) >= 1
-        metrics_failed = {f["metric"] for f in floor["failures"]}
-        assert "detector_mAP_50" in metrics_failed
-    finally:
-        shutil.rmtree(f"data/drafts/{annot_draft}", ignore_errors=True)
+    r = client.get(f"/api/packagings/{annot_draft}/eval")
+    assert r.status_code == 200
+    floor = r.json()["hard_floor"]
+    assert floor["passed"] is False
+    assert len(floor["failures"]) >= 1
+    metrics_failed = {f["metric"] for f in floor["failures"]}
+    assert "detector_mAP_50" in metrics_failed
 
 
 def test_deploy_blocks_without_eval(client, annot_draft):
@@ -442,24 +434,22 @@ def test_deploy_blocks_without_eval(client, annot_draft):
 
 def test_deploy_blocks_on_hard_floor_fail(client, annot_draft):
     import json as _json
-    from pathlib import Path
-    eval_dir = Path(f"data/drafts/{annot_draft}/models")
+    from services import packaging_store as _ps
+    eval_dir = _ps._DRAFT_DIR / annot_draft / "models"
     eval_dir.mkdir(parents=True, exist_ok=True)
     (eval_dir / "eval.json").write_text(_json.dumps({
         "detector_mAP_50": 0.30, "precision": 0.40, "recall": 0.20,
     }))
-    try:
-        r = client.post(f"/api/packagings/{annot_draft}/deploy")
-        assert r.status_code == 400
-    finally:
-        shutil.rmtree(f"data/drafts/{annot_draft}", ignore_errors=True)
+    r = client.post(f"/api/packagings/{annot_draft}/deploy")
+    assert r.status_code == 400
 
 
 def test_deploy_writes_yaml(client, annot_draft):
     """Deploy with passing eval → YAML file appears in config/packagings/."""
     import json as _json
     from pathlib import Path
-    eval_dir = Path(f"data/drafts/{annot_draft}/models")
+    from services import packaging_store as _ps
+    eval_dir = _ps._DRAFT_DIR / annot_draft / "models"
     eval_dir.mkdir(parents=True, exist_ok=True)
     (eval_dir / "eval.json").write_text(_json.dumps({
         "detector_mAP_50": 0.80, "precision": 0.90, "recall": 0.85,
@@ -487,7 +477,6 @@ def test_deploy_writes_yaml(client, annot_draft):
     finally:
         if yaml_path.exists():
             yaml_path.unlink()
-        shutil.rmtree(f"data/drafts/{annot_draft}", ignore_errors=True)
 
 
 # ─── Active packaging — clone / archive / unarchive / overwrite ─────────
@@ -651,7 +640,8 @@ def test_deploy_edit_draft_overwrites_parent(client, fake_active):
     edit_key = r.json()["key"]
 
     # Stage a passing eval so deploy doesn't bail out
-    eval_dir = Path(f"data/drafts/{edit_key}/models")
+    from services import packaging_store as _ps
+    eval_dir = _ps._DRAFT_DIR / edit_key / "models"
     eval_dir.mkdir(parents=True, exist_ok=True)
     (eval_dir / "eval.json").write_text(_json.dumps({
         "detector_mAP_50": 0.85, "precision": 0.91, "recall": 0.88,
@@ -699,7 +689,8 @@ def test_deploy_rolls_back_on_hard_floor_fail(client, fake_active):
     r = client.post(f"/api/packagings/{fake_active}/clone")
     edit_key = r.json()["key"]
 
-    eval_dir = Path(f"data/drafts/{edit_key}/models")
+    from services import packaging_store as _ps
+    eval_dir = _ps._DRAFT_DIR / edit_key / "models"
     eval_dir.mkdir(parents=True, exist_ok=True)
     (eval_dir / "eval.json").write_text(_json.dumps({
         "detector_mAP_50": 0.20, "precision": 0.30, "recall": 0.15,

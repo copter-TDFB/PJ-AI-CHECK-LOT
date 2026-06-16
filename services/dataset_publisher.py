@@ -22,7 +22,7 @@ from typing import Callable
 
 logger = logging.getLogger(__name__)
 
-_DRAFT_DIR = Path("data/drafts")
+_DRAFT_DIR = Path(os.getenv("DRAFT_DIR", "data/drafts"))
 _IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 _DET_ENV = "DRIVE_DETECTOR_DATASET_FOLDER_ID"
 _CLS_ENV = "DRIVE_CLASSIFIER_DATASET_FOLDER_ID"

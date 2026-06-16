@@ -176,7 +176,7 @@ def promote_draft_model(draft_key: str) -> Path | None:
     Returns the destination path, or None if the draft has no trained model.
     Caller is responsible for backing up the previous detector first.
     """
-    src = Path("data/drafts") / draft_key / "models" / "full_detector.pt"
+    src = Path(os.getenv("DRAFT_DIR", "data/drafts")) / draft_key / "models" / "full_detector.pt"
     if not src.exists():
         return None
     _MODELS_DIR.mkdir(parents=True, exist_ok=True)
