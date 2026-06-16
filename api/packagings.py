@@ -656,8 +656,14 @@ def deploy_packaging(key: str):
                 logger.exception("registry reload after rollback failed")
         raise HTTPException(500, f"deploy failed: {e}")
 
-    # 6. Trigger Cloud Run revision (non-fatal if IAM lacks role)
-    cr_result = cloudrun_deployer.trigger_cloud_run_revision()
+    # 6. Trigger Cloud Run revision (non-fatal if IAM lacks role).
+    #    In TEST_MODE the trigger is the one call that can touch production
+    #    Cloud Run, so it is skipped entirely and the deploy is simulated.
+    if os.getenv("TEST_MODE") == "1":
+        cr_result = {"triggered": False, "reason": "test mode (simulated)"}
+        logger.info("TEST_MODE — skipping Cloud Run trigger for '%s'", target_key)
+    else:
+        cr_result = cloudrun_deployer.trigger_cloud_run_revision()
 
     # 7. Edit-draft: remove the now-merged draft. Fresh deploy: mark status.
     if parent_key is not None:
