@@ -702,11 +702,14 @@ def test_backup_rotation_keeps_three(tmp_path, monkeypatch):
     from services import cloudrun_deployer
 
     # Redirect packaging dir + models dir to tmp_path
+    # _packaging_dir() reads OCR_CONFIG_DIR at call time, so patch the env var.
+    # It returns Path(OCR_CONFIG_DIR) / "packagings", so point OCR_CONFIG_DIR at tmp_path
+    # so that _packaging_dir() resolves to tmp_path / "packagings".
     pkg_dir = tmp_path / "packagings"
     pkg_dir.mkdir()
     models_dir = tmp_path / "models"
     models_dir.mkdir()
-    monkeypatch.setattr(cloudrun_deployer, "_PACKAGING_DIR", pkg_dir)
+    monkeypatch.setenv("OCR_CONFIG_DIR", str(tmp_path))
     monkeypatch.setattr(cloudrun_deployer, "_MODELS_DIR", models_dir)
 
     yaml_path = pkg_dir / "demo.yaml"

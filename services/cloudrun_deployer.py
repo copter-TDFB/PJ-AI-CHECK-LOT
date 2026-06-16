@@ -22,7 +22,9 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-_PACKAGING_DIR = Path("config/packagings")
+def _packaging_dir() -> Path:
+    """Packagings dir — `OCR_CONFIG_DIR` env (test harness) or repo `config/packagings`."""
+    return Path(os.getenv("OCR_CONFIG_DIR", "config")) / "packagings"
 _MODELS_DIR = Path(os.getenv("MODELS_DIR", "models"))
 _BACKUP_KEEP = 3
 _CLOUD_RUN_PROJECT = os.getenv("CLOUD_RUN_PROJECT", "pj-ai-detect-lot-no")
@@ -43,7 +45,7 @@ def write_packaging_yaml(key: str, draft_meta: dict[str, Any]) -> Path:
     pipeline = draft_meta.get("pipeline", "detector_ocr")
 
     existing: dict[str, Any] = {}
-    out = _PACKAGING_DIR / f"{key}.yaml"
+    out = _packaging_dir() / f"{key}.yaml"
     if out.exists():
         try:
             existing = yaml.safe_load(out.read_text(encoding="utf-8")) or {}
@@ -95,7 +97,7 @@ def write_packaging_yaml(key: str, draft_meta: dict[str, Any]) -> Path:
         "detector_yolo_prefixes": existing.get("detector_yolo_prefixes", default_prefixes),
     }
 
-    _PACKAGING_DIR.mkdir(parents=True, exist_ok=True)
+    _packaging_dir().mkdir(parents=True, exist_ok=True)
     out.write_text(
         yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
         encoding="utf-8",
@@ -117,9 +119,9 @@ def backup_artifacts(parent_key: str) -> dict[str, Any]:
     ts = _bak_suffix()
     manifest: dict[str, Any] = {"timestamp": ts, "files": []}
 
-    yaml_src = _PACKAGING_DIR / f"{parent_key}.yaml"
+    yaml_src = _packaging_dir() / f"{parent_key}.yaml"
     if yaml_src.exists():
-        dst = _PACKAGING_DIR / f"{parent_key}.yaml.bak-{ts}"
+        dst = _packaging_dir() / f"{parent_key}.yaml.bak-{ts}"
         shutil.copy2(yaml_src, dst)
         manifest["files"].append({"src": str(yaml_src), "bak": str(dst)})
         logger.info("Backed up YAML: %s", dst)
@@ -148,7 +150,7 @@ def restore_backup(manifest: dict[str, Any]) -> None:
 
 def _rotate_backups(parent_key: str, keep: int = _BACKUP_KEEP) -> None:
     """Keep only the most recent N backups per artifact type."""
-    yaml_baks = sorted(_PACKAGING_DIR.glob(f"{parent_key}.yaml.bak-*"))
+    yaml_baks = sorted(_packaging_dir().glob(f"{parent_key}.yaml.bak-*"))
     for old in yaml_baks[:-keep]:
         try:
             old.unlink()
@@ -187,10 +189,10 @@ def archive_packaging(key: str) -> Path:
 
     Returns the new path. Raises FileNotFoundError if no active YAML exists.
     """
-    src = _PACKAGING_DIR / f"{key}.yaml"
+    src = _packaging_dir() / f"{key}.yaml"
     if not src.exists():
         raise FileNotFoundError(f"no active YAML for '{key}'")
-    dst = _PACKAGING_DIR / f"{key}.yaml.archived"
+    dst = _packaging_dir() / f"{key}.yaml.archived"
     if dst.exists():
         dst.unlink()  # collapse stale archive if any
     src.rename(dst)
@@ -200,10 +202,10 @@ def archive_packaging(key: str) -> Path:
 
 def unarchive_packaging(key: str) -> Path:
     """Restore: rename {key}.yaml.archived → {key}.yaml."""
-    src = _PACKAGING_DIR / f"{key}.yaml.archived"
+    src = _packaging_dir() / f"{key}.yaml.archived"
     if not src.exists():
         raise FileNotFoundError(f"no archived YAML for '{key}'")
-    dst = _PACKAGING_DIR / f"{key}.yaml"
+    dst = _packaging_dir() / f"{key}.yaml"
     if dst.exists():
         raise FileExistsError(f"active '{key}' already exists — refusing to overwrite")
     src.rename(dst)

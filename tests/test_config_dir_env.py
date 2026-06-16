@@ -27,3 +27,23 @@ def test_registry_defaults_to_repo_config(monkeypatch):
 
     # The repo ships these production packagings under config/packagings/
     assert "back_label" in reg.all_keys()
+
+
+def test_deployer_packaging_dir_reads_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("OCR_CONFIG_DIR", str(tmp_path / "config"))
+
+    from services import cloudrun_deployer
+
+    draft = {
+        "display_name": "Demo",
+        "config": {
+            "lot_patterns": ["LOT[0-9]+"],
+            "fields_extracted": ["lot"],
+            "sheet_checks": ["lot"],
+            "message_template_key": "lot_only",
+        },
+    }
+    out = cloudrun_deployer.write_packaging_yaml("demo", draft)
+
+    assert out == tmp_path / "config" / "packagings" / "demo.yaml"
+    assert out.exists()
