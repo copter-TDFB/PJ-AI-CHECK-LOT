@@ -365,6 +365,10 @@ label{
 }
 .req{color:var(--acc);margin-left:2px}
 .hint{font-weight:400;color:var(--t3);font-size:11px;margin-left:6px}
+.pa-hint{background:var(--acc-bg);border-left:3px solid var(--acc-bd);border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12px;line-height:1.65;color:var(--t2)}
+.pa-hint strong{color:var(--t1);font-weight:600}
+.pa-hint code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--s2);padding:1px 5px;border-radius:4px;color:var(--t1)}
+.pa-hint .pa-hint-eg{margin-top:6px}
 input[type=text],input[type=email],textarea,select{
   width:100%;background:var(--s2);border:1px solid var(--bd);
   border-radius:7px;padding:10px 12px;color:var(--t1);
@@ -629,6 +633,22 @@ select option,select optgroup{
   font-family:'JetBrains Mono',monospace;font-size:11px;
   background:rgba(52,211,153,.08);color:var(--ok);
   padding:1px 6px;border-radius:3px;
+}
+
+/* ── PRODUCT ALIASES ─────────────────────────────── */
+.pa-head{display:grid;grid-template-columns:1fr 1.3fr 28px;gap:8px;margin-bottom:6px}
+.pa-head label{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);margin:0}
+.pa-rows{display:flex;flex-direction:column;gap:8px}
+.pa-row{display:grid;grid-template-columns:1fr 1.3fr 28px;gap:8px;align-items:center}
+.pa-row input{width:100%;min-width:0;font-size:13px}
+.pa-row .pa-preview{grid-column:1 / -1;font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-top:-2px;min-height:14px}
+.pa-row .pa-preview.warn{color:var(--warn);font-family:inherit}
+.pa-row .pa-preview code{background:var(--s2);padding:0 4px;border-radius:3px;color:var(--t1)}
+.pa-row .pa-keywords{font-family:'JetBrains Mono',monospace;letter-spacing:.03em}
+@media(max-width:560px){
+  .pa-head{display:none}
+  .pa-row{grid-template-columns:1fr 28px}
+  .pa-row .pa-keywords{grid-column:1 / -1}
 }
 
 /* Checkboxes */
@@ -1552,11 +1572,11 @@ select option,select optgroup{
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Expiry Date</div><div class="cb-desc">ค้นหาจาก BBD / EXP / หมดอายุ</div></div>
                   </div>
-                  <div class="cbitem" data-field="product" onclick="toggleCb(this)">
+                  <div class="cbitem" data-field="product" onclick="toggleCb(this); syncProductAliasVisibility()">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Product Name</div><div class="cb-desc">เช่น Houjicha Powder, Classic Rich 95%</div></div>
                   </div>
-                  <div class="cbitem" data-field="size" onclick="toggleCb(this)">
+                  <div class="cbitem" data-field="size" onclick="toggleCb(this); updateAllProdPreviews()">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Size / Weight</div><div class="cb-desc">เช่น 40 g, 200 g, 1 kg</div></div>
                   </div>
@@ -1574,6 +1594,30 @@ select option,select optgroup{
                     <div><div class="cb-lbl">Exp match</div><div class="cb-desc">ตรวจวันหมดอายุตรงกับ sheet</div></div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div class="wiz-card" id="pa-card" style="display:none">
+              <div class="wiz-card-title" style="font-size:18px">ชื่อ Product & คำที่พบบนซอง</div>
+              <div class="wiz-card-desc" style="margin-bottom:15px">
+                OCR อ่านข้อความบนบรรจุภัณฑ์แล้วระบบจะมองหา "คำที่พบบนซอง" เพื่อแปลงเป็น
+                "ชื่อ Product" ที่ต้องตรงกับคอลัมน์ Product Name ใน Google Sheet —
+                ใส่ product ใหม่ได้เองโดยไม่ต้องแก้โค้ด
+              </div>
+              <div class="pa-hint">
+                💡 ช่อง <strong>"ชื่อ Product"</strong> เป็น <strong>template</strong> — พิมพ์ข้อความได้อิสระ และใส่ <code>{size}</code> ตรงไหนก็ได้เพื่อให้ระบบแทนด้วยขนาดที่ OCR อ่านเจอ · ต้องตรงกับคอลัมน์ Product Name ใน Sheet แบบทุกตัวอักษร
+                <div class="pa-hint-eg">▸ <code>Medium {size}</code> → ถ้า OCR เจอ 40 g จะได้ <code>Medium 40 g</code> (แถวเดียวคุมได้ทุกขนาด)</div>
+                <div class="pa-hint-eg">▸ <code>Houjicha Powder</code> → ได้ <code>Houjicha Powder</code> (ไม่ใส่ <code>{size}</code> = ไม่ต่ออะไร)</div>
+                <div class="pa-hint-eg">▸ ถ้าใส่ <code>{size}</code> แต่ OCR อ่านขนาดไม่เจอ → product จะถือว่าไม่ผ่าน (เปิด field "ขนาด" ด้านบนด้วย)</div>
+              </div>
+              <div class="fgroup">
+                <div class="pa-head">
+                  <label>ชื่อ Product (ตรงกับ Sheet) <span class="req">*</span></label>
+                  <label>คำที่พบบนซอง (คั่นด้วย ,)</label>
+                  <span></span>
+                </div>
+                <div class="pa-rows" id="pa-rows"></div>
+                <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addProdAlias()">+ เพิ่ม Product</button>
               </div>
             </div>
 
@@ -1797,7 +1841,7 @@ function goStep(n) {
   if (content) content.scrollTo({top: 0, behavior: 'smooth'});
   if (n === 2) initStep2();
   if (n === 3) loadAnnotator();
-  if (n === 4) prefillFieldsFromSubRegions();
+  if (n === 4) { prefillFieldsFromSubRegions(); syncProductAliasVisibility(); }
   if (n === 5) loadStep5();
   syncUrl();
 }
@@ -3179,6 +3223,57 @@ function prefillFieldsFromSubRegions() {
   });
 }
 
+// ─── Product aliases (step 4) ─────────────────────────
+function isProductFieldOn() {
+  return !!document.querySelector('#sp4 [data-group="fields"] .cbitem.on[data-field="product"]');
+}
+function addProdAlias(canonical = '', keywords = '') {
+  const c = String(canonical).replace(/"/g, '&quot;');
+  const k = String(keywords).replace(/"/g, '&quot;');
+  document.getElementById('pa-rows').insertAdjacentHTML('beforeend', `
+    <div class="pa-row">
+      <input type="text" class="pa-canonical" aria-label="ชื่อ Product (template)" placeholder="Medium {size}" value="${c}" oninput="updateProdPreview(this.closest('.pa-row'))">
+      <input type="text" class="pa-keywords" aria-label="คำที่พบบนซอง คั่นด้วยจุลภาค" placeholder="medium" value="${k}">
+      <button class="rm-btn" onclick="removeProdAlias(this)" aria-label="ลบ product นี้">×</button>
+      <div class="pa-preview"></div>
+    </div>`);
+  updateProdPreview(document.getElementById('pa-rows').lastElementChild);
+}
+const PA_SAMPLE_SIZE = '40 g';
+function isSizeFieldOn() {
+  return !!document.querySelector('#sp4 [data-group="fields"] .cbitem.on[data-field="size"]');
+}
+function updateProdPreview(row) {
+  if (!row) return;
+  const out = row.querySelector('.pa-preview');
+  const tpl = row.querySelector('.pa-canonical').value.trim();
+  if (!out) return;
+  if (!tpl) { out.textContent = ''; out.className = 'pa-preview'; return; }
+  if (tpl.includes('{size}')) {
+    if (!isSizeFieldOn()) {
+      out.innerHTML = '⚠ ใช้ <code>{size}</code> แต่ยังไม่เปิด field "ขนาด" ด้านบน';
+      out.className = 'pa-preview warn';
+      return;
+    }
+    const resolved = tpl.replace(/\{size\}/g, PA_SAMPLE_SIZE).replace(/\s+/g, ' ').trim();
+    out.textContent = `→ "${resolved}"  (ตัวอย่างขนาด ${PA_SAMPLE_SIZE})`;
+  } else {
+    out.textContent = `→ "${tpl}"`;
+  }
+  out.className = 'pa-preview';
+}
+function updateAllProdPreviews() {
+  document.querySelectorAll('#pa-rows .pa-row').forEach(updateProdPreview);
+}
+function removeProdAlias(btn) { btn.closest('.pa-row').remove(); }
+function syncProductAliasVisibility() {
+  const card = document.getElementById('pa-card');
+  if (!card) return;
+  const on = isProductFieldOn();
+  card.style.display = on ? '' : 'none';
+  if (on && !document.querySelector('#pa-rows .pa-row')) addProdAlias();
+}
+
 function collectConfig() {
   const fields = ['lot'];
   document.querySelectorAll('#sp4 [data-group="fields"] .cbitem.on[data-field]').forEach(el => {
@@ -3189,11 +3284,19 @@ function collectConfig() {
     sheet_checks.push(el.dataset.field);
   });
   const tpl = document.querySelector('#sp4 .tpl-opt.on');
+  const product_aliases = isProductFieldOn()
+    ? Array.from(document.querySelectorAll('#pa-rows .pa-row')).map(row => ({
+        canonical: row.querySelector('.pa-canonical').value.trim(),
+        keywords: row.querySelector('.pa-keywords').value
+          .split(',').map(s => s.trim()).filter(Boolean),
+      })).filter(a => a.canonical && a.keywords.length)  // ทิ้ง row ที่ไม่มี keyword (match ไม่ได้ + จะไป bypass hardcode fallback เงียบ ๆ)
+    : [];
   return {
     lot_patterns: [document.getElementById('rx-display').textContent.trim()],
     fields_extracted: fields,
     sheet_checks,
     message_template_key: tpl ? tpl.dataset.template : 'default_full',
+    product_aliases,
   };
 }
 

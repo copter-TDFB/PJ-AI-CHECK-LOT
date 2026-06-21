@@ -209,10 +209,50 @@ def find_size(text: str) -> str | None:
     return None
 
 
-def find_product_name(text: str) -> str | None:
+def _match_aliases(text: str, aliases: list[dict]) -> str | None:
+    """ไล่ aliases ตามลำดับ (priority) — keyword แรกที่เจอใน text → คืน canonical.
+
+    keyword ถูก escape เป็น literal และ match แบบไม่กินคำข้างเคียง (กัน "rich"
+    ไป match ใน "enriched") โดยใช้ lookaround แทน \\b เพราะ keyword อาจลงท้าย
+    ด้วยอักขระที่ไม่ใช่ตัวอักษร เช่น "95%".
     """
-    ดึงชื่อ product จาก back_label / grade_bag
-    คืน canonical name ตาม format ที่กำหนด:
+    lower = text.lower()
+    for entry in aliases:
+        canonical = (entry.get("canonical") or "").strip()
+        for kw in entry.get("keywords") or []:
+            kw = str(kw).strip().lower()
+            if not kw:
+                continue
+            pattern = r"(?<![a-z0-9])" + re.escape(kw) + r"(?![a-z0-9])"
+            if re.search(pattern, lower):
+                return canonical or None
+    return None
+
+
+def resolve_product_template(template: str | None, size: str | None) -> str | None:
+    """ประกอบชื่อ product จาก template — แทน token {size} ด้วยขนาดที่ OCR อ่านได้.
+
+    - ไม่มี {size}        → คืน template ตามเดิม (เช่น 'Houjicha Powder')
+    - มี {size} + มี size → แทนค่าแล้วยุบช่องว่างซ้ำ (เช่น 'Medium 40 g')
+    - มี {size} + ไม่มี size → คืน None (ยืนยันไม่ได้ → product ไม่ผ่าน)
+    """
+    if not template:
+        return None
+    if "{size}" not in template:
+        return template
+    if not size:
+        return None
+    resolved = template.replace("{size}", size)
+    return " ".join(resolved.split())
+
+
+def find_product_name(text: str, aliases: list[dict] | None = None) -> str | None:
+    """
+    ดึงชื่อ product จาก OCR text แล้วคืน canonical name.
+
+    aliases — รายการ {"canonical": str, "keywords": [str]} ต่อ packaging
+    (config-driven, ดูฟิลด์ product_aliases ใน YAML). ถ้าให้มา จะใช้แทน
+    keyword hardcode; ไม่ให้/ว่าง → fallback hardcode เดิม (class เก่า):
       Rich (ไม่ว่าจะมี Excellent นำหน้าหรือไม่) → 'Excellent Rich 95%'
       Houjicha → 'Houjicha Powder'
       Genmaicha → 'Genmaicha Powder'
@@ -221,6 +261,8 @@ def find_product_name(text: str) -> str | None:
       Classic → 'Classic'
     """
     text = correct_ocr(text)
+    if aliases:
+        return _match_aliases(text, aliases)
     if _KW_EXCELLENT_RICH.search(text):
         return 'Excellent Rich 95%'
     if _KW_CLASSIC_RICH.search(text):

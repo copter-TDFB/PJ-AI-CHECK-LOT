@@ -141,6 +141,7 @@ def clone_from_active(
         "fields_extracted": active_yaml.get("fields_extracted", ["lot"]),
         "sheet_checks": active_yaml.get("sheet_checks", []),
         "message_template_key": active_yaml.get("message_template_key", "default_full"),
+        "product_aliases": active_yaml.get("product_aliases", []),
     }
 
     meta = {

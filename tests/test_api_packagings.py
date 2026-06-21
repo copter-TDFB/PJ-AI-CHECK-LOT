@@ -189,6 +189,26 @@ def test_save_config_rejects_bad_regex(client):
     assert r.status_code == 422
 
 
+def test_save_config_product_aliases_round_trip(client):
+    aliases = [
+        {"canonical": "Houjicha Powder", "keywords": ["houjicha"]},
+        {"canonical": "Excellent Rich 95%", "keywords": ["excellent rich", "rich"]},
+    ]
+    r = client.post("/api/packagings/test_box/config", json={
+        "lot_patterns": [r"^[A-Z]{2}\d{4,}.*$"],
+        "fields_extracted": ["lot", "product"],
+        "sheet_checks": ["lot", "product"],
+        "message_template_key": "default_full",
+        "product_aliases": aliases,
+    })
+    assert r.status_code == 200, r.text
+    assert r.json()["config"]["product_aliases"] == aliases
+    # GET must echo it back (PackagingResponse keeps it inside config dict)
+    g = client.get("/api/packagings/test_box")
+    assert g.status_code == 200
+    assert g.json()["config"]["product_aliases"] == aliases
+
+
 def test_cannot_delete_active(client):
     r = client.delete("/api/packagings/back_label")
     assert r.status_code == 403

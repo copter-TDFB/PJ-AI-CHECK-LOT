@@ -61,11 +61,18 @@ class PackagingUpdate(BaseModel):
     pipeline: PipelineType | None = None
 
 
+class ProductAlias(BaseModel):
+    """keyword บนบรรจุภัณฑ์ → canonical name ที่ตรงกับคอลัมน์ Product Name ใน sheet."""
+    canonical: str
+    keywords: list[str] = Field(default_factory=list)
+
+
 class PackagingConfigUpdate(BaseModel):
     lot_patterns: list[str] = Field(default_factory=list)
     fields_extracted: list[str] = Field(default_factory=lambda: ["lot"])
     sheet_checks: list[str] = Field(default_factory=list)
     message_template_key: str = "default_full"
+    product_aliases: list[ProductAlias] = Field(default_factory=list)
 
     @field_validator("lot_patterns")
     @classmethod
