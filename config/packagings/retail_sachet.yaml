@@ -9,7 +9,11 @@ sub_regions: []
 detection_mode: single
 
 lot_patterns:
+  # happy path: อ่าน LOT ชัด
   - '(?i)LOT\s*[:\.\-]?\s*(\d{4})\b'
+  # dot-matrix prefix เพี้ยน (LOT -> ECT ฯลฯ): lot ของ class นี้เป็นเลข 4 หลักเสมอ นำหน้าด้วย prefix 2-3 ตัว
+  # negative lookahead กันคำวันที่ (EXP/BBD/MFG ฯลฯ) ไม่ให้ถูกจับเป็น lot
+  - '(?i)\b(?!(?:EXP|BBD|BBE|MFG|EX|BB)\b)[A-Z]{2,3}\s*[:\.\-]?\s*(\d{4})\b'
 
 fields_extracted: [lot, exp]
 sheet_checks: [lot, exp]

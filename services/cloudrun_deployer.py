@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +22,14 @@ from typing import Any
 import yaml
 
 logger = logging.getLogger(__name__)
+
+_KEY_RE = re.compile(r"[a-zA-Z0-9_\-]{1,64}")
+
+
+def _validate_key(key: str) -> None:
+    """Reject keys that could escape the GCS object namespace (`/`, `..`, etc.)."""
+    if not _KEY_RE.fullmatch(key):
+        raise ValueError(f"unsafe packaging key: {key!r}")
 
 def _packaging_dir() -> Path:
     """Packagings dir — `OCR_CONFIG_DIR` env (test harness) or repo `config/packagings`."""
@@ -228,6 +237,94 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: f.read(65536), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def _empty_manifest() -> dict[str, Any]:
+    return {"version": 0, "packagings": {}, "archived": [], "models": {}}
+
+
+def publish_packaging_to_gcs(key: str) -> dict[str, Any]:
+    """Push the active YAML + current models to GCS so the change survives Cloud
+    Run revisions. Manifest is written LAST — if any upload fails the manifest is
+    untouched, so a new revision never sees a partial state.
+
+    Returns {'published': False, 'reason': ...} when GCS is not configured
+    (local dev / TEST_MODE) — callers treat that as a no-op, not an error.
+    """
+    from services import gcs_store
+
+    _validate_key(key)
+    store = gcs_store.get_store()
+    if store is None:
+        return {"published": False, "reason": "GCS_CONFIG_BUCKET not set"}
+
+    yaml_path = _packaging_dir() / f"{key}.yaml"
+    if not yaml_path.exists():
+        raise FileNotFoundError(f"no active YAML for '{key}'")
+
+    # Read manifest first so we can skip re-uploading unchanged (large) models.
+    manifest = store.read_json(gcs_store.MANIFEST_PATH) or _empty_manifest()
+    existing_models = manifest.get("models") or {}
+
+    yaml_text = yaml_path.read_text(encoding="utf-8")
+    store.put_text(
+        f"{gcs_store.PACKAGINGS_PREFIX}{key}.yaml", yaml_text, content_type="application/x-yaml"
+    )
+
+    models_meta: dict[str, Any] = {}
+    for label, fname in (("detector", "detector.pt"), ("classifier", "classifier.pt")):
+        src = _MODELS_DIR / fname
+        if src.exists():
+            obj = f"{gcs_store.MODELS_PREFIX}{fname}"
+            sha = sha256_file(src)
+            if existing_models.get(label, {}).get("sha256") != sha:
+                store.upload_file(obj, src)  # only upload when content changed
+            models_meta[label] = {"object": obj, "sha256": sha}
+
+    manifest.setdefault("packagings", {})[key] = {
+        "sha": hashlib.sha256(yaml_text.encode("utf-8")).hexdigest()
+    }
+    manifest["archived"] = [k for k in manifest.get("archived", []) if k != key]
+    if models_meta:
+        manifest.setdefault("models", {}).update(models_meta)
+    manifest["version"] = int(manifest.get("version", 0)) + 1
+    manifest["updated_at"] = datetime.now(timezone.utc).isoformat()
+    store.write_json(gcs_store.MANIFEST_PATH, manifest)  # commit point — LAST
+
+    logger.info("Published %s to GCS (version=%s, models=%s)", key, manifest["version"], list(models_meta))
+    return {"published": True, "version": manifest["version"], "models": list(models_meta)}
+
+
+def set_archived_in_gcs(key: str, archived: bool) -> dict[str, Any]:
+    """Toggle a packaging's archived state in the GCS manifest (commit point).
+
+    archived=True → registry overlay tombstones the key (removed from /predict).
+    The YAML object is kept so unarchive can restore it. No-op when GCS unset.
+    """
+    from services import gcs_store
+
+    _validate_key(key)
+    store = gcs_store.get_store()
+    if store is None:
+        return {"published": False, "reason": "GCS_CONFIG_BUCKET not set"}
+
+    manifest = store.read_json(gcs_store.MANIFEST_PATH) or _empty_manifest()
+    archived_set = set(manifest.get("archived", []))
+    packagings = manifest.setdefault("packagings", {})
+    if archived:
+        archived_set.add(key)
+        packagings.pop(key, None)
+    else:
+        archived_set.discard(key)
+        if store.exists(f"{gcs_store.PACKAGINGS_PREFIX}{key}.yaml"):
+            packagings[key] = packagings.get(key, {"sha": ""})
+    manifest["archived"] = sorted(archived_set)
+    manifest["version"] = int(manifest.get("version", 0)) + 1
+    manifest["updated_at"] = datetime.now(timezone.utc).isoformat()
+    store.write_json(gcs_store.MANIFEST_PATH, manifest)
+
+    logger.info("Set archived=%s for %s in GCS (version=%s)", archived, key, manifest["version"])
+    return {"published": True, "archived": archived, "version": manifest["version"]}
 
 
 def trigger_cloud_run_revision() -> dict[str, Any]:

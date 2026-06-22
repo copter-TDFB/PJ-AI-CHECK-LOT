@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 _ENV_FILE_ID = "DRIVE_CONFIG_OVERRIDES_FILE_ID"
 _ENV_LOCAL_PATH = "CONFIG_OVERRIDES_PATH"
 _DEFAULT_LOCAL_PATH = "data/config_overrides.json"
+_GCS_OBJECT = "config_overrides.json"
 
 
 def _drive_file_id() -> str:
@@ -48,7 +49,19 @@ def _validated(raw: object) -> dict[str, dict]:
 
 
 def load() -> dict[str, dict]:
-    """Load overrides from Drive (or local fallback). Never raises."""
+    """Load overrides from GCS (or Drive / local fallback). Never raises."""
+    from services import gcs_store
+
+    store = gcs_store.get_store()
+    if store is not None:
+        try:
+            data = store.read_json(_GCS_OBJECT)
+            return _validated(data) if data is not None else {}
+        except Exception as e:
+            # transient GCS error → fall through to Drive/local rather than
+            # silently dropping operator-tuned conf_threshold overrides
+            logger.warning("config overrides (GCS) unreadable — falling back to Drive/local: %s", e)
+
     file_id = _drive_file_id()
     try:
         if file_id:
@@ -73,13 +86,19 @@ def save_conf_threshold(key: str, value: float) -> dict[str, dict]:
     entry = merged.setdefault(key, {})
     entry["conf_threshold"] = float(value)
 
-    content = json.dumps(merged, ensure_ascii=False, indent=2).encode("utf-8")
-    file_id = _drive_file_id()
-    if file_id:
-        DriveClient().update_file_content(file_id, content, mime_type="application/json")
+    from services import gcs_store
+
+    store = gcs_store.get_store()
+    if store is not None:
+        store.write_json(_GCS_OBJECT, merged)
     else:
-        path = _local_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content.decode("utf-8"), encoding="utf-8")
+        content = json.dumps(merged, ensure_ascii=False, indent=2).encode("utf-8")
+        file_id = _drive_file_id()
+        if file_id:
+            DriveClient().update_file_content(file_id, content, mime_type="application/json")
+        else:
+            path = _local_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content.decode("utf-8"), encoding="utf-8")
     logger.info("Saved conf_threshold override: %s=%.2f", key, value)
     return merged
