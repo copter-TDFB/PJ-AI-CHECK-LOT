@@ -170,20 +170,27 @@ def _rotate_backups(parent_key: str, keep: int = _BACKUP_KEEP) -> None:
                 pass
 
 
-def promote_draft_model(draft_key: str) -> Path | None:
-    """Copy a draft's trained detector to production `models/detector.pt`.
+def promote_draft_model(draft_key: str) -> dict[str, Path]:
+    """Copy a draft's trained detector + classifier to production models/.
 
-    Returns the destination path, or None if the draft has no trained model.
-    Caller is responsible for backing up the previous detector first.
+    Returns {"detector": Path, "classifier": Path} for whichever artifacts
+    exist under DRAFT_DIR/{draft_key}/models/. Caller backs up the previous
+    models first.
     """
-    src = Path(os.getenv("DRAFT_DIR", "data/drafts")) / draft_key / "models" / "full_detector.pt"
-    if not src.exists():
-        return None
+    draft_models = Path(os.getenv("DRAFT_DIR", "data/drafts")) / draft_key / "models"
     _MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    dst = _MODELS_DIR / "detector.pt"
-    shutil.copy2(src, dst)
-    logger.info("Promoted draft detector: %s → %s", src, dst)
-    return dst
+    promoted: dict[str, Path] = {}
+    for src_name, dst_name, label in (
+        ("full_detector.pt", "detector.pt", "detector"),
+        ("full_classifier.pt", "classifier.pt", "classifier"),
+    ):
+        src = draft_models / src_name
+        if src.exists():
+            dst = _MODELS_DIR / dst_name
+            shutil.copy2(src, dst)
+            logger.info("Promoted draft %s: %s → %s", label, src, dst)
+            promoted[label] = dst
+    return promoted
 
 
 def archive_packaging(key: str) -> Path:
