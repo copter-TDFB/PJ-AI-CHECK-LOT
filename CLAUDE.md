@@ -41,6 +41,16 @@ start "" "web\wizard.html"          # Windows
 
 # Container build (matches the Cloud Run image)
 docker build -t ocr-lot-checker .
+
+# Deploy to Cloud Run. DO NOT use `gcloud run deploy --source .` — it pushes to the
+# cloud-run-source-deploy repo and fails "Container import failed" (buildkit OCI manifest).
+# Build to ocr-repo (prod's repo) then deploy --image:
+gcloud builds submit --tag asia-southeast1-docker.pkg.dev/pj-ai-detect-lot-no/ocr-repo/ocr-lot-checker:<tag> .
+gcloud run deploy ocr-lot-checker --image <that-image> --region asia-southeast1 --no-traffic --tag candidate \
+  --set-env-vars GCS_CONFIG_BUCKET=ocr-lot-checker-config,... --set-secrets DRIVE_OAUTH_CLIENT_SECRET=drive-oauth-client-secret:latest,...
+# verify candidate URL (candidate---ocr-lot-checker-...run.app), then go live:
+gcloud run services update-traffic ocr-lot-checker --region asia-southeast1 --to-revisions <rev>=100
+# rollback: --to-revisions <previous-rev>=100
 ```
 
 Python 3.11. CPU-only torch is installed explicitly in the Dockerfile to keep the image small (~1.3 GB vs ~3.5 GB).
@@ -61,7 +71,7 @@ The request flow through `main.py` `POST /predict`:
 7. **SheetChecker** (`utils/sheet_checker.py`) — reads the row matching the OCR'd lot in the user-supplied Google Sheet and returns `lot_match`/`exp_match`/`product_match`/`sachet_match`.
 8. **build_verify_message** (`pipeline/message_builder.py`) — fills the message template (`config/message_templates/*.yaml`) keyed by `config.message_template_key`.
 
-Models are loaded once in the FastAPI `lifespan` startup. `services/model_registry.sync()` returns `(classifier_path, detector_path)`: on Cloud Run it downloads from Google Drive via `DRIVE_MANIFEST_FILE_ID` (manifest.json with sha256-verified file_ids); locally it falls back to `models/classifier.pt` and `models/detector.pt`.
+Models are loaded once in the FastAPI `lifespan` startup. `services/model_registry.sync()` is **GCS-first** (as of 2026-06-22): if `GCS_CONFIG_BUCKET` is set it downloads sha256-verified models from `gs://ocr-lot-checker-config/models/` per `manifest.json`; else Drive (`DRIVE_MANIFEST_FILE_ID`); else local `models/*.pt`. `PackagingRegistry` overlays per-key YAMLs from the same bucket (`packagings/<key>.yaml`, plus `archived` tombstones) on top of the baked-in image config, and `config_overrides` (conf_threshold) also lives in GCS now. Empty `GCS_CONFIG_BUCKET` → image/local fallback, so zero-env-var prod still works. Wizard Deploy publishes to GCS via `cloudrun_deployer.publish_packaging_to_gcs` (manifest written last = commit point) so changes survive Cloud Run revisions. See `services/gcs_store.py`.
 
 ## Wizard API (`api/packagings.py`)
 
@@ -134,3 +144,4 @@ Two ways to run the wizard in TEST_MODE — both: backend :8081, wizard :8091, d
 - Check which Drive identity is active (debug 403/404 auth issues): `python -c "from dotenv import load_dotenv; load_dotenv(); from services.drive_client import DriveClient; print(DriveClient()._svc.about().get(fields='user,storageQuota').execute())"` — shows the authenticated email + quota. SA → no `user`/quota (and writes 403 with `storageQuotaExceeded`); OAuth user → real email + GB. See ADR 0006-drive-dataset-write-via-oauth-user.
 - Re-minting the Drive OAuth token (`scripts/generate_drive_token.py`) listens on port **8765** (8080 is taken by the dev server); a Web-type OAuth client must list `http://localhost:8765/` in its Authorized redirect URIs *exactly* (trailing slash matters) or consent fails with `redirect_uri_mismatch`.
 - `test_image.py` is NOT production-faithful: it skips the registry and omits `config=` on OcrEngine, so per-packaging `lot_patterns`/`product_aliases` are ignored (lot may return null/wrong). Production routes through `PipelineRunner.run(img, config)` (`pipeline_runner.py:51` passes `config=config`). Verify config edits via PipelineRunner, not `test_image.py`.
+- `.gcloudignore` (NOT `.dockerignore`) governs `gcloud builds submit`/`--source` uploads. It KEEPS `models/` (so weights bake into the image) but must exclude `dist/` (portable bundle holds real creds), `data/` (test drafts/models), and `models/*.bak-*` (~300MB). Verify the upload set with `gcloud meta list-files-for-upload` (~107 files expected, not 40k).
