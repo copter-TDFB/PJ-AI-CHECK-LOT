@@ -36,7 +36,7 @@ _IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
 # Combined Full Training notebook in Drive (built by
 # scripts/build_full_training_notebook.py).
-COMBINED_NOTEBOOK_FILE_ID = "1iQQQqMxeWbLXKjKnZPfyFMGBmHggiaY-"
+COMBINED_NOTEBOOK_FILE_ID = "1_jq1jWpstRKj5UbP1PFwEcW_dgmL4R6Z"
 
 
 @router.get("", response_model=list[PackagingResponse])
