@@ -616,26 +616,35 @@ def training_full_sync(key: str):
     eval_id = client.find_in_folder(det_folder, "eval.json")
     if eval_id is None:
         raise HTTPException(409, "ยังเทรนไม่เสร็จ — รัน Colab notebook ให้จบก่อน")
-
-    models_dir = Path(os.getenv("DRAFT_DIR", "data/drafts")) / key / "models"
-    models_dir.mkdir(parents=True, exist_ok=True)
-
-    # eval.json + detector live directly in the detector dataset folder
-    client.download_file(eval_id, models_dir / "eval.json")
     det_id = client.find_in_folder(det_folder, "full_detector.pt")
     if det_id is None:
         raise HTTPException(409, "Drive มี eval แต่ไม่พบ full_detector.pt — เทรนยังไม่ครบ")
-    client.download_file(det_id, models_dir / "full_detector.pt")
 
     # classifier lives under <classifier folder>/models/classifier.pt
     cls_models = client.find_in_folder(cls_folder, "models")
     cls_id = client.find_in_folder(cls_models, "classifier.pt") if cls_models else None
     if cls_id is None:
         raise HTTPException(409, "ไม่พบ classifier.pt ใน Drive — เทรนยังไม่ครบ")
-    client.download_file(cls_id, models_dir / "full_classifier.pt")
 
-    eval_data = json.loads((models_dir / "eval.json").read_text(encoding="utf-8"))
-    packaging_store.update_draft(key, status="trained")
+    models_dir = Path(os.getenv("DRAFT_DIR", "data/drafts")) / key / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
+    detector_path = models_dir / "full_detector.pt"
+    classifier_path = models_dir / "full_classifier.pt"
+    eval_path = models_dir / "eval.json"
+    artifacts = (eval_path, detector_path, classifier_path)
+
+    try:
+        client.download_file(det_id, detector_path)
+        client.download_file(cls_id, classifier_path)
+        # Local eval.json is the deploy-ready signal, so persist it last.
+        client.download_file(eval_id, eval_path)
+        eval_data = json.loads(eval_path.read_text(encoding="utf-8"))
+        packaging_store.update_draft(key, status="trained")
+    except Exception:
+        for artifact in artifacts:
+            artifact.unlink(missing_ok=True)
+        raise
+
     logger.info("Synced trained model for '%s' from Drive", key)
     return {"synced": True, "eval": eval_data}
 
@@ -678,8 +687,10 @@ def deploy_packaging(key: str):
     has_synced = (draft_models / "full_detector.pt").exists() or \
                  (draft_models / "full_classifier.pt").exists()
 
-    # 3. Backup active artifacts before overwrite. For a fresh key the YAML
-    #    backup is a no-op; the global model backup still protects rollback.
+    # 3. Backup active artifacts before overwrite. On the fresh path target_key
+    #    is the new key, so its YAML backup is a no-op; the global model backup
+    #    protects rollback. Model-backup rotation is globally scoped rather
+    #    than key-scoped (pre-existing behavior).
     backup_manifest = (
         cloudrun_deployer.backup_artifacts(target_key)
         if (parent_key is not None or has_synced) else None

@@ -1071,7 +1071,10 @@ def test_sync_downloads_and_marks_trained(client, monkeypatch):
         return {"eval.json": "E", "full_detector.pt": "D",
                 "models": "M", "classifier.pt": "C"}.get(name)
 
+    downloaded = []
+
     def fake_download(file_id, dest):
+        downloaded.append(file_id)
         dest.parent.mkdir(parents=True, exist_ok=True)
         if file_id == "E":
             dest.write_text(_json.dumps(eval_obj), encoding="utf-8")
@@ -1090,6 +1093,7 @@ def test_sync_downloads_and_marks_trained(client, monkeypatch):
     assert (models / "full_classifier.pt").read_bytes() == b"PT"
     assert updates["status"] == "trained"
     assert r.json()["eval"]["detector_mAP_50"] == 0.9
+    assert downloaded == ["D", "C", "E"]
 
 
 def test_sync_409_when_eval_missing(client, monkeypatch):
@@ -1103,3 +1107,96 @@ def test_sync_409_when_eval_missing(client, monkeypatch):
     monkeypatch.setattr(apk, "DriveClient", lambda: fake)
     r = client.post("/api/packagings/x/training/full/sync")
     assert r.status_code == 409
+
+
+def test_sync_409_when_detector_missing_leaves_no_files(client, monkeypatch):
+    from services import packaging_store
+    import api.packagings as apk
+
+    key = "syncmissingdet"
+    monkeypatch.setenv("DRIVE_DETECTOR_DATASET_FOLDER_ID", "DETFOLDER")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSFOLDER")
+    monkeypatch.setattr(packaging_store, "get_draft", lambda k: {"key": key})
+    updates = {}
+    monkeypatch.setattr(packaging_store, "update_draft",
+                        lambda k, **kw: updates.update(kw))
+
+    def fake_find(parent, name):
+        return {"eval.json": "E", "models": "M", "classifier.pt": "C"}.get(name)
+
+    def fake_download(file_id, dest):
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"partial")
+
+    fake = type("D", (), {"find_in_folder": staticmethod(fake_find),
+                          "download_file": staticmethod(fake_download)})()
+    monkeypatch.setattr(apk, "DriveClient", lambda: fake)
+
+    r = client.post(f"/api/packagings/{key}/training/full/sync")
+    models = packaging_store._DRAFT_DIR / key / "models"
+    assert r.status_code == 409
+    assert updates == {}
+    assert not models.exists() or list(models.iterdir()) == []
+
+
+def test_sync_409_when_classifier_missing_leaves_no_files(client, monkeypatch):
+    from services import packaging_store
+    import api.packagings as apk
+
+    key = "syncmissingcls"
+    monkeypatch.setenv("DRIVE_DETECTOR_DATASET_FOLDER_ID", "DETFOLDER")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSFOLDER")
+    monkeypatch.setattr(packaging_store, "get_draft", lambda k: {"key": key})
+    updates = {}
+    monkeypatch.setattr(packaging_store, "update_draft",
+                        lambda k, **kw: updates.update(kw))
+
+    def fake_find(parent, name):
+        return {"eval.json": "E", "full_detector.pt": "D"}.get(name)
+
+    def fake_download(file_id, dest):
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"partial")
+
+    fake = type("D", (), {"find_in_folder": staticmethod(fake_find),
+                          "download_file": staticmethod(fake_download)})()
+    monkeypatch.setattr(apk, "DriveClient", lambda: fake)
+
+    r = client.post(f"/api/packagings/{key}/training/full/sync")
+    models = packaging_store._DRAFT_DIR / key / "models"
+    assert r.status_code == 409
+    assert updates == {}
+    assert not models.exists() or list(models.iterdir()) == []
+
+
+def test_sync_download_failure_cleans_partial_files(client, monkeypatch):
+    from services import packaging_store
+    import api.packagings as apk
+
+    key = "syncdownloadfail"
+    monkeypatch.setenv("DRIVE_DETECTOR_DATASET_FOLDER_ID", "DETFOLDER")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSFOLDER")
+    monkeypatch.setattr(packaging_store, "get_draft", lambda k: {"key": key})
+    updates = {}
+    monkeypatch.setattr(packaging_store, "update_draft",
+                        lambda k, **kw: updates.update(kw))
+
+    def fake_find(parent, name):
+        return {"eval.json": "E", "full_detector.pt": "D",
+                "models": "M", "classifier.pt": "C"}.get(name)
+
+    def fake_download(file_id, dest):
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"partial")
+        if file_id == "C":
+            raise RuntimeError("download interrupted")
+
+    fake = type("D", (), {"find_in_folder": staticmethod(fake_find),
+                          "download_file": staticmethod(fake_download)})()
+    monkeypatch.setattr(apk, "DriveClient", lambda: fake)
+
+    with pytest.raises(RuntimeError, match="download interrupted"):
+        client.post(f"/api/packagings/{key}/training/full/sync")
+    models = packaging_store._DRAFT_DIR / key / "models"
+    assert updates == {}
+    assert not models.exists() or list(models.iterdir()) == []
