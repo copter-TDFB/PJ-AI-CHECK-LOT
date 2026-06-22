@@ -4,24 +4,54 @@ import io
 import json
 import logging
 import mimetypes
+import os
 from pathlib import Path
 
 from google.auth import default as google_auth_default
+from google.oauth2.credentials import Credentials as UserCredentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload, MediaIoBaseUpload
 
 logger = logging.getLogger(__name__)
 
-# Full drive scope — required to write into the reference dataset folders
-# that the user shares with this service account. SAs do not go through
-# OAuth consent verification, so the "restricted scope" problem in ADR 0001
-# does not apply (see ADR 0003).
+# Full drive scope — required to write into the hand-created reference dataset
+# folders. Allowed without Google verification because the OAuth consent screen
+# is configured as Internal within the tdfb.co Workspace (see ADR 0005).
 _SCOPES = ["https://www.googleapis.com/auth/drive"]
+
+_TOKEN_URI = "https://oauth2.googleapis.com/token"
+
+
+def _user_oauth_credentials() -> UserCredentials | None:
+    """Build user OAuth creds from env if all three vars are set, else None.
+
+    Service accounts have zero Drive storage quota, so SA-owned uploads fail
+    with 403 storageQuotaExceeded (the bug ADR 0003 missed). When these vars
+    are present the client acts as a real Workspace user whose Drive quota
+    owns the dataset; otherwise it falls back to ADC/service account, which
+    still works for read-only paths (manifest/model download). See ADR 0005.
+    """
+    client_id = os.environ.get("DRIVE_OAUTH_CLIENT_ID")
+    client_secret = os.environ.get("DRIVE_OAUTH_CLIENT_SECRET")
+    refresh_token = os.environ.get("DRIVE_OAUTH_REFRESH_TOKEN")
+    if not (client_id and client_secret and refresh_token):
+        return None
+    logger.info("DriveClient: using OAuth user credentials (Drive quota owner)")
+    return UserCredentials(
+        token=None,
+        refresh_token=refresh_token,
+        client_id=client_id,
+        client_secret=client_secret,
+        token_uri=_TOKEN_URI,
+        scopes=_SCOPES,
+    )
 
 
 class DriveClient:
     def __init__(self) -> None:
-        creds, _ = google_auth_default(scopes=_SCOPES)
+        creds = _user_oauth_credentials()
+        if creds is None:
+            creds, _ = google_auth_default(scopes=_SCOPES)
         # cache_discovery=False ป้องกัน warning ใน serverless env
         self._svc = build("drive", "v3", credentials=creds, cache_discovery=False)
 

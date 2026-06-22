@@ -1,8 +1,15 @@
 # 0003 — Backend writes the reference dataset directly via service account
 
 Date: 2026-06-10
-Status: Accepted (supersedes the addition-bundle data path of ADR 0001;
-the "notebook trains both models" decision in ADR 0001 stays in force)
+Status: Accepted, but the service-account *identity* is superseded by ADR 0006
+(supersedes the addition-bundle data path of ADR 0001; the "notebook trains
+both models" decision in ADR 0001 stays in force)
+
+> **Correction (2026-06-12):** the Consequences below claim SA uploads "count
+> against the SA's 15 GB quota". This is false — service accounts have **zero**
+> Drive storage quota, so every upload 403'd with `storageQuotaExceeded`. The
+> direct-write data path is unchanged, but the writer now authenticates as an
+> OAuth user instead of the SA. See ADR 0006.
 
 ## Context
 

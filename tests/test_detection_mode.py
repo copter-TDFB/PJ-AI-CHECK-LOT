@@ -66,7 +66,7 @@ def test_multi_field_routes_each_crop_to_its_field(monkeypatch):
     ]
     monkeypatch.setattr(pr, "find_lot", lambda t, image_class=None, patterns=None: f"LOT::{t}")
     monkeypatch.setattr(pr, "find_expiry", lambda t: f"EXP::{t}")
-    monkeypatch.setattr(pr, "find_product_name", lambda t: f"PROD::{t}")
+    monkeypatch.setattr(pr, "find_product_name", lambda t, aliases=None: f"PROD::{t}")
     monkeypatch.setattr(pr, "find_size", lambda t: f"SIZE::{t}")
 
     runner = PipelineRunner(_FakeDetector(dets), _FakePre(), _FakeOcr(), object())
@@ -149,6 +149,27 @@ def test_deployer_writes_grouped_class_prefixes(tmp_path, monkeypatch):
     assert data["detector_yolo_prefixes"] == ["grouppkg_lot_exp", "grouppkg_product_size"]
 
 
+def test_deployer_persists_product_aliases(tmp_path, monkeypatch):
+    import services.cloudrun_deployer as dep
+    monkeypatch.setenv("OCR_CONFIG_DIR", str(tmp_path))
+    aliases = [{"canonical": "Houjicha Powder", "keywords": ["houjicha"]}]
+    draft_meta = {
+        "display_name": "Alias Pkg",
+        "pipeline": "detector_ocr",
+        "config": {
+            "lot_patterns": ["LOT(\\w+)"],
+            "fields_extracted": ["lot", "product"],
+            "sheet_checks": ["lot", "product"],
+            "message_template_key": "default_full",
+            "product_aliases": aliases,
+        },
+    }
+    out = dep.write_packaging_yaml("aliaspkg", draft_meta)
+    import yaml
+    data = yaml.safe_load(out.read_text(encoding="utf-8"))
+    assert data["product_aliases"] == aliases
+
+
 def test_multi_field_label_lines_map_each_field_to_its_class():
     from services.dataset_publisher import label_lines, merge_class_names
     sub_regions = ["lot", "exp", "product", "size"]
@@ -177,7 +198,7 @@ def test_multi_field_shared_box_feeds_both_extractors(monkeypatch):
     ]
     monkeypatch.setattr(pr, "find_lot", lambda t, image_class=None, patterns=None: f"LOT::{t}")
     monkeypatch.setattr(pr, "find_expiry", lambda t: f"EXP::{t}")
-    monkeypatch.setattr(pr, "find_product_name", lambda t: f"PROD::{t}")
+    monkeypatch.setattr(pr, "find_product_name", lambda t, aliases=None: f"PROD::{t}")
     monkeypatch.setattr(pr, "find_size", lambda t: f"SIZE::{t}")
 
     runner = PipelineRunner(_FakeDetector(dets), _FakePre(), _FakeOcr(), object())
@@ -196,7 +217,7 @@ def test_multi_field_raw_text_not_duplicated_for_shared_crop(monkeypatch):
     ]
     monkeypatch.setattr(pr, "find_lot", lambda t, image_class=None, patterns=None: "L")
     monkeypatch.setattr(pr, "find_expiry", lambda t: "E")
-    monkeypatch.setattr(pr, "find_product_name", lambda t: None)
+    monkeypatch.setattr(pr, "find_product_name", lambda t, aliases=None: None)
     monkeypatch.setattr(pr, "find_size", lambda t: None)
 
     runner = PipelineRunner(_FakeDetector(dets), _FakePre(), _FakeOcr(), object())

@@ -73,6 +73,12 @@ foreach ($f in @("main.py", "requirements.txt")) { Copy-Item (Join-Path $repo $f
 foreach ($d in @("api", "pipeline", "services", "utils", "config")) {
     Copy-Item -Recurse (Join-Path $repo $d) (Join-Path $bundle $d)
 }
+# Active-class sample images (served by /api/packagings/{key}/images + /samples).
+# Without these the wizard cards show no photos. ~1.2 GB — the bundle's main bulk.
+if (Test-Path (Join-Path $repo "images")) {
+    Write-Host "Copying active-class sample images (~1.2 GB)..."
+    Copy-Item -Recurse (Join-Path $repo "images") (Join-Path $bundle "images")
+}
 Get-ChildItem -Path $bundle -Recurse -Directory -Filter "__pycache__" -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notlike "*\python\*" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path (Join-Path $bundle "models") | Out-Null
 Copy-Item (Join-Path $repo "models\classifier.pt") (Join-Path $bundle "models\")
@@ -80,7 +86,7 @@ Copy-Item (Join-Path $repo "models\detector.pt") (Join-Path $bundle "models\")
 if (Test-Path (Join-Path $repo "gcp-key.json")) { Copy-Item (Join-Path $repo "gcp-key.json") (Join-Path $bundle "gcp-key.json") }
 
 Write-Host "Building wizard (pinned to :8081)..."
-$wiz = Get-Content (Join-Path $repo "web\wizard.html") -Raw
+$wiz = Get-Content (Join-Path $repo "web\wizard.html") -Raw -Encoding UTF8
 $inject = "<head>`r`n<script>`r`n  // Portable test bundle - backend runs locally on :8081.`r`n  window.API_BASE_OVERRIDE = 'http://localhost:8081';`r`n</script>"
 if ($wiz -notmatch [regex]::Escape("API_BASE_OVERRIDE = 'http://localhost:8081'")) {
     $wiz = [regex]::new("<head>").Replace($wiz, $inject, 1)

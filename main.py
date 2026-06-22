@@ -42,23 +42,6 @@ def reload_registry() -> None:
     registry = PackagingRegistry(overrides=config_overrides.load())
 
 
-def _init_optional(factory, name: str):
-    """Construct a Google-backed client, tolerating missing creds in TEST_MODE.
-
-    The wizard test harness (TEST_MODE=1) never calls Vision/Sheets, but the
-    lifespan constructs them eagerly. Without GCP creds those constructors raise,
-    which would stop the harness from booting. In TEST_MODE we log and return
-    None instead; production keeps failing fast.
-    """
-    try:
-        return factory()
-    except Exception as e:
-        if os.getenv("TEST_MODE") == "1":
-            logger.warning("TEST_MODE — %s unavailable (%s); continuing without it", name, e)
-            return None
-        raise
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global classifier, detector, pipeline_runner, sheet_checker, registry
@@ -68,10 +51,10 @@ async def lifespan(app: FastAPI):
     classifier = ImageClassifier(clf_path)
     detector = RegionDetector(det_path)
     preprocessor = Preprocessor()
-    ocr_engine = _init_optional(OcrEngine, "OcrEngine")
+    ocr_engine = OcrEngine()
     qr_scanner = QrScanner()
     pipeline_runner = PipelineRunner(detector, preprocessor, ocr_engine, qr_scanner)
-    sheet_checker = _init_optional(SheetChecker, "SheetChecker")
+    sheet_checker = SheetChecker()
     yield
     logger.info("Shutdown")
 
@@ -93,7 +76,7 @@ app.include_router(packagings_router)
 @app.get("/health")
 def health():
     """Health check สำหรับ Cloud Run"""
-    return {"status": "ok"}
+    return {"status": "ok", "test_mode": os.getenv("TEST_MODE") == "1"}
 
 
 @app.post("/predict")

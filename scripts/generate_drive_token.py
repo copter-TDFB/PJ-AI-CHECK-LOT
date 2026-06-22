@@ -5,15 +5,17 @@ the published dataset (e.g. sarutipong@tdfb.co), then copy the printed values
 into `.env` (local) and Cloud Run env vars (prod). See ADR 0005.
 
 Usage:
-    python scripts/generate_drive_token.py [path/to/oauth_client.json]
+    python scripts/generate_drive_token.py [path/to/oauth_client.json] [port]
 
 Falls back to the single `client_secret_*.json` in the project root if no path
-is given. The OAuth client must be type "Web application" with redirect URI
-http://localhost:8080/ (or "Desktop app").
+is given. The OAuth client must be type "Web application" whose Authorized
+redirect URIs include http://localhost:{port}/ (default port 8765 — 8080 is
+usually taken by the dev server). "Desktop app" clients accept any loopback port.
 """
 
 import glob
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -26,7 +28,10 @@ logger = logging.getLogger(__name__)
 # reference dataset folders. Allowed without Google verification because the
 # OAuth consent screen is configured as Internal within the tdfb.co Workspace.
 SCOPES = ["https://www.googleapis.com/auth/drive"]
-REDIRECT_PORT = 8080
+# 8080 is usually taken by the dev server (uvicorn --reload --port 8080), so
+# default to a free port. Override with argv[2] or DRIVE_OAUTH_PORT. Whatever
+# port is used must appear in the OAuth client's Authorized redirect URIs.
+DEFAULT_PORT = 8765
 
 
 def _resolve_client_file(argv: list[str]) -> Path:
@@ -41,17 +46,26 @@ def _resolve_client_file(argv: list[str]) -> Path:
     return Path(matches[0])
 
 
+def _resolve_port(argv: list[str]) -> int:
+    if len(argv) > 2:
+        return int(argv[2])
+    return int(os.environ.get("DRIVE_OAUTH_PORT", DEFAULT_PORT))
+
+
 def main(argv: list[str]) -> None:
     client_file = _resolve_client_file(argv)
     if not client_file.is_file():
         raise SystemExit(f"File not found: {client_file}")
+    port = _resolve_port(argv)
 
     logger.info("Using OAuth client: %s", client_file)
+    logger.info("Listening on http://localhost:%d/ — make sure that exact URI", port)
+    logger.info("is in the client's Authorized redirect URIs.")
     logger.info("A browser window will open — sign in as the Workspace user")
     logger.info("whose Drive should own the dataset (e.g. sarutipong@tdfb.co).\n")
 
     flow = InstalledAppFlow.from_client_secrets_file(str(client_file), scopes=SCOPES)
-    creds = flow.run_local_server(port=REDIRECT_PORT, prompt="consent", access_type="offline")
+    creds = flow.run_local_server(port=port, prompt="consent", access_type="offline")
 
     if not creds.refresh_token:
         raise SystemExit(

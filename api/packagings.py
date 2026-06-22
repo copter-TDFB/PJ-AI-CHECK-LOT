@@ -34,6 +34,15 @@ _CROP_CACHE_DIR = Path(os.getenv("CROP_CACHE_DIR", "data/crops"))
 _DETECTOR_MODEL_PATH = Path(os.getenv("MODEL_DETECTOR_PATH", "models/detector.pt"))
 _IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
+
+def _packaging_yaml_dir() -> Path:
+    """Packagings dir, honouring OCR_CONFIG_DIR like the registry. A hardcoded
+    relative "config/packagings" silently read the prod config in the test
+    harness (OCR_CONFIG_DIR=data/test/config) — dropping archived cards and
+    cloning the wrong YAML."""
+    from pipeline.packaging_registry import _config_dir
+    return _config_dir() / "packagings"
+
 # Combined Full Training notebook in Drive (built by
 # scripts/build_full_training_notebook.py).
 COMBINED_NOTEBOOK_FILE_ID = "1_jq1jWpstRKj5UbP1PFwEcW_dgmL4R6Z"
@@ -45,12 +54,14 @@ def list_packagings():
     import main  # lazy import — registry initialized in lifespan
 
     items: list[PackagingResponse] = []
+    promoted_keys: set[str] = set()  # keys already shown as active/archived
 
     if main.registry is not None:
         for key in main.registry.all_keys():
             cfg = main.registry.get(key)
             if cfg is None:
                 continue
+            promoted_keys.add(cfg.key)
             items.append(PackagingResponse(
                 key=cfg.key,
                 display_name=cfg.display_name,
@@ -63,13 +74,15 @@ def list_packagings():
                 detection_mode=cfg.detection_mode,
             ))
 
-        # Archived packagings — YAML still on disk but renamed to *.yaml.archived
+        # Archived packagings — YAML still on disk but renamed to *.yaml.archived.
+        arch_dir = _packaging_yaml_dir()
         for arch_key in main.registry.archived_keys():
-            arch_yaml = Path("config/packagings") / f"{arch_key}.yaml.archived"
+            arch_yaml = arch_dir / f"{arch_key}.yaml.archived"
             try:
                 data = yaml.safe_load(arch_yaml.read_text(encoding="utf-8"))
             except Exception:
                 continue
+            promoted_keys.add(arch_key)
             items.append(PackagingResponse(
                 key=arch_key,
                 display_name=data.get("display_name", arch_key),
@@ -80,7 +93,12 @@ def list_packagings():
                 accuracy=float(data["accuracy"]) if data.get("accuracy") is not None else None,
             ))
 
+    # Drafts — skip any whose key is already an active/archived packaging. A
+    # fresh deploy leaves the draft behind with status="deployed"; without this
+    # guard it renders as a SECOND card duplicating the live/offline packaging.
     for draft in packaging_store.list_drafts():
+        if draft.get("key") in promoted_keys:
+            continue
         items.append(PackagingResponse(**draft))
 
     return items
@@ -129,7 +147,7 @@ def get_packaging(key: str):
                 detection_mode=cfg.detection_mode,
             )
         if main.registry.is_archived(key):
-            arch_yaml = Path("config/packagings") / f"{key}.yaml.archived"
+            arch_yaml = _packaging_yaml_dir() / f"{key}.yaml.archived"
             try:
                 data = yaml.safe_load(arch_yaml.read_text(encoding="utf-8"))
             except Exception:
@@ -182,8 +200,6 @@ def delete_packaging(key: str):
 
 # ─── Edit active (clone → wizard → re-deploy) ──────────
 
-_PACKAGING_YAML_DIR = Path("config/packagings")
-
 
 @router.post("/{key}/clone", response_model=PackagingResponse, status_code=201)
 def clone_active(key: str):
@@ -197,7 +213,7 @@ def clone_active(key: str):
     if main.registry is None or main.registry.get(key) is None:
         raise HTTPException(404, f"active packaging '{key}' not found")
 
-    yaml_path = _PACKAGING_YAML_DIR / f"{key}.yaml"
+    yaml_path = _packaging_yaml_dir() / f"{key}.yaml"
     if not yaml_path.exists():
         raise HTTPException(500, f"YAML missing for active '{key}'")
 
@@ -235,7 +251,12 @@ def archive_packaging_endpoint(key: str):
         logger.exception("registry reload failed after archive")
         raise HTTPException(500, f"registry reload failed: {e}")
 
-    return {"archived": key, "yaml_path": str(dst)}
+    try:
+        gcs_result = cloudrun_deployer.set_archived_in_gcs(key, True)
+    except Exception as e:  # GCS sync is best-effort — local state already changed
+        logger.warning("GCS archive sync failed for %s: %s", key, e)
+        gcs_result = {"published": False, "reason": str(e)}
+    return {"archived": key, "yaml_path": str(dst), "gcs": gcs_result}
 
 
 @router.post("/{key}/unarchive")
@@ -257,7 +278,12 @@ def unarchive_packaging_endpoint(key: str):
         logger.exception("registry reload failed after unarchive")
         raise HTTPException(500, f"registry reload failed: {e}")
 
-    return {"unarchived": key, "yaml_path": str(dst)}
+    try:
+        gcs_result = cloudrun_deployer.set_archived_in_gcs(key, False)
+    except Exception as e:  # GCS sync is best-effort — local state already changed
+        logger.warning("GCS unarchive sync failed for %s: %s", key, e)
+        gcs_result = {"published": False, "reason": str(e)}
+    return {"unarchived": key, "yaml_path": str(dst), "gcs": gcs_result}
 
 
 @router.put("/{key}/conf", response_model=ConfThresholdResponse)
@@ -272,7 +298,7 @@ def update_conf_threshold(key: str, body: ConfThresholdUpdate):
     cfg = main.registry.get(key) if main.registry else None
     if cfg is None:
         raise HTTPException(404, f"active packaging '{key}' not found")
-    previous = cfg.conf_threshold
+    previous = cfg.conf_threshold if cfg.conf_threshold is not None else 0.6
 
     from services import config_overrides
 
@@ -582,15 +608,42 @@ def training_prelabel(key: str):
 
 @router.post("/{key}/training/full/done")
 def training_full_done(key: str):
-    """Full training เป็น manual แล้ว — model sync ผ่าน model registry/manifest
-    เอง (wizard ไม่ดึง model จาก Drive ให้อัตโนมัติอีกต่อไป)."""
+    """Full training เป็น manual แล้ว — ใช้ /training/full/sync
+    เพื่อดึง model และ eval จาก Drive เข้า draft.
+
+    ยกเว้นใน TEST_MODE: จำลองว่า training เสร็จ — เขียน eval.json ที่ผ่าน
+    hard floor + ตั้ง status=trained เพื่อให้หน้า Deploy โผล่มาทดสอบได้
+    โดยไม่ต้องรัน Colab/sync model จริง (production ยังคืน 400 เหมือนเดิม)."""
     draft = packaging_store.get_draft(key)
     if draft is None:
         raise HTTPException(404, f"draft '{key}' not found")
+
+    if os.getenv("TEST_MODE") == "1":
+        labeled = [it for it in packaging_store.list_annotation_status(key) if it["labeled"]]
+        val_count = max(1, round(len(labeled) * 0.2))
+        eval_data = {
+            "detector_mAP_50": 0.91,
+            "precision": 0.93,
+            "recall": 0.88,
+            "epochs": 60,
+            "imgsz": 640,
+            "train_count": len(labeled) - val_count,
+            "val_count": val_count,
+            "simulated": True,
+        }
+        eval_dir = Path(os.getenv("DRAFT_DIR", "data/drafts")) / key / "models"
+        eval_dir.mkdir(parents=True, exist_ok=True)
+        (eval_dir / "eval.json").write_text(
+            json.dumps(eval_data, indent=2), encoding="utf-8"
+        )
+        packaging_store.update_draft(key, status="trained")
+        logger.info("TEST_MODE — simulated training done for '%s'", key)
+        return {"simulated": True, "eval": eval_data}
+
     raise HTTPException(
         400,
         "Full training เป็น manual แล้ว — รัน notebook ใน Colab ให้เสร็จ, "
-        "model จะเซฟลง Drive, แล้ว sync เข้าระบบผ่าน model registry/manifest "
+        "model จะเซฟลง Drive, แล้ว sync เข้าระบบผ่าน /training/full/sync "
         "(ดู docs/superpowers/specs/2026-06-15-direct-notebook-training-design.md)",
     )
 
@@ -610,7 +663,11 @@ def training_full_sync(key: str):
     det_folder = os.getenv("DRIVE_DETECTOR_DATASET_FOLDER_ID", "")
     cls_folder = os.getenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "")
     if not det_folder or not cls_folder:
-        raise HTTPException(500, "DRIVE_*_DATASET_FOLDER_ID not configured")
+        raise HTTPException(
+            503,
+            "ยังตั้งค่า Drive dataset folders ไม่ครบ — ต้องตั้ง env "
+            "DRIVE_DETECTOR_DATASET_FOLDER_ID และ DRIVE_CLASSIFIER_DATASET_FOLDER_ID บน Cloud Run",
+        )
 
     client = DriveClient()
     eval_id = client.find_in_folder(det_folder, "eval.json")
@@ -640,10 +697,11 @@ def training_full_sync(key: str):
         client.download_file(eval_id, eval_path)
         eval_data = json.loads(eval_path.read_text(encoding="utf-8"))
         packaging_store.update_draft(key, status="trained")
-    except Exception:
+    except Exception as e:
         for artifact in artifacts:
             artifact.unlink(missing_ok=True)
-        raise
+        logger.exception("training/full/sync failed for '%s'", key)
+        raise HTTPException(500, f"sync failed: {e}")
 
     logger.info("Synced trained model for '%s' from Drive", key)
     return {"synced": True, "eval": eval_data}
@@ -703,6 +761,11 @@ def deploy_packaging(key: str):
         # 5. Promote freshly-synced detector + classifier (either path)
         promoted = cloudrun_deployer.promote_draft_model(key) if has_synced else {}
 
+        # 5.5 Publish YAML + models to GCS so the change survives Cloud Run
+        #     revisions (no-op when GCS_CONFIG_BUCKET unset — local dev/TEST_MODE).
+        #     Done inside the try so a publish failure triggers rollback.
+        gcs_result = cloudrun_deployer.publish_packaging_to_gcs(target_key)
+
         # 6. Reload PackagingRegistry in-process so the (re-)written class is picked up
         try:
             main.reload_registry()
@@ -739,6 +802,7 @@ def deploy_packaging(key: str):
         "yaml_path": str(yaml_path),
         "model_promoted": {k: str(v) for k, v in promoted.items()} or None,
         "backup": backup_manifest,
+        "gcs": gcs_result,
         "cloud_run": cr_result,
         "eval": eval_data,
     }

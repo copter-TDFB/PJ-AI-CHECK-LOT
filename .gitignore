@@ -48,7 +48,13 @@ models/*.bak-*
 .playwright-mcp/
 patch_nb.ps1
 Screenshot*.png
+bundle-*.png
 วิธี local test
+
+# Generated artifacts (regenerate on demand — don't commit)
+preview/
+FLOW_SWIMLANE.html
+FLOW_SWIMLANE_WIZARD.html
 
 # Local test images (ใหญ่ ไม่ commit)
 images/**/*.jpg
@@ -74,3 +80,5 @@ htmlcov/
 # Test wizard harness
 .env.test
 data/test/
+
+.codex/

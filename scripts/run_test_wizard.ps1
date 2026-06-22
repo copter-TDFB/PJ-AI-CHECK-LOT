@@ -43,11 +43,23 @@ foreach ($m in @("classifier.pt", "detector.pt")) {
     }
 }
 
+# Regenerate the harness wizard from web/wizard.html every start so it never
+# drifts (a stale copy hid the TEST_MODE simulate button + showed wrong badges).
+# Inject the :8081 API_BASE_OVERRIDE exactly like build_portable_bundle.ps1.
+$wizardDir = Join-Path $repo "test wizzard"
+New-Item -ItemType Directory -Force -Path $wizardDir | Out-Null
+$wiz = Get-Content (Join-Path $repo "web\wizard.html") -Raw -Encoding UTF8
+$inject = "<head>`r`n<script>`r`n  // Test wizard harness - backend runs locally on :8081.`r`n  window.API_BASE_OVERRIDE = 'http://localhost:8081';`r`n</script>"
+if ($wiz -notmatch [regex]::Escape("API_BASE_OVERRIDE = 'http://localhost:8081'")) {
+    $wiz = [regex]::new("<head>").Replace($wiz, $inject, 1)
+}
+Set-Content -Path (Join-Path $wizardDir "wizard.html") -Value $wiz -Encoding UTF8
+Write-Host "Synced test wizzard/wizard.html from web/wizard.html"
+
 Write-Host "TEST_MODE backend -> http://localhost:8081"
 Write-Host "Test wizard       -> http://localhost:8091/wizard.html"
 
 # Serve the test wizard (static) in the background, then run the backend.
-$wizardDir = Join-Path $repo "test wizzard"
 Start-Process -NoNewWindow python -ArgumentList @("-m", "http.server", "8091", "--directory", "`"$wizardDir`"")
 
 python -m uvicorn main:app --port 8081

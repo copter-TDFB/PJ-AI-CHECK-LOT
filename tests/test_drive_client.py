@@ -35,6 +35,53 @@ def test_scope_is_full_drive():
     assert drive_client._SCOPES == ["https://www.googleapis.com/auth/drive"]
 
 
+_OAUTH_ENV = {
+    "DRIVE_OAUTH_CLIENT_ID": "cid.apps.googleusercontent.com",
+    "DRIVE_OAUTH_CLIENT_SECRET": "GOCSPX-secret",
+    "DRIVE_OAUTH_REFRESH_TOKEN": "1//refresh",
+}
+
+
+def test_user_oauth_credentials_none_when_env_missing(monkeypatch):
+    from services import drive_client
+    for key in _OAUTH_ENV:
+        monkeypatch.delenv(key, raising=False)
+    assert drive_client._user_oauth_credentials() is None
+
+
+def test_user_oauth_credentials_none_when_partial(monkeypatch):
+    from services import drive_client
+    monkeypatch.setenv("DRIVE_OAUTH_CLIENT_ID", _OAUTH_ENV["DRIVE_OAUTH_CLIENT_ID"])
+    monkeypatch.delenv("DRIVE_OAUTH_CLIENT_SECRET", raising=False)
+    monkeypatch.delenv("DRIVE_OAUTH_REFRESH_TOKEN", raising=False)
+    assert drive_client._user_oauth_credentials() is None
+
+
+def test_user_oauth_credentials_built_when_all_set(monkeypatch):
+    from services import drive_client
+    for key, val in _OAUTH_ENV.items():
+        monkeypatch.setenv(key, val)
+    creds = drive_client._user_oauth_credentials()
+    assert creds is not None
+    assert creds.refresh_token == "1//refresh"
+    assert creds.client_id == "cid.apps.googleusercontent.com"
+    assert creds.scopes == ["https://www.googleapis.com/auth/drive"]
+
+
+def test_driveclient_prefers_oauth_over_adc(monkeypatch):
+    """When OAuth env is set, DriveClient must NOT fall back to ADC/service account."""
+    for key, val in _OAUTH_ENV.items():
+        monkeypatch.setenv(key, val)
+    with patch("services.drive_client.google_auth_default") as mock_adc, \
+         patch("services.drive_client.build") as mock_build:
+        from services.drive_client import DriveClient
+        DriveClient()
+        mock_adc.assert_not_called()
+        # build() received the user OAuth credentials, not an SA
+        _, kwargs = mock_build.call_args
+        assert kwargs["credentials"].refresh_token == "1//refresh"
+
+
 def test_read_text_decodes_utf8(client_and_svc):
     client, _ = client_and_svc
     with patch("services.drive_client.MediaIoBaseDownload", FakeDownloader):

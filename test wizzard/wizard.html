@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <script>
-  // Test wizard harness — pin the backend to the TEST_MODE instance on :8081.
+  // backend runs locally on :8081.
   window.API_BASE_OVERRIDE = 'http://localhost:8081';
 </script>
 <meta charset="UTF-8">
@@ -1988,7 +1988,7 @@ function renderCard(pkg) {
   let badgeClass, badgeText;
   if (isArchived) {
     badgeClass = 'archived';
-    badgeText = '⊘ Archived';
+    badgeText = '⊘ Offline';
   } else if (isActive) {
     const isLowData = pkg.image_count < 50;
     badgeClass = isLowData ? 'warn' : 'live';
@@ -3325,6 +3325,18 @@ function renderStep5_preTraining(pkg) {
 }
 
 function renderStep5_training(pkg) {
+  const testSim = IS_TEST_MODE ? `
+      <div style="margin-top:14px;padding:12px 14px;border-radius:8px;
+        background:rgba(232,160,32,.06);border:1px dashed var(--acc-bd);font-size:12px;line-height:1.7;color:var(--t2)">
+        <strong style="color:var(--acc)">🧪 โหมด Test</strong> — ข้าม Colab/sync จริงได้
+        กดปุ่มด้านล่างเพื่อ <strong>จำลองว่า train เสร็จ</strong> (สร้าง eval ปลอมที่ผ่าน hard floor)
+        แล้วไปหน้า Deploy
+        <div style="text-align:center;margin-top:10px">
+          <button class="btn btn-primary" id="btn-sim-done" onclick="simulateTrainingDone()">
+            🧪 จำลอง train เสร็จ → ไป Deploy
+          </button>
+        </div>
+      </div>` : '';
   document.getElementById('sp5-body').innerHTML = `
     <div class="wiz-card">
       <div class="wiz-card-title">Full Training — รอ Colab</div>
@@ -3335,7 +3347,22 @@ function renderStep5_training(pkg) {
         จากนั้น <strong>sync model เข้าระบบเอง</strong> ผ่าน model registry/manifest
         — wizard ไม่ดึงให้อัตโนมัติ
       </div>
+      ${testSim}
     </div>`;
+}
+
+async function simulateTrainingDone() {
+  if (!curDraftKey) return;
+  if (!confirm('จำลองว่า train เสร็จ (เฉพาะโหมด test) — จะสร้าง eval ปลอมที่ผ่าน hard floor แล้วไปหน้า Deploy?')) return;
+  const btn = document.getElementById('btn-sim-done');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังจำลอง...'; }
+  try {
+    await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/full/done`);
+    await loadStep5();
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = '🧪 จำลอง train เสร็จ → ไป Deploy'; }
+    alert(`จำลองไม่สำเร็จ: ${err.message}`);
+  }
 }
 
 function renderStep5_eval(pkg, evRes) {
@@ -3438,13 +3465,18 @@ async function startFullTraining() {
   const btn = document.getElementById('btn-full-start');
   btn.disabled = true;
   btn.textContent = '⏳ กำลังเขียน dataset เข้า Drive...';
+  // เปิดแท็บเปล่าทันทีภายใต้ user-gesture แล้วค่อย redirect ทีหลัง —
+  // ถ้ารอ await (อัปโหลด dataset 30-60 วิ) แล้วค่อย window.open จะโดน popup blocker
+  const tab = window.open('', '_blank');
   const prog = trainProgressStart(curDraftKey, document.getElementById('full-prog'));
   try {
     const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/full/start`);
     prog.finish(true);
-    window.open(res.colab_url, '_blank');
+    if (tab) tab.location = res.colab_url;
+    else window.open(res.colab_url, '_blank');
     await loadStep5();
   } catch (err) {
+    if (tab) tab.close();
     prog.finish(false);
     btn.disabled = false;
     btn.textContent = '🚀 ลองอีกครั้ง';
@@ -3493,8 +3525,17 @@ async function doDeploy() {
 renderSteps();
 srSetMode('single');
 onPipelineChange();
+// ตรวจว่า backend รันใน TEST_MODE หรือไม่ — ใช้โชว์ปุ่ม "จำลอง train เสร็จ"
+let IS_TEST_MODE = false;
+async function detectTestMode() {
+  try {
+    const h = await api('GET', '/health');
+    IS_TEST_MODE = !!(h && h.test_mode);
+  } catch { IS_TEST_MODE = false; }
+}
 // Bootstrap: ถ้า URL มี draft+step → resume wizard, ไม่งั้นไป dashboard
 (async () => {
+  await detectTestMode();
   const resumed = await restoreFromUrl();
   if (!resumed) loadDashboard();
 })();

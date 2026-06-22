@@ -1195,8 +1195,11 @@ def test_sync_download_failure_cleans_partial_files(client, monkeypatch):
                           "download_file": staticmethod(fake_download)})()
     monkeypatch.setattr(apk, "DriveClient", lambda: fake)
 
-    with pytest.raises(RuntimeError, match="download interrupted"):
-        client.post(f"/api/packagings/{key}/training/full/sync")
+    # The endpoint cleans partial downloads then surfaces a 500 (not a bare
+    # RuntimeError leaking Drive internals).
+    resp = client.post(f"/api/packagings/{key}/training/full/sync")
+    assert resp.status_code == 500
+    assert "download interrupted" in resp.json()["detail"]
     models = packaging_store._DRAFT_DIR / key / "models"
     assert updates == {}
     assert not models.exists() or list(models.iterdir()) == []

@@ -125,7 +125,7 @@ class PipelineRunner:
             "lot_number":   lot,
             "exp_date":     find_expiry(joined("exp")) if texts.get("exp") else None,
             "mfg_date":     None,
-            "product_name": find_product_name(joined("product")) if texts.get("product") else None,
+            "product_name": find_product_name(joined("product"), config.product_aliases) if texts.get("product") else None,
             "size":         find_size(joined("size")) if texts.get("size") else None,
             "raw_text":     "\n".join(raw_parts),
             "confidence":   None,
