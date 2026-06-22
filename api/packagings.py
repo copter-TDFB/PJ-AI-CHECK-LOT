@@ -22,6 +22,7 @@ from api.schemas import (
     RegexPreviewResponse,
 )
 from services import packaging_store
+from services.drive_client import DriveClient
 from services.regex_generator import generate_regex, preview_matches
 from utils.field_groups import parse_group
 
@@ -594,6 +595,51 @@ def training_full_done(key: str):
     )
 
 
+@router.post("/{key}/training/full/sync")
+def training_full_sync(key: str):
+    """Pull the freshly Colab-trained detector + classifier + eval from Drive
+    into the draft, then mark it `trained` so the Eval/Deploy screen appears.
+
+    `eval.json` is written last by the notebook, so its absence means training
+    is not finished yet (→ 409).
+    """
+    draft = packaging_store.get_draft(key)
+    if draft is None:
+        raise HTTPException(404, f"draft '{key}' not found")
+
+    det_folder = os.getenv("DRIVE_DETECTOR_DATASET_FOLDER_ID", "")
+    cls_folder = os.getenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "")
+    if not det_folder or not cls_folder:
+        raise HTTPException(500, "DRIVE_*_DATASET_FOLDER_ID not configured")
+
+    client = DriveClient()
+    eval_id = client.find_in_folder(det_folder, "eval.json")
+    if eval_id is None:
+        raise HTTPException(409, "ยังเทรนไม่เสร็จ — รัน Colab notebook ให้จบก่อน")
+
+    models_dir = Path(os.getenv("DRAFT_DIR", "data/drafts")) / key / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
+
+    # eval.json + detector live directly in the detector dataset folder
+    client.download_file(eval_id, models_dir / "eval.json")
+    det_id = client.find_in_folder(det_folder, "full_detector.pt")
+    if det_id is None:
+        raise HTTPException(409, "Drive มี eval แต่ไม่พบ full_detector.pt — เทรนยังไม่ครบ")
+    client.download_file(det_id, models_dir / "full_detector.pt")
+
+    # classifier lives under <classifier folder>/models/classifier.pt
+    cls_models = client.find_in_folder(cls_folder, "models")
+    cls_id = client.find_in_folder(cls_models, "classifier.pt") if cls_models else None
+    if cls_id is None:
+        raise HTTPException(409, "ไม่พบ classifier.pt ใน Drive — เทรนยังไม่ครบ")
+    client.download_file(cls_id, models_dir / "full_classifier.pt")
+
+    eval_data = json.loads((models_dir / "eval.json").read_text(encoding="utf-8"))
+    packaging_store.update_draft(key, status="trained")
+    logger.info("Synced trained model for '%s' from Drive", key)
+    return {"synced": True, "eval": eval_data}
+
+
 @router.post("/{key}/deploy")
 def deploy_packaging(key: str):
     """Promote draft → active. Two paths:
@@ -627,21 +673,26 @@ def deploy_packaging(key: str):
     if not check["passed"]:
         raise HTTPException(400, {"error": "hard floor failed", "failures": check["failures"]})
 
-    # 2. Backup active artifacts before overwrite (no-op for fresh deploys)
+    # 2. Detect freshly-synced models (present on both fresh + edit-draft paths)
+    draft_models = Path(os.getenv("DRAFT_DIR", "data/drafts")) / key / "models"
+    has_synced = (draft_models / "full_detector.pt").exists() or \
+                 (draft_models / "full_classifier.pt").exists()
+
+    # 3. Backup active artifacts before overwrite. For a fresh key the YAML
+    #    backup is a no-op; the global model backup still protects rollback.
     backup_manifest = (
-        cloudrun_deployer.backup_artifacts(parent_key) if parent_key else None
+        cloudrun_deployer.backup_artifacts(target_key)
+        if (parent_key is not None or has_synced) else None
     )
 
     try:
-        # 3. Write packaging YAML under target_key (parent_key on overwrite)
+        # 4. Write packaging YAML under target_key (parent_key on overwrite)
         yaml_path = cloudrun_deployer.write_packaging_yaml(target_key, draft)
 
-        # 4. Promote the freshly-trained detector (overwrite path only)
-        promoted_model = None
-        if parent_key is not None:
-            promoted_model = cloudrun_deployer.promote_draft_model(key)
+        # 5. Promote freshly-synced detector + classifier (either path)
+        promoted = cloudrun_deployer.promote_draft_model(key) if has_synced else {}
 
-        # 5. Reload PackagingRegistry in-process so the (re-)written class is picked up
+        # 6. Reload PackagingRegistry in-process so the (re-)written class is picked up
         try:
             main.reload_registry()
         except Exception as e:
@@ -656,7 +707,7 @@ def deploy_packaging(key: str):
                 logger.exception("registry reload after rollback failed")
         raise HTTPException(500, f"deploy failed: {e}")
 
-    # 6. Trigger Cloud Run revision (non-fatal if IAM lacks role).
+    # 7. Trigger Cloud Run revision (non-fatal if IAM lacks role).
     #    In TEST_MODE the trigger is the one call that can touch production
     #    Cloud Run, so it is skipped entirely and the deploy is simulated.
     if os.getenv("TEST_MODE") == "1":
@@ -665,7 +716,7 @@ def deploy_packaging(key: str):
     else:
         cr_result = cloudrun_deployer.trigger_cloud_run_revision()
 
-    # 7. Edit-draft: remove the now-merged draft. Fresh deploy: mark status.
+    # 8. Edit-draft: remove the now-merged draft. Fresh deploy: mark status.
     if parent_key is not None:
         packaging_store.delete_draft(key)
     else:
@@ -675,7 +726,7 @@ def deploy_packaging(key: str):
         "deployed": True,
         "target_key": target_key,
         "yaml_path": str(yaml_path),
-        "model_promoted": str(promoted_model) if parent_key and promoted_model else None,
+        "model_promoted": {k: str(v) for k, v in promoted.items()} or None,
         "backup": backup_manifest,
         "cloud_run": cr_result,
         "eval": eval_data,

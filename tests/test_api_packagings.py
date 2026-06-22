@@ -1010,3 +1010,96 @@ def test_prelabel_503_when_no_active_detector(client, monkeypatch, tmp_path):
 
     res = client.post("/api/packagings/box__edit/training/prelabel")
     assert res.status_code == 503
+
+
+def test_fresh_deploy_promotes_synced_models(client, tmp_path, monkeypatch):
+    import json as _json
+    from pathlib import Path as _Path
+    import main
+    from services import packaging_store, cloudrun_deployer, eval_thresholds
+
+    key = "newpack"
+    draft_models = _Path(packaging_store._DRAFT_DIR) / key / "models"
+    draft_models.mkdir(parents=True, exist_ok=True)
+    (draft_models / "full_detector.pt").write_bytes(b"DET")
+    (draft_models / "full_classifier.pt").write_bytes(b"CLS")
+    (draft_models / "eval.json").write_text(_json.dumps({
+        "detector_mAP_50": 0.9, "precision": 0.9, "recall": 0.9,
+    }), encoding="utf-8")
+
+    monkeypatch.setattr(packaging_store, "get_draft",
+                        lambda k: {"key": key, "config": {}, "pipeline": "detector_ocr"})
+    monkeypatch.setattr(packaging_store, "update_draft", lambda *a, **k: None)
+    monkeypatch.setattr(main.registry, "get", lambda k: None)
+    monkeypatch.setattr(main, "reload_registry", lambda: None)
+    monkeypatch.setattr(cloudrun_deployer, "write_packaging_yaml",
+                        lambda k, d: _Path("config/packagings") / f"{k}.yaml")
+    monkeypatch.setattr(cloudrun_deployer, "backup_artifacts", lambda k: {"timestamp": "x", "files": []})
+    promoted_calls = []
+    monkeypatch.setattr(cloudrun_deployer, "promote_draft_model",
+                        lambda k: promoted_calls.append(k) or {"detector": _Path("models/detector.pt"),
+                                                               "classifier": _Path("models/classifier.pt")})
+    monkeypatch.setattr(cloudrun_deployer, "trigger_cloud_run_revision",
+                        lambda: {"triggered": False, "reason": "test"})
+    monkeypatch.setattr(eval_thresholds, "check_hard_floor",
+                        lambda e: {"passed": True, "failures": [], "hard_floor": {}})
+
+    r = client.post(f"/api/packagings/{key}/deploy")
+    assert r.status_code == 200, r.text
+    assert promoted_calls == [key]
+    assert r.json()["model_promoted"]["detector"]
+
+
+def test_sync_downloads_and_marks_trained(client, monkeypatch):
+    import json as _json
+    from pathlib import Path as _Path
+    from services import packaging_store
+    import api.packagings as apk
+
+    key = "syncpack"
+    monkeypatch.setenv("DRIVE_DETECTOR_DATASET_FOLDER_ID", "DETFOLDER")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSFOLDER")
+    monkeypatch.setattr(packaging_store, "get_draft", lambda k: {"key": key})
+    updates = {}
+    monkeypatch.setattr(packaging_store, "update_draft",
+                        lambda k, **kw: updates.update(kw))
+
+    eval_obj = {"detector_mAP_50": 0.9, "precision": 0.9, "recall": 0.9,
+                "epochs": 60, "imgsz": 640, "train_count": 40, "val_count": 10}
+
+    def fake_find(parent, name):
+        return {"eval.json": "E", "full_detector.pt": "D",
+                "models": "M", "classifier.pt": "C"}.get(name)
+
+    def fake_download(file_id, dest):
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if file_id == "E":
+            dest.write_text(_json.dumps(eval_obj), encoding="utf-8")
+        else:
+            dest.write_bytes(b"PT")
+
+    fake = type("D", (), {"find_in_folder": staticmethod(fake_find),
+                          "download_file": staticmethod(fake_download)})()
+    monkeypatch.setattr(apk, "DriveClient", lambda: fake)
+
+    r = client.post(f"/api/packagings/{key}/training/full/sync")
+    assert r.status_code == 200, r.text
+    models = _Path(packaging_store._DRAFT_DIR) / key / "models"
+    assert (models / "eval.json").exists()
+    assert (models / "full_detector.pt").read_bytes() == b"PT"
+    assert (models / "full_classifier.pt").read_bytes() == b"PT"
+    assert updates["status"] == "trained"
+    assert r.json()["eval"]["detector_mAP_50"] == 0.9
+
+
+def test_sync_409_when_eval_missing(client, monkeypatch):
+    from services import packaging_store
+    import api.packagings as apk
+    monkeypatch.setenv("DRIVE_DETECTOR_DATASET_FOLDER_ID", "DETFOLDER")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSFOLDER")
+    monkeypatch.setattr(packaging_store, "get_draft", lambda k: {"key": "x"})
+    fake = type("D", (), {"find_in_folder": staticmethod(lambda p, n: None),
+                          "download_file": staticmethod(lambda *a: None)})()
+    monkeypatch.setattr(apk, "DriveClient", lambda: fake)
+    r = client.post("/api/packagings/x/training/full/sync")
+    assert r.status_code == 409
