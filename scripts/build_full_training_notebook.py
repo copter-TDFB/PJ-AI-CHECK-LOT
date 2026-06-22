@@ -82,6 +82,9 @@ def main() -> None:
     assert len(det) >= 2, f"expected >=2 detector cells, got {len(det)}"
     assert len(cls) >= 4, f"expected >=4 classifier cells, got {len(cls)}"
     assert any("iterdir()" in _src(c) for c in cls), "CLASSES auto-discover not applied"
+    det_src = "\n".join(_src(c) for c in det)
+    assert "full_detector.pt" in det_src and "eval.json" in det_src, \
+        "detector cells must save full_detector.pt + write eval.json"
 
     cells = (
         [_md("# Full Training — Detector + Classifier\n\n"
