@@ -3369,9 +3369,13 @@ function renderStep5_training(pkg) {
         <strong>📒 Training notebook เปิดแล้ว</strong> — กด <code>Runtime → Run all</code>
         (detector ~60 นาที + classifier ~30 นาที). Model จะเซฟลง Drive
         (<code>data check lot/</code> + <code>data classify check lot/models/</code>).
-        จากนั้น <strong>sync model เข้าระบบเอง</strong> ผ่าน model registry/manifest
-        — wizard ไม่ดึงให้อัตโนมัติ
       </div>
+      <div style="text-align:center;margin-top:14px">
+        <button class="btn btn-primary" id="btn-sync-model" onclick="syncTrainedModel()">
+          ✅ Train เสร็จแล้ว — ดึง model จาก Drive
+        </button>
+      </div>
+      <div id="sync-msg" style="margin-top:10px;text-align:center;color:var(--t3);font-size:13px"></div>
     </div>`;
 }
 
@@ -3468,6 +3472,26 @@ function renderStep5_eval(pkg, evRes) {
           <button class="btn btn-ghost" onclick="loadStep5()">↻ Refresh</button>
         </div>`}
     </div>`;
+}
+
+async function syncTrainedModel() {
+  if (!curDraftKey) return;
+  const btn = document.getElementById('btn-sync-model');
+  const msg = document.getElementById('sync-msg');
+  btn.disabled = true;
+  btn.textContent = '⏳ กำลังดึง model จาก Drive...';
+  msg.textContent = '';
+  try {
+    await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/full/sync`);
+    await loadStep5();   // status → trained → renders Eval + Deploy
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '✅ Train เสร็จแล้ว — ดึง model จาก Drive';
+    msg.style.color = 'var(--err)';
+    msg.textContent = err.message.includes('ยังเทรนไม่เสร็จ')
+      ? 'ยังเทรนไม่เสร็จ — รอ Colab รันให้จบแล้วลองใหม่'
+      : `ดึง model ไม่สำเร็จ: ${err.message}`;
+  }
 }
 
 async function startFullTraining() {
