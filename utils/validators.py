@@ -309,7 +309,8 @@ def find_lot(
     for pat in class_patterns:
         match = pat.search(text)
         if match:
-            lot = match.group(1).strip().rstrip('.,;:')
+            # config patterns (wizard-generated) may have no capture group → use full match
+            lot = (match.group(1) if match.lastindex else match.group(0)).strip().rstrip('.,;:')
             if _is_valid_lot(lot):
                 return _fix_lot_alpha_prefix(lot, image_class)
 

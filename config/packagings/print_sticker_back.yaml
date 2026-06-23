@@ -1,0 +1,43 @@
+key: print_sticker_back
+display_name: print_sticker_back
+pipeline: detector_ocr
+conf_threshold: 0.6
+accuracy: null
+gate_on_lot: true
+lot_short_fallback: false
+sub_regions:
+- lot_exp
+- product_size
+detection_mode: multi_field
+lot_patterns:
+- (?i)[A-Z]{1}\d{17,}[A-Z0-9]*
+fields_extracted:
+- lot
+- exp
+- product
+- size
+sheet_checks:
+- lot
+- exp
+post_ocr_fixes: []
+message_template_key: default_full
+product_aliases:
+- canonical: Matcha M4 {size}
+  keywords:
+  - Matcha M4
+- canonical: Matcha M3 {size}
+  keywords:
+  - Matcha M3
+- canonical: Matcha M6 {size}
+  keywords:
+  - Matcha M6
+- canonical: Matcha M2 {size}
+  keywords:
+  - Matcha M2
+- canonical: Matchakai Houjicha H1 95% {size}
+  keywords:
+  - Houjicha H1
+model_classifier_label: print_sticker_back
+detector_yolo_prefixes:
+- print_sticker_back_lot_exp
+- print_sticker_back_product_size

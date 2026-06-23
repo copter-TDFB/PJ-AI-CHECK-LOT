@@ -3,7 +3,7 @@ import logging
 from pipeline.packaging_registry import PackagingConfig
 from utils.field_groups import parse_group
 from utils.image_utils import stack_images_vertically
-from utils.validators import find_lot, find_expiry, find_product_name, find_size
+from utils.validators import find_lot, find_expiry, find_product_name, find_size, resolve_product_template
 
 logger = logging.getLogger(__name__)
 
@@ -121,12 +121,21 @@ class PipelineRunner:
             find_lot(lot_text, image_class=config.key, patterns=config.lot_patterns)
             if lot_text else None
         )
+        size = find_size(joined("size")) if texts.get("size") else None
+        product_name = (
+            find_product_name(joined("product"), config.product_aliases)
+            if texts.get("product") else None
+        )
+        if product_name and config.product_aliases:
+            # alias canonical may carry a {size} token — resolve it with the OCR'd size
+            product_name = resolve_product_template(product_name, size)
+
         result = {
             "lot_number":   lot,
             "exp_date":     find_expiry(joined("exp")) if texts.get("exp") else None,
             "mfg_date":     None,
-            "product_name": find_product_name(joined("product"), config.product_aliases) if texts.get("product") else None,
-            "size":         find_size(joined("size")) if texts.get("size") else None,
+            "product_name": product_name,
+            "size":         size,
             "raw_text":     "\n".join(raw_parts),
             "confidence":   None,
             "lot_box":      None,
