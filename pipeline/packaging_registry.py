@@ -71,6 +71,20 @@ class PackagingRegistry:
             )
             return yaml_value
 
+    @staticmethod
+    def _merged_product_aliases(data: dict, override: object) -> list:
+        yaml_value = data.get("product_aliases", [])
+        if not isinstance(override, dict) or "product_aliases" not in override:
+            return yaml_value
+        ov = override["product_aliases"]
+        if not isinstance(ov, list):
+            logger.warning(
+                "Invalid product_aliases override for %s: %r — using YAML value",
+                data.get("key"), ov,
+            )
+            return yaml_value
+        return ov
+
     def _config_from_data(self, data: dict, override: object) -> PackagingConfig:
         patterns = [re.compile(p) for p in data.get("lot_patterns", [])]
         return PackagingConfig(
@@ -90,7 +104,7 @@ class PackagingRegistry:
             lot_short_fallback=bool(data.get("lot_short_fallback", False)),
             sub_regions=data.get("sub_regions", []),
             detection_mode=data.get("detection_mode", "single"),
-            product_aliases=data.get("product_aliases", []),
+            product_aliases=self._merged_product_aliases(data, override),
         )
 
     def _overlay_from_gcs(self, overrides: dict[str, dict]) -> None:
