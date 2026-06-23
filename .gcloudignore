@@ -51,6 +51,7 @@ FLOW_PROCESS_PRESENTATION.html
 gcp-key.json
 service-account*.json
 credentials*.json
+client_secret*.json
 
 # Model rollback snapshots — don't bake ~300MB of backups into the image
 models/*.bak-*
