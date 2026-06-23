@@ -349,10 +349,16 @@ def trigger_cloud_run_revision() -> dict[str, Any]:
         annotations = template.setdefault("annotations", {})
         from datetime import datetime, timezone
         annotations["lot-checker/restarted-at"] = datetime.now(timezone.utc).isoformat()
+        # Route 100% traffic to the new (latest) revision so freshly-published GCS
+        # models actually go live — without this the new revision sits at 0% when
+        # traffic is pinned to a prior revision by name.
         patched = run.projects().locations().services().patch(
             name=svc_name,
-            body={"template": template},
-            updateMask="template",
+            body={
+                "template": template,
+                "traffic": [{"type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST", "percent": 100}],
+            },
+            updateMask="template,traffic",
         ).execute()
         op_name = patched.get("name")
         logger.info("Cloud Run revision triggered: op=%s", op_name)
