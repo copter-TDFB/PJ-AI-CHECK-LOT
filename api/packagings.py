@@ -12,15 +12,21 @@ from fastapi.responses import FileResponse
 
 from api.schemas import (
     AnnotationSave,
+    ConfThresholdResponse,
+    ConfThresholdUpdate,
     PackagingConfigUpdate,
     PackagingCreate,
+    ProductAliasesResponse,
+    ProductAliasesUpdate,
     PackagingResponse,
     PackagingUpdate,
     RegexPreviewRequest,
     RegexPreviewResponse,
 )
 from services import packaging_store
+from services.drive_client import DriveClient
 from services.regex_generator import generate_regex, preview_matches
+from utils.field_groups import parse_group
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/packagings", tags=["packagings"])
@@ -31,18 +37,33 @@ _DETECTOR_MODEL_PATH = Path(os.getenv("MODEL_DETECTOR_PATH", "models/detector.pt
 _IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
 
+def _packaging_yaml_dir() -> Path:
+    """Packagings dir, honouring OCR_CONFIG_DIR like the registry. A hardcoded
+    relative "config/packagings" silently read the prod config in the test
+    harness (OCR_CONFIG_DIR=data/test/config) — dropping archived cards and
+    cloning the wrong YAML."""
+    from pipeline.packaging_registry import _config_dir
+    return _config_dir() / "packagings"
+
+# Combined Full Training notebook in Drive (built by
+# scripts/build_full_training_notebook.py).
+COMBINED_NOTEBOOK_FILE_ID = "1_jq1jWpstRKj5UbP1PFwEcW_dgmL4R6Z"
+
+
 @router.get("", response_model=list[PackagingResponse])
 def list_packagings():
     """รวม active (จาก YAML) + drafts (จาก data/drafts)."""
     import main  # lazy import — registry initialized in lifespan
 
     items: list[PackagingResponse] = []
+    promoted_keys: set[str] = set()  # keys already shown as active/archived
 
     if main.registry is not None:
         for key in main.registry.all_keys():
             cfg = main.registry.get(key)
             if cfg is None:
                 continue
+            promoted_keys.add(cfg.key)
             items.append(PackagingResponse(
                 key=cfg.key,
                 display_name=cfg.display_name,
@@ -51,15 +72,19 @@ def list_packagings():
                 image_count=_count_active_images(key),
                 conf_threshold=cfg.conf_threshold,
                 accuracy=cfg.accuracy,
+                sub_regions=cfg.sub_regions,
+                detection_mode=cfg.detection_mode,
             ))
 
-        # Archived packagings — YAML still on disk but renamed to *.yaml.archived
+        # Archived packagings — YAML still on disk but renamed to *.yaml.archived.
+        arch_dir = _packaging_yaml_dir()
         for arch_key in main.registry.archived_keys():
-            arch_yaml = Path("config/packagings") / f"{arch_key}.yaml.archived"
+            arch_yaml = arch_dir / f"{arch_key}.yaml.archived"
             try:
                 data = yaml.safe_load(arch_yaml.read_text(encoding="utf-8"))
             except Exception:
                 continue
+            promoted_keys.add(arch_key)
             items.append(PackagingResponse(
                 key=arch_key,
                 display_name=data.get("display_name", arch_key),
@@ -70,7 +95,12 @@ def list_packagings():
                 accuracy=float(data["accuracy"]) if data.get("accuracy") is not None else None,
             ))
 
+    # Drafts — skip any whose key is already an active/archived packaging. A
+    # fresh deploy leaves the draft behind with status="deployed"; without this
+    # guard it renders as a SECOND card duplicating the live/offline packaging.
     for draft in packaging_store.list_drafts():
+        if draft.get("key") in promoted_keys:
+            continue
         items.append(PackagingResponse(**draft))
 
     return items
@@ -91,6 +121,7 @@ def create_packaging(body: PackagingCreate):
             description=body.description,
             pipeline=body.pipeline.value,
             sub_regions=body.sub_regions,
+            detection_mode=body.detection_mode.value,
         )
     except ValueError as exc:
         raise HTTPException(409, str(exc))
@@ -114,9 +145,13 @@ def get_packaging(key: str):
                 image_count=_count_active_images(key),
                 conf_threshold=cfg.conf_threshold,
                 accuracy=cfg.accuracy,
+                sub_regions=cfg.sub_regions,
+                detection_mode=cfg.detection_mode,
+                product_aliases=cfg.product_aliases,
+                fields_extracted=cfg.fields_extracted,
             )
         if main.registry.is_archived(key):
-            arch_yaml = Path("config/packagings") / f"{key}.yaml.archived"
+            arch_yaml = _packaging_yaml_dir() / f"{key}.yaml.archived"
             try:
                 data = yaml.safe_load(arch_yaml.read_text(encoding="utf-8"))
             except Exception:
@@ -169,8 +204,6 @@ def delete_packaging(key: str):
 
 # ─── Edit active (clone → wizard → re-deploy) ──────────
 
-_PACKAGING_YAML_DIR = Path("config/packagings")
-
 
 @router.post("/{key}/clone", response_model=PackagingResponse, status_code=201)
 def clone_active(key: str):
@@ -184,7 +217,7 @@ def clone_active(key: str):
     if main.registry is None or main.registry.get(key) is None:
         raise HTTPException(404, f"active packaging '{key}' not found")
 
-    yaml_path = _PACKAGING_YAML_DIR / f"{key}.yaml"
+    yaml_path = _packaging_yaml_dir() / f"{key}.yaml"
     if not yaml_path.exists():
         raise HTTPException(500, f"YAML missing for active '{key}'")
 
@@ -217,13 +250,17 @@ def archive_packaging_endpoint(key: str):
         raise HTTPException(404, str(e))
 
     try:
-        from pipeline.packaging_registry import PackagingRegistry
-        main.registry = PackagingRegistry()
+        main.reload_registry()
     except Exception as e:
         logger.exception("registry reload failed after archive")
         raise HTTPException(500, f"registry reload failed: {e}")
 
-    return {"archived": key, "yaml_path": str(dst)}
+    try:
+        gcs_result = cloudrun_deployer.set_archived_in_gcs(key, True)
+    except Exception as e:  # GCS sync is best-effort — local state already changed
+        logger.warning("GCS archive sync failed for %s: %s", key, e)
+        gcs_result = {"published": False, "reason": str(e)}
+    return {"archived": key, "yaml_path": str(dst), "gcs": gcs_result}
 
 
 @router.post("/{key}/unarchive")
@@ -240,13 +277,123 @@ def unarchive_packaging_endpoint(key: str):
         raise HTTPException(409, str(e))
 
     try:
-        from pipeline.packaging_registry import PackagingRegistry
-        main.registry = PackagingRegistry()
+        main.reload_registry()
     except Exception as e:
         logger.exception("registry reload failed after unarchive")
         raise HTTPException(500, f"registry reload failed: {e}")
 
-    return {"unarchived": key, "yaml_path": str(dst)}
+    try:
+        gcs_result = cloudrun_deployer.set_archived_in_gcs(key, False)
+    except Exception as e:  # GCS sync is best-effort — local state already changed
+        logger.warning("GCS unarchive sync failed for %s: %s", key, e)
+        gcs_result = {"published": False, "reason": str(e)}
+    return {"unarchived": key, "yaml_path": str(dst), "gcs": gcs_result}
+
+
+@router.put("/{key}/conf", response_model=ConfThresholdResponse)
+def update_conf_threshold(key: str, body: ConfThresholdUpdate):
+    """Tune conf_threshold ของ active packaging — ไม่ต้อง retrain (ADR 0004).
+
+    เขียน Drive ให้สำเร็จก่อนแล้วค่อย reload registry — Drive ล่ม → 502
+    และไม่มีอะไรเปลี่ยน เพื่อไม่ให้ instance แตกค่ากับ storage
+    """
+    import main
+
+    cfg = main.registry.get(key) if main.registry else None
+    if cfg is None:
+        raise HTTPException(404, f"active packaging '{key}' not found")
+    previous = cfg.conf_threshold if cfg.conf_threshold is not None else 0.6
+
+    from services import config_overrides
+
+    try:
+        config_overrides.save_conf_threshold(key, body.conf_threshold)
+    except Exception as e:
+        logger.exception("conf override persist failed for %s", key)
+        raise HTTPException(502, f"failed to persist conf override: {e}")
+
+    try:
+        main.reload_registry()
+    except Exception as e:
+        logger.exception("registry reload failed after conf update")
+        raise HTTPException(500, f"registry reload failed: {e}")
+
+    return ConfThresholdResponse(
+        key=key, conf_threshold=body.conf_threshold, previous=previous,
+    )
+
+
+@router.put("/{key}/product-aliases", response_model=ProductAliasesResponse)
+def update_product_aliases(key: str, body: ProductAliasesUpdate):
+    """Edit the product names an active class reads — no retrain (mirrors /conf).
+
+    Persist-first: a storage failure returns 502 and changes nothing, so the
+    instance never diverges from the stored overrides.
+    """
+    import main
+
+    cfg = main.registry.get(key) if main.registry else None
+    if cfg is None:
+        raise HTTPException(404, f"active packaging '{key}' not found")
+    if "product" not in cfg.fields_extracted:
+        raise HTTPException(400, f"packaging '{key}' does not read a product name")
+
+    aliases = [a.model_dump() for a in body.product_aliases]
+    for a in aliases:
+        if not a["canonical"].strip() or not [k for k in a["keywords"] if k.strip()]:
+            raise HTTPException(400, "each alias needs a canonical and at least one keyword")
+
+    previous = cfg.product_aliases
+
+    from services import config_overrides
+
+    try:
+        config_overrides.save_product_aliases(key, aliases)
+    except Exception as e:
+        logger.exception("product_aliases override persist failed for %s", key)
+        raise HTTPException(502, f"failed to persist override: {e}")
+
+    try:
+        main.reload_registry()
+    except Exception as e:
+        logger.exception("registry reload failed after product_aliases update")
+        raise HTTPException(500, f"registry reload failed: {e}")
+
+    return ProductAliasesResponse(key=key, product_aliases=aliases, previous=previous)
+
+
+@router.delete("/{key}/product-aliases", response_model=ProductAliasesResponse)
+def revert_product_aliases(key: str):
+    """Remove the product_aliases override → revert to the YAML/hardcoded default.
+
+    Persist-first (mirrors the PUT). Returns the now-effective aliases (the YAML
+    value, which may be empty → the class falls back to the hardcoded matcher).
+    """
+    import main
+
+    cfg = main.registry.get(key) if main.registry else None
+    if cfg is None:
+        raise HTTPException(404, f"active packaging '{key}' not found")
+
+    previous = cfg.product_aliases
+
+    from services import config_overrides
+
+    try:
+        config_overrides.delete_product_aliases(key)
+    except Exception as e:
+        logger.exception("product_aliases override delete failed for %s", key)
+        raise HTTPException(502, f"failed to persist override: {e}")
+
+    try:
+        main.reload_registry()
+    except Exception as e:
+        logger.exception("registry reload failed after product_aliases delete")
+        raise HTTPException(500, f"registry reload failed: {e}")
+
+    new_cfg = main.registry.get(key) if main.registry else None
+    effective = new_cfg.product_aliases if new_cfg else []
+    return ProductAliasesResponse(key=key, product_aliases=effective, previous=previous)
 
 
 @router.post("/{key}/images")
@@ -413,185 +560,228 @@ def get_crop(key: str, filename: str, idx: int):
     return FileResponse(crop_path, media_type="image/jpeg")
 
 
-# ─── Training (seed → active learning) ─────────────────
+# ─── Training ─────────────────
 
-_MIN_LABELED_FOR_SEED = 5  # ขั้นต่ำที่ allow seed train (จริงๆ 20 ตาม UI แต่ allow ทดสอบเร็ว)
+@router.get("/{key}/training/progress")
+def training_progress(key: str):
+    """Live progress ของ training start ที่กำลังรัน — wizard poll ทุก ~0.6s
+    ระหว่างรอ POST /training/{seed|full}/start ตอบกลับ."""
+    from services import progress_store
 
-
-@router.post("/{key}/training/seed/start")
-def training_seed_start(key: str):
-    """Bundle labeled images → upload to Drive → gen Colab notebook → return URL."""
-    draft = packaging_store.get_draft(key)
-    if draft is None:
-        raise HTTPException(404, f"draft '{key}' not found")
-
-    status = packaging_store.list_annotation_status(key)
-    labeled = [it for it in status if it["labeled"]]
-    if len(labeled) < _MIN_LABELED_FOR_SEED:
-        raise HTTPException(
-            400,
-            f"need at least {_MIN_LABELED_FOR_SEED} labeled images (have {len(labeled)})",
-        )
-
-    # Lazy imports — heavy + only needed at training time
-    from services import notebook_generator, training_bundle
-    from services.drive_client import DriveClient
-
-    try:
-        bundle_bytes = training_bundle.build_zip(key)
-    except (FileNotFoundError, ValueError) as e:
-        raise HTTPException(400, str(e))
-
-    try:
-        drive = DriveClient()
-        run_folder_id = drive.create_folder(f"lot-checker-training-{key}")
-        bundle_file_id = drive.upload_bytes(
-            bundle_bytes,
-            name=f"{key}-bundle.zip",
-            parent_id=run_folder_id,
-            mime_type="application/zip",
-            public=True,  # ให้ gdown โหลดได้โดยไม่ต้อง auth
-        )
-        nb_bytes = notebook_generator.build_seed_notebook(
-            packaging_key=key,
-            bundle_file_id=bundle_file_id,
-            output_folder_id=run_folder_id,
-        )
-        nb_file_id = drive.upload_bytes(
-            nb_bytes,
-            name=f"{key}-seed-training.ipynb",
-            parent_id=run_folder_id,
-            mime_type="application/vnd.google.colaboratory",
-        )
-    except Exception as e:
-        logger.exception("training/seed/start failed for %s", key)
-        raise HTTPException(500, f"Drive upload failed: {e}")
-
-    # Persist on draft meta
-    packaging_store.update_draft(
-        key,
-        training_run={
-            "bundle_file_id": bundle_file_id,
-            "notebook_file_id": nb_file_id,
-            "output_folder_id": run_folder_id,
-            "started_at": datetime.now(timezone.utc).isoformat(),
-            "kind": "seed",
-        },
-        status="training_seed",
-    )
-
-    return {
-        "colab_url": notebook_generator.colab_url(nb_file_id),
-        "notebook_file_id": nb_file_id,
-        "output_folder_id": run_folder_id,
-        "bundle_size_kb": round(len(bundle_bytes) / 1024, 1),
-    }
+    return progress_store.get(key)
 
 
 @router.post("/{key}/training/full/start")
 def training_full_start(key: str):
-    """Full training — uses ALL labeled images (incl. verified pre-labels)."""
+    """Full training — publishes dataset images directly to Drive, then returns a
+    static link to the combined Colab notebook. No notebook is generated."""
     draft = packaging_store.get_draft(key)
     if draft is None:
         raise HTTPException(404, f"draft '{key}' not found")
 
     status = packaging_store.list_annotation_status(key)
     labeled = [it for it in status if it["labeled"]]
-    if len(labeled) < 10:
-        raise HTTPException(400, f"need at least 10 labeled images (have {len(labeled)})")
+    if len(labeled) < 30:
+        raise HTTPException(400, f"need at least 30 labeled images (have {len(labeled)})")
 
-    from services import notebook_generator, training_bundle
+    if draft.get("detection_mode") == "multi_field":
+        cfg = draft.get("config") or {}
+        subs = draft.get("sub_regions", [])
+        # sub_regions entries are groups (e.g. "lot_exp") — expand to member
+        # fields before checking that every extracted field has a crop.
+        crop_fields = {f for sr in subs for f in parse_group(sr)}
+        missing = [f for f in cfg.get("fields_extracted", []) if f not in crop_fields]
+        if missing:
+            raise HTTPException(
+                400,
+                f"multi_field: fields {missing} have no crop sub-region — "
+                "add them in step 1 or untick them in step 4",
+            )
+
+    from services import dataset_publisher, progress_store
     from services.drive_client import DriveClient
 
-    try:
-        bundle_bytes = training_bundle.build_zip(key)
-    except (FileNotFoundError, ValueError) as e:
-        raise HTTPException(400, str(e))
-
+    progress_store.report(key, "starting")
     try:
         drive = DriveClient()
-        run_folder_id = drive.create_folder(f"lot-checker-training-{key}-full")
-        bundle_file_id = drive.upload_bytes(
-            bundle_bytes, name=f"{key}-bundle-full.zip", parent_id=run_folder_id,
-            mime_type="application/zip", public=True,
-        )
-        nb_bytes = notebook_generator.build_full_notebook(
-            packaging_key=key,
-            bundle_file_id=bundle_file_id,
-            output_folder_id=run_folder_id,
-        )
-        nb_file_id = drive.upload_bytes(
-            nb_bytes, name=f"{key}-full-training.ipynb", parent_id=run_folder_id,
-            mime_type="application/vnd.google.colaboratory",
-        )
     except Exception as e:
-        logger.exception("training/full/start failed for %s", key)
-        raise HTTPException(500, f"Drive upload failed: {e}")
+        logger.exception("Drive client init failed for %s", key)
+        progress_store.report(key, "error", detail=str(e))
+        raise HTTPException(500, f"Drive client init failed: {e}")
 
+    try:
+        dataset_summary = dataset_publisher.publish(
+            key,
+            drive=drive,
+            progress_cb=lambda done, total, name: progress_store.report(
+                key, "upload_images", done=done, total=total, detail=name
+            ),
+        )
+    except (FileNotFoundError, ValueError) as e:
+        progress_store.report(key, "error", detail=str(e))
+        raise HTTPException(400, str(e))
+    except RuntimeError as e:
+        progress_store.report(key, "error", detail=str(e))
+        raise HTTPException(500, str(e))
+    except Exception as e:
+        logger.exception("dataset publish failed for %s", key)
+        progress_store.report(key, "error", detail=str(e))
+        raise HTTPException(500, f"Dataset publish failed: {e}")
+
+    progress_store.report(key, "done")
     packaging_store.update_draft(
         key,
         training_run={
-            "bundle_file_id": bundle_file_id,
-            "notebook_file_id": nb_file_id,
-            "output_folder_id": run_folder_id,
             "started_at": datetime.now(timezone.utc).isoformat(),
             "kind": "full",
+            "dataset": dataset_summary,
         },
         status="training_full",
     )
+    colab_url = (
+        f"https://colab.research.google.com/drive/{COMBINED_NOTEBOOK_FILE_ID}"
+    )
     return {
-        "colab_url": notebook_generator.colab_url(nb_file_id),
-        "notebook_file_id": nb_file_id,
-        "output_folder_id": run_folder_id,
-        "bundle_size_kb": round(len(bundle_bytes) / 1024, 1),
+        "colab_url": colab_url,
+        "dataset": dataset_summary,
         "labeled_count": len(labeled),
     }
 
 
-@router.post("/{key}/training/full/done")
-def training_full_done(key: str):
-    """Pull full model + eval.json จาก Drive → store locally → ready for deploy."""
+@router.post("/{key}/training/prelabel")
+def training_prelabel(key: str):
+    """Prelabel unlabeled draft images with the active (deployed) detector.
+
+    Edit-drafts only — a brand-new class has no deployed detector to borrow.
+    Runs server-side; no Colab, no retrain. Boxes are filtered by the parent
+    packaging's detector_yolo_prefixes and written as normal annotations.
+    """
     draft = packaging_store.get_draft(key)
     if draft is None:
         raise HTTPException(404, f"draft '{key}' not found")
-    run = draft.get("training_run")
-    if not run or run.get("kind") != "full":
-        raise HTTPException(400, "ยังไม่ได้เริ่ม full training — กด 'เริ่ม Full Training' ก่อน")
+    if not key.endswith("__edit"):
+        raise HTTPException(400, "prelabel ใช้ได้เฉพาะ edit-draft (class เดิม)")
+    parent_key = key[: -len("__edit")]
 
-    from services.drive_client import DriveClient
+    import main
+    cfg = main.registry.get(parent_key) if main.registry is not None else None
+    if cfg is None:
+        raise HTTPException(400, f"parent packaging '{parent_key}' not found")
 
-    drive = DriveClient()
-    output_folder_id = run["output_folder_id"]
+    if not _DETECTOR_MODEL_PATH.exists():
+        raise HTTPException(503, "active detector ยังไม่พร้อม — ไม่มีโมเดลให้ prelabel")
 
-    model_id = drive.find_in_folder(output_folder_id, "full_detector.pt")
-    if not model_id:
-        raise HTTPException(404, "ยังหา full_detector.pt ใน Drive ไม่เจอ — รัน notebook ใน Colab ให้เสร็จก่อน")
+    from services import active_learning
 
-    model_dir = Path("data/drafts") / key / "models"
-    model_dir.mkdir(parents=True, exist_ok=True)
-    model_path = model_dir / "full_detector.pt"
     try:
-        drive.download_file(model_id, model_path)
+        result = active_learning.prelabel_remaining(
+            key, _DETECTOR_MODEL_PATH, class_prefixes=cfg.detector_yolo_prefixes,
+        )
     except Exception as e:
-        logger.exception("download full_detector failed")
-        raise HTTPException(500, f"download model failed: {e}")
+        logger.exception("prelabel failed for %s", key)
+        raise HTTPException(500, f"prelabel failed: {e}")
+    return result
 
-    # Pull eval.json
-    eval_id = drive.find_in_folder(output_folder_id, "full_eval.json")
-    eval_summary: dict = {}
-    if eval_id:
-        try:
-            eval_summary = drive.read_json(eval_id)
-            # Persist locally for /eval endpoint
-            (model_dir / "eval.json").write_text(
-                json.dumps(eval_summary, indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
-        except Exception:
-            logger.warning("could not read eval.json")
 
-    packaging_store.update_draft(key, status="trained")
-    return {"model_downloaded": True, "eval": eval_summary}
+@router.post("/{key}/training/full/done")
+def training_full_done(key: str):
+    """Full training เป็น manual แล้ว — ใช้ /training/full/sync
+    เพื่อดึง model และ eval จาก Drive เข้า draft.
+
+    ยกเว้นใน TEST_MODE: จำลองว่า training เสร็จ — เขียน eval.json ที่ผ่าน
+    hard floor + ตั้ง status=trained เพื่อให้หน้า Deploy โผล่มาทดสอบได้
+    โดยไม่ต้องรัน Colab/sync model จริง (production ยังคืน 400 เหมือนเดิม)."""
+    draft = packaging_store.get_draft(key)
+    if draft is None:
+        raise HTTPException(404, f"draft '{key}' not found")
+
+    if os.getenv("TEST_MODE") == "1":
+        labeled = [it for it in packaging_store.list_annotation_status(key) if it["labeled"]]
+        val_count = max(1, round(len(labeled) * 0.2))
+        eval_data = {
+            "detector_mAP_50": 0.91,
+            "precision": 0.93,
+            "recall": 0.88,
+            "epochs": 60,
+            "imgsz": 640,
+            "train_count": len(labeled) - val_count,
+            "val_count": val_count,
+            "simulated": True,
+        }
+        eval_dir = Path(os.getenv("DRAFT_DIR", "data/drafts")) / key / "models"
+        eval_dir.mkdir(parents=True, exist_ok=True)
+        (eval_dir / "eval.json").write_text(
+            json.dumps(eval_data, indent=2), encoding="utf-8"
+        )
+        packaging_store.update_draft(key, status="trained")
+        logger.info("TEST_MODE — simulated training done for '%s'", key)
+        return {"simulated": True, "eval": eval_data}
+
+    raise HTTPException(
+        400,
+        "Full training เป็น manual แล้ว — รัน notebook ใน Colab ให้เสร็จ, "
+        "model จะเซฟลง Drive, แล้ว sync เข้าระบบผ่าน /training/full/sync "
+        "(ดู docs/superpowers/specs/2026-06-15-direct-notebook-training-design.md)",
+    )
+
+
+@router.post("/{key}/training/full/sync")
+def training_full_sync(key: str):
+    """Pull the freshly Colab-trained detector + classifier + eval from Drive
+    into the draft, then mark it `trained` so the Eval/Deploy screen appears.
+
+    `eval.json` is written last by the notebook, so its absence means training
+    is not finished yet (→ 409).
+    """
+    draft = packaging_store.get_draft(key)
+    if draft is None:
+        raise HTTPException(404, f"draft '{key}' not found")
+
+    det_folder = os.getenv("DRIVE_DETECTOR_DATASET_FOLDER_ID", "")
+    cls_folder = os.getenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "")
+    if not det_folder or not cls_folder:
+        raise HTTPException(
+            503,
+            "ยังตั้งค่า Drive dataset folders ไม่ครบ — ต้องตั้ง env "
+            "DRIVE_DETECTOR_DATASET_FOLDER_ID และ DRIVE_CLASSIFIER_DATASET_FOLDER_ID บน Cloud Run",
+        )
+
+    client = DriveClient()
+    eval_id = client.find_in_folder(det_folder, "eval.json")
+    if eval_id is None:
+        raise HTTPException(409, "ยังเทรนไม่เสร็จ — รัน Colab notebook ให้จบก่อน")
+    det_id = client.find_in_folder(det_folder, "full_detector.pt")
+    if det_id is None:
+        raise HTTPException(409, "Drive มี eval แต่ไม่พบ full_detector.pt — เทรนยังไม่ครบ")
+
+    # classifier lives under <classifier folder>/models/classifier.pt
+    cls_models = client.find_in_folder(cls_folder, "models")
+    cls_id = client.find_in_folder(cls_models, "classifier.pt") if cls_models else None
+    if cls_id is None:
+        raise HTTPException(409, "ไม่พบ classifier.pt ใน Drive — เทรนยังไม่ครบ")
+
+    models_dir = Path(os.getenv("DRAFT_DIR", "data/drafts")) / key / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
+    detector_path = models_dir / "full_detector.pt"
+    classifier_path = models_dir / "full_classifier.pt"
+    eval_path = models_dir / "eval.json"
+    artifacts = (eval_path, detector_path, classifier_path)
+
+    try:
+        client.download_file(det_id, detector_path)
+        client.download_file(cls_id, classifier_path)
+        # Local eval.json is the deploy-ready signal, so persist it last.
+        client.download_file(eval_id, eval_path)
+        eval_data = json.loads(eval_path.read_text(encoding="utf-8"))
+        packaging_store.update_draft(key, status="trained")
+    except Exception as e:
+        for artifact in artifacts:
+            artifact.unlink(missing_ok=True)
+        logger.exception("training/full/sync failed for '%s'", key)
+        raise HTTPException(500, f"sync failed: {e}")
+
+    logger.info("Synced trained model for '%s' from Drive", key)
+    return {"synced": True, "eval": eval_data}
 
 
 @router.post("/{key}/deploy")
@@ -619,7 +809,7 @@ def deploy_packaging(key: str):
         raise HTTPException(409, f"key '{key}' already active — use /clone to edit it")
 
     # 1. Hard-floor gate (before any backup — fail cheap)
-    eval_path = Path("data/drafts") / key / "models" / "eval.json"
+    eval_path = Path(os.getenv("DRAFT_DIR", "data/drafts")) / key / "models" / "eval.json"
     if not eval_path.exists():
         raise HTTPException(400, "ยังไม่มี eval — รัน full training ก่อน")
     eval_data = json.loads(eval_path.read_text(encoding="utf-8"))
@@ -627,24 +817,35 @@ def deploy_packaging(key: str):
     if not check["passed"]:
         raise HTTPException(400, {"error": "hard floor failed", "failures": check["failures"]})
 
-    # 2. Backup active artifacts before overwrite (no-op for fresh deploys)
+    # 2. Detect freshly-synced models (present on both fresh + edit-draft paths)
+    draft_models = Path(os.getenv("DRAFT_DIR", "data/drafts")) / key / "models"
+    has_synced = (draft_models / "full_detector.pt").exists() or \
+                 (draft_models / "full_classifier.pt").exists()
+
+    # 3. Backup active artifacts before overwrite. On the fresh path target_key
+    #    is the new key, so its YAML backup is a no-op; the global model backup
+    #    protects rollback. Model-backup rotation is globally scoped rather
+    #    than key-scoped (pre-existing behavior).
     backup_manifest = (
-        cloudrun_deployer.backup_artifacts(parent_key) if parent_key else None
+        cloudrun_deployer.backup_artifacts(target_key)
+        if (parent_key is not None or has_synced) else None
     )
 
     try:
-        # 3. Write packaging YAML under target_key (parent_key on overwrite)
+        # 4. Write packaging YAML under target_key (parent_key on overwrite)
         yaml_path = cloudrun_deployer.write_packaging_yaml(target_key, draft)
 
-        # 4. Promote the freshly-trained detector (overwrite path only)
-        promoted_model = None
-        if parent_key is not None:
-            promoted_model = cloudrun_deployer.promote_draft_model(key)
+        # 5. Promote freshly-synced detector + classifier (either path)
+        promoted = cloudrun_deployer.promote_draft_model(key) if has_synced else {}
 
-        # 5. Reload PackagingRegistry in-process so the (re-)written class is picked up
+        # 5.5 Publish YAML + models to GCS so the change survives Cloud Run
+        #     revisions (no-op when GCS_CONFIG_BUCKET unset — local dev/TEST_MODE).
+        #     Done inside the try so a publish failure triggers rollback.
+        gcs_result = cloudrun_deployer.publish_packaging_to_gcs(target_key)
+
+        # 6. Reload PackagingRegistry in-process so the (re-)written class is picked up
         try:
-            from pipeline.packaging_registry import PackagingRegistry
-            main.registry = PackagingRegistry()
+            main.reload_registry()
         except Exception as e:
             raise RuntimeError(f"registry reload failed: {e}")
     except Exception as e:
@@ -652,16 +853,21 @@ def deploy_packaging(key: str):
         if backup_manifest is not None:
             cloudrun_deployer.restore_backup(backup_manifest)
             try:
-                from pipeline.packaging_registry import PackagingRegistry
-                main.registry = PackagingRegistry()
+                main.reload_registry()
             except Exception:
                 logger.exception("registry reload after rollback failed")
         raise HTTPException(500, f"deploy failed: {e}")
 
-    # 6. Trigger Cloud Run revision (non-fatal if IAM lacks role)
-    cr_result = cloudrun_deployer.trigger_cloud_run_revision()
+    # 7. Trigger Cloud Run revision (non-fatal if IAM lacks role).
+    #    In TEST_MODE the trigger is the one call that can touch production
+    #    Cloud Run, so it is skipped entirely and the deploy is simulated.
+    if os.getenv("TEST_MODE") == "1":
+        cr_result = {"triggered": False, "reason": "test mode (simulated)"}
+        logger.info("TEST_MODE — skipping Cloud Run trigger for '%s'", target_key)
+    else:
+        cr_result = cloudrun_deployer.trigger_cloud_run_revision()
 
-    # 7. Edit-draft: remove the now-merged draft. Fresh deploy: mark status.
+    # 8. Edit-draft: remove the now-merged draft. Fresh deploy: mark status.
     if parent_key is not None:
         packaging_store.delete_draft(key)
     else:
@@ -671,8 +877,9 @@ def deploy_packaging(key: str):
         "deployed": True,
         "target_key": target_key,
         "yaml_path": str(yaml_path),
-        "model_promoted": str(promoted_model) if parent_key and promoted_model else None,
+        "model_promoted": {k: str(v) for k, v in promoted.items()} or None,
         "backup": backup_manifest,
+        "gcs": gcs_result,
         "cloud_run": cr_result,
         "eval": eval_data,
     }
@@ -683,68 +890,13 @@ def get_eval(key: str):
     """Return latest eval metrics + hard-floor check."""
     from services import eval_thresholds
 
-    eval_path = Path("data/drafts") / key / "models" / "eval.json"
+    eval_path = Path(os.getenv("DRAFT_DIR", "data/drafts")) / key / "models" / "eval.json"
     if not eval_path.exists():
         raise HTTPException(404, "ยังไม่มี eval — รัน full training ก่อน")
     eval_data = json.loads(eval_path.read_text(encoding="utf-8"))
     check = eval_thresholds.check_hard_floor(eval_data)
     return {"eval": eval_data, "hard_floor": check}
 
-
-@router.post("/{key}/training/seed/done")
-def training_seed_done(key: str):
-    """Poll Drive for trained model → download → run prelabeling on remaining images."""
-    draft = packaging_store.get_draft(key)
-    if draft is None:
-        raise HTTPException(404, f"draft '{key}' not found")
-    run = draft.get("training_run")
-    if not run or run.get("kind") != "seed":
-        raise HTTPException(400, "ยังไม่ได้เริ่ม seed training — กด 'เริ่ม Seed Training' ก่อน")
-
-    from services import active_learning
-    from services.drive_client import DriveClient
-
-    drive = DriveClient()
-    output_folder_id = run["output_folder_id"]
-
-    model_id = drive.find_in_folder(output_folder_id, "seed_detector.pt")
-    if not model_id:
-        raise HTTPException(
-            404,
-            "ยังหา seed_detector.pt ใน Drive ไม่เจอ — รัน notebook ใน Colab ให้เสร็จก่อน",
-        )
-
-    model_dir = Path("data/drafts") / key / "models"
-    model_dir.mkdir(parents=True, exist_ok=True)
-    model_path = model_dir / "seed_detector.pt"
-    try:
-        drive.download_file(model_id, model_path)
-    except Exception as e:
-        logger.exception("download seed_detector failed")
-        raise HTTPException(500, f"download model failed: {e}")
-
-    # Optionally pull eval.json
-    eval_id = drive.find_in_folder(output_folder_id, "seed_eval.json")
-    eval_summary: dict = {}
-    if eval_id:
-        try:
-            eval_summary = drive.read_json(eval_id)
-        except Exception:
-            pass
-
-    # Run inference on remaining unlabeled images
-    try:
-        result = active_learning.prelabel_remaining(key, model_path)
-    except Exception as e:
-        logger.exception("prelabeling failed")
-        raise HTTPException(500, f"prelabeling failed: {e}")
-
-    packaging_store.update_draft(key, status="labeled_full")
-    return {
-        "model_downloaded": True,
-        "eval": eval_summary,
-        **result,
-    }
 
 
 # ─── Annotations (drafts only) ─────────────────────────
@@ -803,7 +955,7 @@ def _resolve_pipeline(key: str) -> tuple[str, list[str]]:
             return cfg.pipeline, cfg.sub_regions
     draft = packaging_store.get_draft(key)
     if draft is not None and draft.get("config"):
-        return draft["config"].get("pipeline", "detector_ocr"), []
+        return draft.get("pipeline", "detector_ocr"), draft.get("sub_regions", [])
     return "detector_ocr", []
 
 

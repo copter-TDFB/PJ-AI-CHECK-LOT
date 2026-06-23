@@ -51,3 +51,18 @@ FLOW_PROCESS_PRESENTATION.html
 gcp-key.json
 service-account*.json
 credentials*.json
+
+# Model rollback snapshots — don't bake ~300MB of backups into the image
+models/*.bak-*
+
+# Generated / temp dirs (knowledge graph, review scratch)
+graphify-out/
+.review-test-temp/
+.pytest-runs/
+.test-tmp/
+
+# Distributable bundle — embeddable Python + deps + REAL creds; never bake into prod image
+dist/
+
+# Runtime/test data (drafts, test models, config overrides) — prod uses config/ + GCS
+data/

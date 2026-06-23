@@ -1,7 +1,12 @@
 # 0001 — Wizard retrains both Classifier and Detector against the Drive reference dataset
 
+> **Status: Superseded by [ADR 0005](0005-single-stage-training.md) (2026-06-12).**
+> The seed → active-learning → full flow described here is replaced by a single
+> full-training step plus prelabel-on-demand for edit-drafts.
+
+
 Date: 2026-06-06
-Status: Accepted
+Status: Accepted — data path superseded by ADR 0003 (training recipe still in force)
 
 ## Context
 

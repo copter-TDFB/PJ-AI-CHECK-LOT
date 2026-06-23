@@ -5,7 +5,7 @@
 
 import shutil
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -121,6 +121,23 @@ def test_get_active(client):
     assert r.json()["status"] == "active"
 
 
+def test_get_draft_returns_sub_regions_for_annotator(client):
+    """Regression: GET must surface sub_regions/detection_mode so the wizard
+    annotator shows the per-field label chips (renderLabelBar needs len > 1)."""
+    r = client.post("/api/packagings", json={
+        "key": "mf_box",
+        "display_name": "Multi Field Box",
+        "pipeline": "detector_ocr",
+        "sub_regions": ["lot", "exp", "product", "size"],
+        "detection_mode": "multi_field",
+    })
+    assert r.status_code == 201, r.text
+
+    body = client.get("/api/packagings/mf_box").json()
+    assert body["detection_mode"] == "multi_field"
+    assert body["sub_regions"] == ["lot", "exp", "product", "size"]
+
+
 def test_patch_draft(client):
     r = client.patch("/api/packagings/test_box", json={
         "display_name": "Renamed Box",
@@ -170,6 +187,26 @@ def test_save_config_rejects_bad_regex(client):
         "lot_patterns": ["[unclosed"],
     })
     assert r.status_code == 422
+
+
+def test_save_config_product_aliases_round_trip(client):
+    aliases = [
+        {"canonical": "Houjicha Powder", "keywords": ["houjicha"]},
+        {"canonical": "Excellent Rich 95%", "keywords": ["excellent rich", "rich"]},
+    ]
+    r = client.post("/api/packagings/test_box/config", json={
+        "lot_patterns": [r"^[A-Z]{2}\d{4,}.*$"],
+        "fields_extracted": ["lot", "product"],
+        "sheet_checks": ["lot", "product"],
+        "message_template_key": "default_full",
+        "product_aliases": aliases,
+    })
+    assert r.status_code == 200, r.text
+    assert r.json()["config"]["product_aliases"] == aliases
+    # GET must echo it back (PackagingResponse keeps it inside config dict)
+    g = client.get("/api/packagings/test_box")
+    assert g.status_code == 200
+    assert g.json()["config"]["product_aliases"] == aliases
 
 
 def test_cannot_delete_active(client):
@@ -351,8 +388,8 @@ def test_eval_404_without_training(client, annot_draft):
 def test_eval_with_existing_eval_json(client, annot_draft, tmp_path):
     """If eval.json exists locally, /eval returns it + hard-floor check."""
     import json as _json
-    from pathlib import Path
-    eval_dir = Path(f"data/drafts/{annot_draft}/models")
+    from services import packaging_store as _ps
+    eval_dir = _ps._DRAFT_DIR / annot_draft / "models"
     eval_dir.mkdir(parents=True, exist_ok=True)
     eval_data = {
         "detector_mAP_50": 0.78,
@@ -372,8 +409,8 @@ def test_eval_with_existing_eval_json(client, annot_draft, tmp_path):
 def test_eval_hard_floor_fails(client, annot_draft):
     """Eval below thresholds → hard_floor.passed False."""
     import json as _json
-    from pathlib import Path
-    eval_dir = Path(f"data/drafts/{annot_draft}/models")
+    from services import packaging_store as _ps
+    eval_dir = _ps._DRAFT_DIR / annot_draft / "models"
     eval_dir.mkdir(parents=True, exist_ok=True)
     (eval_dir / "eval.json").write_text(_json.dumps({
         "detector_mAP_50": 0.40,  # < 0.65
@@ -397,8 +434,8 @@ def test_deploy_blocks_without_eval(client, annot_draft):
 
 def test_deploy_blocks_on_hard_floor_fail(client, annot_draft):
     import json as _json
-    from pathlib import Path
-    eval_dir = Path(f"data/drafts/{annot_draft}/models")
+    from services import packaging_store as _ps
+    eval_dir = _ps._DRAFT_DIR / annot_draft / "models"
     eval_dir.mkdir(parents=True, exist_ok=True)
     (eval_dir / "eval.json").write_text(_json.dumps({
         "detector_mAP_50": 0.30, "precision": 0.40, "recall": 0.20,
@@ -411,7 +448,8 @@ def test_deploy_writes_yaml(client, annot_draft):
     """Deploy with passing eval → YAML file appears in config/packagings/."""
     import json as _json
     from pathlib import Path
-    eval_dir = Path(f"data/drafts/{annot_draft}/models")
+    from services import packaging_store as _ps
+    eval_dir = _ps._DRAFT_DIR / annot_draft / "models"
     eval_dir.mkdir(parents=True, exist_ok=True)
     (eval_dir / "eval.json").write_text(_json.dumps({
         "detector_mAP_50": 0.80, "precision": 0.90, "recall": 0.85,
@@ -499,6 +537,44 @@ def fake_active(client):
     main.registry = PackagingRegistry()
 
 
+@pytest.fixture
+def fake_active_product(client):
+    """Temporary active YAML that reads a product name via product_aliases."""
+    import yaml as _yaml
+    from pathlib import Path
+    key = "prod_fixture_pkg"
+    yaml_path = Path(f"config/packagings/{key}.yaml")
+    data = {
+        "key": key, "display_name": "Prod Fixture", "pipeline": "detector_ocr",
+        "conf_threshold": 0.6, "accuracy": 0.9, "gate_on_lot": True,
+        "lot_short_fallback": False, "sub_regions": [],
+        "lot_patterns": [r"(?i)LOT\s*([A-Z0-9]+)"],
+        "fields_extracted": ["lot", "product"], "sheet_checks": ["lot", "product"],
+        "post_ocr_fixes": [], "message_template_key": "default_full",
+        "model_classifier_label": key, "detector_yolo_prefixes": [f"{key}_lot"],
+        "product_aliases": [{"canonical": "Excellent", "keywords": ["excellent"]}],
+    }
+    yaml_path.write_text(_yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    from pipeline.packaging_registry import PackagingRegistry
+    import main
+    main.registry = PackagingRegistry()
+    yield key
+    for p in Path("config/packagings").glob(f"{key}.yaml*"):
+        try:
+            p.unlink()
+        except OSError:
+            pass
+    main.registry = PackagingRegistry()
+
+
+def test_get_active_returns_product_aliases_and_fields(client, fake_active_product):
+    g = client.get(f"/api/packagings/{fake_active_product}")
+    assert g.status_code == 200, g.text
+    body = g.json()
+    assert body["fields_extracted"] == ["lot", "product"]
+    assert body["product_aliases"] == [{"canonical": "Excellent", "keywords": ["excellent"]}]
+
+
 def test_clone_active_creates_edit_draft(client, fake_active):
     r = client.post(f"/api/packagings/{fake_active}/clone")
     assert r.status_code == 201, r.text
@@ -512,6 +588,32 @@ def test_clone_active_creates_edit_draft(client, fake_active):
     assert meta is not None
     assert meta["parent_key"] == fake_active
     assert meta["config"]["lot_patterns"] == [r"(?i)LOT\s*([A-Z0-9]+)"]
+
+
+def test_clone_starts_at_draft_status_until_first_upload(client, fake_active):
+    """Clone has no images of its own — status must be 'draft' so the wizard
+    resumes at step 2 (upload), not step 3 (annotate). First image upload
+    bumps it to 'uploading' like any fresh draft."""
+    r = client.post(f"/api/packagings/{fake_active}/clone")
+    assert r.status_code == 201, r.text
+    assert r.json()["status"] == "draft"
+
+    edit_key = f"{fake_active}__edit"
+    png = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xfc"
+        b"\xcf\xc0\x00\x00\x00\x03\x00\x01\xa3\xa3\xd2\xc0\x00\x00\x00\x00"
+        b"IEND\xaeB`\x82"
+    )
+    r2 = client.post(
+        f"/api/packagings/{edit_key}/images",
+        files=[("files", ("a.png", png, "image/png"))],
+    )
+    assert r2.status_code == 200, r2.text
+
+    from services import packaging_store
+    meta = packaging_store.get_draft(edit_key)
+    assert meta["status"] == "uploading"
 
 
 def test_clone_blocks_when_edit_draft_exists(client, fake_active):
@@ -576,7 +678,8 @@ def test_deploy_edit_draft_overwrites_parent(client, fake_active):
     edit_key = r.json()["key"]
 
     # Stage a passing eval so deploy doesn't bail out
-    eval_dir = Path(f"data/drafts/{edit_key}/models")
+    from services import packaging_store as _ps
+    eval_dir = _ps._DRAFT_DIR / edit_key / "models"
     eval_dir.mkdir(parents=True, exist_ok=True)
     (eval_dir / "eval.json").write_text(_json.dumps({
         "detector_mAP_50": 0.85, "precision": 0.91, "recall": 0.88,
@@ -624,7 +727,8 @@ def test_deploy_rolls_back_on_hard_floor_fail(client, fake_active):
     r = client.post(f"/api/packagings/{fake_active}/clone")
     edit_key = r.json()["key"]
 
-    eval_dir = Path(f"data/drafts/{edit_key}/models")
+    from services import packaging_store as _ps
+    eval_dir = _ps._DRAFT_DIR / edit_key / "models"
     eval_dir.mkdir(parents=True, exist_ok=True)
     (eval_dir / "eval.json").write_text(_json.dumps({
         "detector_mAP_50": 0.20, "precision": 0.30, "recall": 0.15,
@@ -647,11 +751,14 @@ def test_backup_rotation_keeps_three(tmp_path, monkeypatch):
     from services import cloudrun_deployer
 
     # Redirect packaging dir + models dir to tmp_path
+    # _packaging_dir() reads OCR_CONFIG_DIR at call time, so patch the env var.
+    # It returns Path(OCR_CONFIG_DIR) / "packagings", so point OCR_CONFIG_DIR at tmp_path
+    # so that _packaging_dir() resolves to tmp_path / "packagings".
     pkg_dir = tmp_path / "packagings"
     pkg_dir.mkdir()
     models_dir = tmp_path / "models"
     models_dir.mkdir()
-    monkeypatch.setattr(cloudrun_deployer, "_PACKAGING_DIR", pkg_dir)
+    monkeypatch.setenv("OCR_CONFIG_DIR", str(tmp_path))
     monkeypatch.setattr(cloudrun_deployer, "_MODELS_DIR", models_dir)
 
     yaml_path = pkg_dir / "demo.yaml"
@@ -691,3 +798,534 @@ def test_predict_returns_archived_status_when_class_archived(client, fake_active
     body = r.json()
     assert body["status"] == "archived_class"
     assert body["class"] == fake_active
+
+
+# ─── training/full/start — dataset publish ───────────────
+
+def test_training_full_start_publishes_dataset(client, monkeypatch):
+    """full/start must publish dataset (no zip) then gen + upload notebook."""
+    from services import packaging_store
+
+    # create a draft using the same route/payload shape as other tests in this file
+    client.post("/api/packagings", json={"key": "fullpub", "display_name": "x"})
+
+    monkeypatch.setattr(
+        packaging_store, "list_annotation_status",
+        lambda key: [{"name": f"i{n}.jpg", "labeled": True, "bbox_count": 1}
+                     for n in range(30)],
+    )
+
+    fake_summary = {
+        "images_uploaded": 10, "images_skipped": 0,
+        "train_count": 8, "val_count": 2,
+        "new_classes": ["fullpub_lot"], "class_ids": {"lot": 9},
+        "total_classes": 10,
+    }
+    publish_mock = MagicMock(return_value=fake_summary)
+    monkeypatch.setattr("services.dataset_publisher.publish", publish_mock)
+
+    drive_mock = MagicMock()
+    drive_mock.create_folder.return_value = "run-folder"
+    drive_mock.upload_bytes.return_value = "nb-id"
+    monkeypatch.setattr(
+        "services.drive_client.DriveClient", MagicMock(return_value=drive_mock)
+    )
+    res = client.post("/api/packagings/fullpub/training/full/start")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["dataset"] == fake_summary
+    assert "colab.research.google.com" in body["colab_url"]
+    publish_mock.assert_called_once_with("fullpub", drive=ANY, progress_cb=ANY)
+    # no notebook is generated/uploaded anymore — start only publishes the dataset
+    drive_mock.upload_bytes.assert_not_called()
+    drive_mock.create_folder.assert_not_called()
+
+
+def test_training_full_start_rejects_below_30(client, monkeypatch):
+    from services import packaging_store
+    client.post("/api/packagings", json={"key": "under30", "display_name": "x"})
+    monkeypatch.setattr(
+        packaging_store, "list_annotation_status",
+        lambda key: [{"name": f"i{n}.jpg", "labeled": True, "bbox_count": 1}
+                     for n in range(29)],
+    )
+    res = client.post("/api/packagings/under30/training/full/start")
+    assert res.status_code == 400
+    assert "30" in res.json()["detail"]
+
+
+def test_training_full_start_allows_grouped_multi_field(client, monkeypatch):
+    """Regression: a multi_field draft whose sub_regions are GROUPS (e.g. lot_exp)
+    must pass the field-coverage gate. fields_extracted lists individual tokens
+    while sub_regions lists composite groups, so the gate must compare against the
+    groups' member fields, not the raw composite strings."""
+    from services import packaging_store
+
+    monkeypatch.setattr(
+        packaging_store, "get_draft",
+        lambda key: {
+            "key": key, "display_name": "G", "pipeline": "detector_ocr",
+            "detection_mode": "multi_field",
+            "sub_regions": ["lot_exp", "product_size"],
+            "config": {"fields_extracted": ["lot", "exp", "product", "size"]},
+        },
+    )
+    monkeypatch.setattr(
+        packaging_store, "list_annotation_status",
+        lambda key: [{"name": f"i{n}.jpg", "labeled": True, "bbox_count": 1}
+                     for n in range(30)],
+    )
+    monkeypatch.setattr(
+        "services.dataset_publisher.publish",
+        MagicMock(return_value={
+            "images_uploaded": 10, "images_skipped": 0,
+            "train_count": 8, "val_count": 2,
+            "new_classes": ["groupdraft_lot_exp"], "class_ids": {"lot_exp": 9},
+            "total_classes": 10,
+        }),
+    )
+    drive_mock = MagicMock()
+    drive_mock.create_folder.return_value = "run-folder"
+    drive_mock.upload_bytes.return_value = "nb-id"
+    monkeypatch.setattr(
+        "services.drive_client.DriveClient", MagicMock(return_value=drive_mock))
+
+    res = client.post("/api/packagings/groupdraft/training/full/start")
+    assert res.status_code == 200, res.text
+
+
+def test_training_full_done_is_manual_now(client, monkeypatch):
+    """Manual model sync: done returns a 400 telling the user to sync via the
+    model registry, instead of pulling from a (no-longer-created) output folder."""
+    from services import packaging_store
+    monkeypatch.setattr(
+        packaging_store, "get_draft",
+        lambda key: {"key": key, "training_run": {"kind": "full"}},
+    )
+    res = client.post("/api/packagings/anykey/training/full/done")
+    assert res.status_code == 400
+    assert "manual" in res.json()["detail"].lower()
+
+
+# ─── Training progress polling ───────────────────────────
+
+def test_training_progress_idle_when_nothing_running(client):
+    res = client.get("/api/packagings/no-such-key/training/progress")
+    assert res.status_code == 200
+    assert res.json()["phase"] == "idle"
+
+
+def test_training_progress_reflects_reported_snapshot(client):
+    from services import progress_store
+
+    progress_store.report("progkey", "upload_images", done=2, total=8, detail="x.jpg")
+    try:
+        res = client.get("/api/packagings/progkey/training/progress")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["phase"] == "upload_images"
+        assert body["percent"] == 25
+        assert body["detail"] == "x.jpg"
+    finally:
+        progress_store.clear("progkey")
+
+
+# ─── PUT /{key}/conf — runtime tuning override (ADR 0004) ─
+
+@pytest.fixture
+def conf_overrides_env(tmp_path, monkeypatch):
+    """Isolate override storage — local mode, file in tmp."""
+    monkeypatch.delenv("DRIVE_CONFIG_OVERRIDES_FILE_ID", raising=False)
+    monkeypatch.setenv("CONFIG_OVERRIDES_PATH", str(tmp_path / "config_overrides.json"))
+
+
+def test_put_conf_updates_active(client, fake_active, conf_overrides_env):
+    r = client.put(f"/api/packagings/{fake_active}/conf", json={"conf_threshold": 0.75})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["key"] == fake_active
+    assert body["conf_threshold"] == 0.75
+    assert body["previous"] == 0.7  # fixture YAML value
+
+    # GET must reflect the merged value immediately
+    g = client.get(f"/api/packagings/{fake_active}")
+    assert g.status_code == 200
+    assert g.json()["conf_threshold"] == 0.75
+
+
+def test_put_conf_rejects_out_of_range(client, fake_active, conf_overrides_env):
+    for bad in (0.4, 0.96, 0.0, 1.0):
+        r = client.put(f"/api/packagings/{fake_active}/conf", json={"conf_threshold": bad})
+        assert r.status_code == 422, f"value {bad} should be rejected"
+
+
+def test_put_conf_404_for_unknown_key(client, conf_overrides_env):
+    r = client.put("/api/packagings/nonexistent_xyz/conf", json={"conf_threshold": 0.7})
+    assert r.status_code == 404
+
+
+def test_put_conf_404_for_draft(client, conf_overrides_env):
+    client.post("/api/packagings", json={"key": "confdraft", "display_name": "x"})
+    try:
+        r = client.put("/api/packagings/confdraft/conf", json={"conf_threshold": 0.7})
+        assert r.status_code == 404
+    finally:
+        client.delete("/api/packagings/confdraft")
+
+
+def test_conf_override_survives_archive_unarchive(client, fake_active, conf_overrides_env):
+    """Registry reloads ที่อื่น (archive/unarchive) ต้องไม่ทำ override หาย."""
+    r = client.put(f"/api/packagings/{fake_active}/conf", json={"conf_threshold": 0.85})
+    assert r.status_code == 200, r.text
+
+    assert client.post(f"/api/packagings/{fake_active}/archive").status_code == 200
+    assert client.post(f"/api/packagings/{fake_active}/unarchive").status_code == 200
+
+    g = client.get(f"/api/packagings/{fake_active}")
+    assert g.json()["conf_threshold"] == 0.85
+
+
+def test_put_conf_502_when_persist_fails(client, fake_active, conf_overrides_env, monkeypatch):
+    from services import config_overrides
+
+    monkeypatch.setattr(
+        config_overrides, "save_conf_threshold",
+        MagicMock(side_effect=RuntimeError("drive down")),
+    )
+    r = client.put(f"/api/packagings/{fake_active}/conf", json={"conf_threshold": 0.9})
+    assert r.status_code == 502
+
+    # Nothing changed locally — registry still serves the YAML value
+    g = client.get(f"/api/packagings/{fake_active}")
+    assert g.json()["conf_threshold"] == 0.7
+
+
+# ─── PUT /{key}/product-aliases — runtime alias edit ─────
+
+def test_put_aliases_updates_active(client, fake_active_product, conf_overrides_env):
+    new = [
+        {"canonical": "Excellent", "keywords": ["excellent"]},
+        {"canonical": "Medium {size}", "keywords": ["medium", "med"]},
+    ]
+    r = client.put(f"/api/packagings/{fake_active_product}/product-aliases",
+                   json={"product_aliases": new})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["key"] == fake_active_product
+    assert body["product_aliases"] == new
+    assert body["previous"] == [{"canonical": "Excellent", "keywords": ["excellent"]}]
+    # GET reflects the merged override immediately
+    g = client.get(f"/api/packagings/{fake_active_product}")
+    assert g.json()["product_aliases"] == new
+
+
+def test_put_aliases_400_when_class_has_no_product(client, fake_active, conf_overrides_env):
+    # fake_active has fields_extracted == ["lot"] (no product)
+    r = client.put(f"/api/packagings/{fake_active}/product-aliases",
+                   json={"product_aliases": [{"canonical": "A", "keywords": ["a"]}]})
+    assert r.status_code == 400
+
+
+def test_put_aliases_422_when_empty_list(client, fake_active_product, conf_overrides_env):
+    r = client.put(f"/api/packagings/{fake_active_product}/product-aliases",
+                   json={"product_aliases": []})
+    assert r.status_code == 422
+
+
+def test_put_aliases_400_when_row_empty(client, fake_active_product, conf_overrides_env):
+    for bad in ([{"canonical": "  ", "keywords": ["a"]}],
+                [{"canonical": "A", "keywords": []}],
+                [{"canonical": "A", "keywords": ["  "]}]):
+        r = client.put(f"/api/packagings/{fake_active_product}/product-aliases",
+                       json={"product_aliases": bad})
+        assert r.status_code == 400, f"{bad} should be rejected"
+
+
+def test_put_aliases_404_for_unknown_key(client, conf_overrides_env):
+    r = client.put("/api/packagings/nonexistent_xyz/product-aliases",
+                   json={"product_aliases": [{"canonical": "A", "keywords": ["a"]}]})
+    assert r.status_code == 404
+
+
+def test_put_aliases_502_when_persist_fails(client, fake_active_product, conf_overrides_env, monkeypatch):
+    from services import config_overrides
+    monkeypatch.setattr(config_overrides, "save_product_aliases",
+                        MagicMock(side_effect=RuntimeError("drive down")))
+    r = client.put(f"/api/packagings/{fake_active_product}/product-aliases",
+                   json={"product_aliases": [{"canonical": "Z", "keywords": ["z"]}]})
+    assert r.status_code == 502
+    # nothing changed — GET still serves the YAML value
+    g = client.get(f"/api/packagings/{fake_active_product}")
+    assert g.json()["product_aliases"] == [{"canonical": "Excellent", "keywords": ["excellent"]}]
+
+
+def test_delete_aliases_reverts_to_yaml(client, fake_active_product, conf_overrides_env):
+    # override with two entries, then revert
+    client.put(f"/api/packagings/{fake_active_product}/product-aliases", json={"product_aliases": [
+        {"canonical": "Houjicha Powder {size}", "keywords": ["houjicha"]},
+        {"canonical": "Medium {size}", "keywords": ["medium"]},
+    ]})
+    r = client.delete(f"/api/packagings/{fake_active_product}/product-aliases")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert len(body["previous"]) == 2                       # the override we set
+    # reverted to the fixture YAML value
+    assert body["product_aliases"] == [{"canonical": "Excellent", "keywords": ["excellent"]}]
+    g = client.get(f"/api/packagings/{fake_active_product}")
+    assert g.json()["product_aliases"] == [{"canonical": "Excellent", "keywords": ["excellent"]}]
+
+
+def test_delete_aliases_404_for_unknown_key(client, conf_overrides_env):
+    r = client.delete("/api/packagings/nonexistent_xyz/product-aliases")
+    assert r.status_code == 404
+
+
+def test_delete_aliases_502_when_persist_fails(client, fake_active_product, conf_overrides_env, monkeypatch):
+    from services import config_overrides
+    monkeypatch.setattr(config_overrides, "delete_product_aliases",
+                        MagicMock(side_effect=RuntimeError("drive down")))
+    r = client.delete(f"/api/packagings/{fake_active_product}/product-aliases")
+    assert r.status_code == 502
+
+
+# ─── training/prelabel — active detector, edit-drafts only ───────────
+
+def test_prelabel_rejects_non_edit_draft(client, monkeypatch):
+    from services import packaging_store
+    monkeypatch.setattr(packaging_store, "get_draft", lambda key: {"key": key})
+    res = client.post("/api/packagings/plain/training/prelabel")
+    assert res.status_code == 400
+    assert "edit-draft" in res.json()["detail"]
+
+
+def test_prelabel_edit_draft_runs_active_detector(client, monkeypatch, tmp_path):
+    import main
+    from services import packaging_store
+
+    monkeypatch.setattr(packaging_store, "get_draft", lambda key: {"key": key})
+
+    model_file = tmp_path / "detector.pt"
+    model_file.write_bytes(b"stub")
+    monkeypatch.setattr("api.packagings._DETECTOR_MODEL_PATH", model_file)
+
+    cfg = MagicMock()
+    cfg.detector_yolo_prefixes = ["box_"]
+    reg = MagicMock()
+    reg.get.return_value = cfg
+    monkeypatch.setattr(main, "registry", reg)
+
+    pl = MagicMock(return_value={"prelabeled": 3, "skipped_already_labeled": 1, "errors": 0})
+    monkeypatch.setattr("services.active_learning.prelabel_remaining", pl)
+
+    res = client.post("/api/packagings/box__edit/training/prelabel")
+    assert res.status_code == 200, res.text
+    assert res.json()["prelabeled"] == 3
+    reg.get.assert_called_with("box")
+    pl.assert_called_once_with("box__edit", model_file, class_prefixes=["box_"])
+
+
+def test_prelabel_503_when_no_active_detector(client, monkeypatch, tmp_path):
+    import main
+    from services import packaging_store
+
+    monkeypatch.setattr(packaging_store, "get_draft", lambda key: {"key": key})
+    monkeypatch.setattr("api.packagings._DETECTOR_MODEL_PATH", tmp_path / "missing.pt")
+    cfg = MagicMock(); cfg.detector_yolo_prefixes = ["box_"]
+    reg = MagicMock(); reg.get.return_value = cfg
+    monkeypatch.setattr(main, "registry", reg)
+
+    res = client.post("/api/packagings/box__edit/training/prelabel")
+    assert res.status_code == 503
+
+
+def test_fresh_deploy_promotes_synced_models(client, tmp_path, monkeypatch):
+    import json as _json
+    from pathlib import Path as _Path
+    import main
+    from services import packaging_store, cloudrun_deployer, eval_thresholds
+
+    key = "newpack"
+    draft_models = _Path(packaging_store._DRAFT_DIR) / key / "models"
+    draft_models.mkdir(parents=True, exist_ok=True)
+    (draft_models / "full_detector.pt").write_bytes(b"DET")
+    (draft_models / "full_classifier.pt").write_bytes(b"CLS")
+    (draft_models / "eval.json").write_text(_json.dumps({
+        "detector_mAP_50": 0.9, "precision": 0.9, "recall": 0.9,
+    }), encoding="utf-8")
+
+    monkeypatch.setattr(packaging_store, "get_draft",
+                        lambda k: {"key": key, "config": {}, "pipeline": "detector_ocr"})
+    monkeypatch.setattr(packaging_store, "update_draft", lambda *a, **k: None)
+    monkeypatch.setattr(main.registry, "get", lambda k: None)
+    monkeypatch.setattr(main, "reload_registry", lambda: None)
+    monkeypatch.setattr(cloudrun_deployer, "write_packaging_yaml",
+                        lambda k, d: _Path("config/packagings") / f"{k}.yaml")
+    monkeypatch.setattr(cloudrun_deployer, "backup_artifacts", lambda k: {"timestamp": "x", "files": []})
+    promoted_calls = []
+    monkeypatch.setattr(cloudrun_deployer, "promote_draft_model",
+                        lambda k: promoted_calls.append(k) or {"detector": _Path("models/detector.pt"),
+                                                               "classifier": _Path("models/classifier.pt")})
+    monkeypatch.setattr(cloudrun_deployer, "trigger_cloud_run_revision",
+                        lambda: {"triggered": False, "reason": "test"})
+    monkeypatch.setattr(eval_thresholds, "check_hard_floor",
+                        lambda e: {"passed": True, "failures": [], "hard_floor": {}})
+
+    r = client.post(f"/api/packagings/{key}/deploy")
+    assert r.status_code == 200, r.text
+    assert promoted_calls == [key]
+    assert r.json()["model_promoted"]["detector"]
+
+
+def test_sync_downloads_and_marks_trained(client, monkeypatch):
+    import json as _json
+    from pathlib import Path as _Path
+    from services import packaging_store
+    import api.packagings as apk
+
+    key = "syncpack"
+    monkeypatch.setenv("DRIVE_DETECTOR_DATASET_FOLDER_ID", "DETFOLDER")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSFOLDER")
+    monkeypatch.setattr(packaging_store, "get_draft", lambda k: {"key": key})
+    updates = {}
+    monkeypatch.setattr(packaging_store, "update_draft",
+                        lambda k, **kw: updates.update(kw))
+
+    eval_obj = {"detector_mAP_50": 0.9, "precision": 0.9, "recall": 0.9,
+                "epochs": 60, "imgsz": 640, "train_count": 40, "val_count": 10}
+
+    def fake_find(parent, name):
+        return {"eval.json": "E", "full_detector.pt": "D",
+                "models": "M", "classifier.pt": "C"}.get(name)
+
+    downloaded = []
+
+    def fake_download(file_id, dest):
+        downloaded.append(file_id)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if file_id == "E":
+            dest.write_text(_json.dumps(eval_obj), encoding="utf-8")
+        else:
+            dest.write_bytes(b"PT")
+
+    fake = type("D", (), {"find_in_folder": staticmethod(fake_find),
+                          "download_file": staticmethod(fake_download)})()
+    monkeypatch.setattr(apk, "DriveClient", lambda: fake)
+
+    r = client.post(f"/api/packagings/{key}/training/full/sync")
+    assert r.status_code == 200, r.text
+    models = _Path(packaging_store._DRAFT_DIR) / key / "models"
+    assert (models / "eval.json").exists()
+    assert (models / "full_detector.pt").read_bytes() == b"PT"
+    assert (models / "full_classifier.pt").read_bytes() == b"PT"
+    assert updates["status"] == "trained"
+    assert r.json()["eval"]["detector_mAP_50"] == 0.9
+    assert downloaded == ["D", "C", "E"]
+
+
+def test_sync_409_when_eval_missing(client, monkeypatch):
+    from services import packaging_store
+    import api.packagings as apk
+    monkeypatch.setenv("DRIVE_DETECTOR_DATASET_FOLDER_ID", "DETFOLDER")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSFOLDER")
+    monkeypatch.setattr(packaging_store, "get_draft", lambda k: {"key": "x"})
+    fake = type("D", (), {"find_in_folder": staticmethod(lambda p, n: None),
+                          "download_file": staticmethod(lambda *a: None)})()
+    monkeypatch.setattr(apk, "DriveClient", lambda: fake)
+    r = client.post("/api/packagings/x/training/full/sync")
+    assert r.status_code == 409
+
+
+def test_sync_409_when_detector_missing_leaves_no_files(client, monkeypatch):
+    from services import packaging_store
+    import api.packagings as apk
+
+    key = "syncmissingdet"
+    monkeypatch.setenv("DRIVE_DETECTOR_DATASET_FOLDER_ID", "DETFOLDER")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSFOLDER")
+    monkeypatch.setattr(packaging_store, "get_draft", lambda k: {"key": key})
+    updates = {}
+    monkeypatch.setattr(packaging_store, "update_draft",
+                        lambda k, **kw: updates.update(kw))
+
+    def fake_find(parent, name):
+        return {"eval.json": "E", "models": "M", "classifier.pt": "C"}.get(name)
+
+    def fake_download(file_id, dest):
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"partial")
+
+    fake = type("D", (), {"find_in_folder": staticmethod(fake_find),
+                          "download_file": staticmethod(fake_download)})()
+    monkeypatch.setattr(apk, "DriveClient", lambda: fake)
+
+    r = client.post(f"/api/packagings/{key}/training/full/sync")
+    models = packaging_store._DRAFT_DIR / key / "models"
+    assert r.status_code == 409
+    assert updates == {}
+    assert not models.exists() or list(models.iterdir()) == []
+
+
+def test_sync_409_when_classifier_missing_leaves_no_files(client, monkeypatch):
+    from services import packaging_store
+    import api.packagings as apk
+
+    key = "syncmissingcls"
+    monkeypatch.setenv("DRIVE_DETECTOR_DATASET_FOLDER_ID", "DETFOLDER")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSFOLDER")
+    monkeypatch.setattr(packaging_store, "get_draft", lambda k: {"key": key})
+    updates = {}
+    monkeypatch.setattr(packaging_store, "update_draft",
+                        lambda k, **kw: updates.update(kw))
+
+    def fake_find(parent, name):
+        return {"eval.json": "E", "full_detector.pt": "D"}.get(name)
+
+    def fake_download(file_id, dest):
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"partial")
+
+    fake = type("D", (), {"find_in_folder": staticmethod(fake_find),
+                          "download_file": staticmethod(fake_download)})()
+    monkeypatch.setattr(apk, "DriveClient", lambda: fake)
+
+    r = client.post(f"/api/packagings/{key}/training/full/sync")
+    models = packaging_store._DRAFT_DIR / key / "models"
+    assert r.status_code == 409
+    assert updates == {}
+    assert not models.exists() or list(models.iterdir()) == []
+
+
+def test_sync_download_failure_cleans_partial_files(client, monkeypatch):
+    from services import packaging_store
+    import api.packagings as apk
+
+    key = "syncdownloadfail"
+    monkeypatch.setenv("DRIVE_DETECTOR_DATASET_FOLDER_ID", "DETFOLDER")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSFOLDER")
+    monkeypatch.setattr(packaging_store, "get_draft", lambda k: {"key": key})
+    updates = {}
+    monkeypatch.setattr(packaging_store, "update_draft",
+                        lambda k, **kw: updates.update(kw))
+
+    def fake_find(parent, name):
+        return {"eval.json": "E", "full_detector.pt": "D",
+                "models": "M", "classifier.pt": "C"}.get(name)
+
+    def fake_download(file_id, dest):
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"partial")
+        if file_id == "C":
+            raise RuntimeError("download interrupted")
+
+    fake = type("D", (), {"find_in_folder": staticmethod(fake_find),
+                          "download_file": staticmethod(fake_download)})()
+    monkeypatch.setattr(apk, "DriveClient", lambda: fake)
+
+    # The endpoint cleans partial downloads then surfaces a 500 (not a bare
+    # RuntimeError leaking Drive internals).
+    resp = client.post(f"/api/packagings/{key}/training/full/sync")
+    assert resp.status_code == 500
+    assert "download interrupted" in resp.json()["detail"]
+    models = packaging_store._DRAFT_DIR / key / "models"
+    assert updates == {}
+    assert not models.exists() or list(models.iterdir()) == []

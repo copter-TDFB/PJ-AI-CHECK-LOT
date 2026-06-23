@@ -6,6 +6,7 @@ accuracy: 0.94
 gate_on_lot: false
 lot_short_fallback: false
 sub_regions: [box, sachet]
+detection_mode: cross_check
 
 lot_patterns:
   - '(?i)LOT\s*[:\.\-]?\s*([A-Z0-9\-]{4,})'

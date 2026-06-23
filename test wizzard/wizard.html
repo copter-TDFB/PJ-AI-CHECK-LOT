@@ -1,0 +1,3654 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<script>
+  // Test wizard harness - backend runs locally on :8081.
+  window.API_BASE_OVERRIDE = 'http://localhost:8081';
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OCR Lot Checker — Packaging Wizard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:   #0B0C10;
+  --s0:   #111318;
+  --s1:   #181B22;
+  --s2:   #1E2129;
+  --s3:   #252932;
+  --bd:   #2A2E3A;
+  --bd2:  #363B4C;
+  --t1:   #EDEEF1;
+  --t2:   #8A8FA5;
+  --t3:   #525769;
+  --acc:  #E8A020;
+  --acc2: #F0C040;
+  --acc-bg: rgba(232,160,32,.10);
+  --acc-bd: rgba(232,160,32,.25);
+  --ok:  #34D399;
+  --ok-bg: rgba(52,211,153,.10);
+  --err: #F87171;
+  --err-bg: rgba(248,113,113,.10);
+  --warn: #FBBF24;
+  --warn-bg: rgba(251,191,36,.10);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{
+  background:var(--bg);
+  color:var(--t1);
+  font-family:'DM Sans',system-ui,sans-serif;
+  height:100vh;
+  display:flex;
+  overflow:hidden;
+}
+
+/* ── SIDEBAR ─────────────────────────────────────── */
+.sidebar{
+  width:220px;min-width:220px;
+  background:var(--s0);
+  border-right:1px solid var(--bd);
+  display:flex;flex-direction:column;
+}
+.sb-logo{
+  padding:18px 16px 14px;
+  border-bottom:1px solid var(--bd);
+  display:flex;align-items:center;gap:10px;
+}
+.sb-icon{
+  width:34px;height:34px;
+  background:linear-gradient(135deg,var(--acc),var(--acc2));
+  border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Playfair Display',serif;
+  font-size:17px;font-weight:600;
+  color:#0B0C10;flex-shrink:0;
+}
+.sb-name{font-size:13px;font-weight:600;color:var(--t1)}
+.sb-sub{font-size:10px;color:var(--t3);letter-spacing:.05em;text-transform:uppercase;margin-top:2px}
+.sb-nav{padding:10px 8px;flex:1;overflow-y:auto}
+.sb-label{
+  font-size:10px;font-weight:600;color:var(--t3);
+  letter-spacing:.08em;text-transform:uppercase;
+  padding:8px 8px 6px;margin-top:6px;
+}
+.sb-label:first-child{margin-top:0}
+.nav-item{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 10px;border-radius:7px;
+  cursor:pointer;font-size:13px;color:var(--t2);
+  transition:background .13s,color .13s;
+  user-select:none;
+}
+.nav-item:hover{background:var(--s1);color:var(--t1)}
+.nav-item.active{background:var(--acc-bg);color:var(--acc)}
+.nav-item.soon{opacity:.4;cursor:not-allowed;pointer-events:none}
+
+/* Toast */
+.toast{
+  position:fixed;bottom:24px;left:50%;
+  transform:translateX(-50%) translateY(20px);
+  background:var(--s1);color:var(--t1);
+  border:1px solid var(--bd2);
+  border-radius:8px;padding:11px 18px;
+  font-size:13px;z-index:200;
+  opacity:0;pointer-events:none;
+  transition:opacity .2s,transform .2s;
+  box-shadow:0 10px 30px rgba(0,0,0,.4);
+  max-width:90vw;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.has-action{pointer-events:auto;display:flex;align-items:center;gap:14px}
+.toast-action{
+  background:transparent;border:none;color:var(--acc);
+  font-size:13px;font-weight:600;cursor:pointer;padding:0;
+}
+.toast-action:hover{text-decoration:underline}
+.soon-tag{background:transparent !important;border:1px solid var(--bd) !important;color:var(--t3) !important;text-transform:uppercase;font-size:9px !important}
+.nav-item svg{flex-shrink:0;opacity:.7}
+.nav-item.active svg{opacity:1}
+.nav-badge{
+  margin-left:auto;
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;padding:2px 6px;
+  border-radius:10px;
+  background:var(--s2);border:1px solid var(--bd);
+  color:var(--t3);
+}
+.nav-item.active .nav-badge{background:var(--acc-bg);border-color:var(--acc-bd);color:var(--acc)}
+.sb-footer{
+  padding:13px 16px;
+  border-top:1px solid var(--bd);
+  display:flex;align-items:center;gap:10px;
+}
+.user-av{
+  width:28px;height:28px;border-radius:50%;
+  background:linear-gradient(135deg,var(--acc),var(--acc2));
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:#0B0C10;flex-shrink:0;
+}
+.user-name{font-size:12px;font-weight:500;color:var(--t1)}
+.user-role{font-size:10px;color:var(--t3)}
+
+/* ── MAIN ────────────────────────────────────────── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{
+  height:54px;min-height:54px;
+  background:var(--s0);border-bottom:1px solid var(--bd);
+  display:flex;align-items:center;padding:0 24px;gap:14px;
+}
+.topbar-title{
+  font-family:'Playfair Display',serif;
+  font-size:19px;font-weight:500;color:var(--t1);
+}
+.topbar-title i{font-style:italic;color:var(--t2)}
+.topbar-spacer{flex:1}
+.content{flex:1;overflow-y:auto;padding:28px 32px}
+
+/* ── BUTTONS ─────────────────────────────────────── */
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:8px 16px;border-radius:7px;
+  font-size:13px;font-weight:500;cursor:pointer;
+  border:1px solid transparent;
+  transition:all .15s;white-space:nowrap;
+  font-family:inherit;line-height:1;
+}
+.btn-primary{background:var(--acc);color:#0B0C10;border-color:var(--acc)}
+.btn-primary:hover{background:var(--acc2)}
+.btn-secondary{background:var(--s2);color:var(--t1);border-color:var(--bd)}
+.btn-secondary:hover{background:var(--s3);border-color:var(--bd2)}
+.btn-ghost{background:transparent;color:var(--t2)}
+.btn-ghost:hover{background:var(--s1);color:var(--t1)}
+.btn-success{background:var(--ok);color:#0B0C10;font-weight:600}
+.btn-success:hover{background:#2EBF8A}
+.btn-danger{background:var(--err-bg);color:var(--err);border-color:rgba(248,113,113,.2)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+/* a11y — visible focus ring สำหรับ keyboard nav */
+.btn:focus-visible,
+.nav-item:focus-visible,
+.drawer-close:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible{
+  outline:2px solid var(--acc);
+  outline-offset:2px;
+}
+
+/* ── VIEWS ───────────────────────────────────────── */
+.view{display:none}
+.view.active{display:block;animation:fadein .2s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* ── DASHBOARD ───────────────────────────────────── */
+.dash-head{display:flex;align-items:flex-start;margin-bottom:30px}
+.dash-head h1{
+  font-family:'Playfair Display',serif;
+  font-size:28px;font-weight:500;line-height:1.2;
+}
+.dash-head h1 i{font-style:italic;color:var(--t2)}
+.dash-head p{font-size:13px;color:var(--t2);margin-top:6px}
+.dash-head-right{margin-left:auto;padding-top:4px}
+.sec-label{
+  font-size:10px;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--t3);
+  margin-bottom:14px;
+  display:flex;align-items:center;gap:10px;
+}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--bd)}
+.pkg-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(255px,1fr));
+  gap:13px;
+  margin-bottom:32px;
+}
+
+/* Packaging card */
+.pkg-card{
+  background:var(--s1);border:1px solid var(--bd);
+  border-radius:11px;cursor:pointer;
+  transition:border-color .2s,transform .2s,box-shadow .2s;
+  overflow:hidden;
+}
+.pkg-card:hover{border-color:var(--bd2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.pkg-photo{
+  height:148px;overflow:hidden;
+  position:relative;background:var(--s2);
+}
+.pkg-photo img{
+  width:100%;height:100%;
+  object-fit:cover;
+  transition:transform .4s ease;
+  display:block;
+}
+.pkg-card:hover .pkg-photo img{transform:scale(1.06)}
+.pkg-photo-strip{
+  display:flex;height:148px;overflow:hidden;
+  background:var(--s2);
+}
+.pkg-photo-strip img{
+  flex:1;height:100%;
+  object-fit:cover;
+  transition:transform .4s ease;
+  border-right:1px solid rgba(0,0,0,.2);
+}
+.pkg-photo-strip img:last-child{border-right:none}
+.pkg-card:hover .pkg-photo-strip img{transform:scale(1.06)}
+.pkg-badge{
+  display:inline-flex;align-items:center;
+  font-size:10px;font-weight:600;
+  padding:3px 9px;border-radius:20px;letter-spacing:.04em;
+  margin-bottom:8px;
+}
+.pkg-badge.live{background:var(--ok-bg);color:var(--ok);border:1px solid rgba(52,211,153,.25)}
+.pkg-badge.warn{background:var(--warn-bg);color:var(--warn);border:1px solid rgba(251,191,36,.25)}
+.pkg-badge.editing{background:var(--acc-bg);color:var(--acc);border:1px solid var(--acc-bd)}
+.pkg-badge.archived{background:var(--s2);color:var(--t3);border:1px solid var(--bd)}
+.pkg-badge .badge-pulse{
+  display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:currentColor;margin-right:6px;
+  animation:badgePulse 1.6s ease-in-out infinite;
+}
+@keyframes badgePulse{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:.35;transform:scale(.7)}
+}
+.pkg-card.is-archived{opacity:.7}
+.pkg-card.is-archived .pkg-photo,
+.pkg-card.is-archived .pkg-photo-strip{filter:grayscale(.85) brightness(.7)}
+.pkg-card.has-edit{
+  border-color:var(--acc-bd);
+  box-shadow:0 0 0 1px var(--acc-bd) inset, 0 8px 24px rgba(0,0,0,.25);
+}
+.pkg-card.has-edit:hover{
+  border-color:var(--acc);
+  box-shadow:0 0 0 1px var(--acc) inset, 0 12px 30px rgba(0,0,0,.35);
+}
+.pkg-card-corner{
+  position:absolute;top:9px;right:9px;
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;
+  padding:4px 9px;border-radius:11px;
+  background:rgba(11,12,16,.78);
+  backdrop-filter:blur(6px);
+  color:var(--acc);
+  border:1px solid var(--acc-bd);
+  z-index:2;pointer-events:none;
+}
+.pkg-card-corner .badge-pulse{
+  width:5px;height:5px;border-radius:50%;
+  background:var(--acc);
+  animation:badgePulse 1.6s ease-in-out infinite;
+}
+.pkg-card-body{padding:14px 16px 16px}
+.pkg-name{font-size:14px;font-weight:600;color:var(--t1);line-height:1.3;margin-bottom:2px}
+.pkg-key{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3)}
+.pkg-stats{
+  display:flex;gap:14px;
+  border-top:1px solid var(--bd);
+  padding-top:11px;margin-top:11px;
+}
+.pkg-stat-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em}
+.pkg-stat-val{
+  font-family:'JetBrains Mono',monospace;
+  font-size:15px;font-weight:500;
+  color:var(--t1);margin-top:2px;
+}
+.pkg-stat-val.g{color:var(--ok)}
+.pkg-stat-val.w{color:var(--warn)}
+.pkg-card-add{
+  background:transparent;border:1.5px dashed var(--bd);
+  border-radius:11px;padding:18px;cursor:pointer;
+  transition:all .15s;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;min-height:132px;
+}
+.pkg-card-add:hover{border-color:var(--acc-bd);background:var(--acc-bg)}
+.add-lbl{font-size:13px;color:var(--t3);font-weight:500}
+.pkg-card-add:hover .add-lbl{color:var(--acc)}
+.pkg-card-add svg{opacity:.35}
+.pkg-card-add:hover svg{opacity:.75;color:var(--acc)}
+
+/* ── WIZARD LAYOUT ───────────────────────────────── */
+.wiz-layout{display:flex;gap:28px;max-width:960px}
+.wiz-steps{width:196px;min-width:196px;padding-top:2px}
+.wiz-step{
+  display:flex;gap:12px;
+  position:relative;padding-bottom:26px;
+}
+.wiz-step:last-child{padding-bottom:0}
+.wiz-step::before{
+  content:'';position:absolute;
+  left:14px;top:28px;bottom:0;
+  width:1px;background:var(--bd);
+}
+.wiz-step:last-child::before{display:none}
+.wiz-step.done::before{background:var(--ok-bg)}
+.wiz-step.active::before{background:linear-gradient(to bottom,var(--acc-bd),var(--bd))}
+.wiz-dot{
+  width:28px;height:28px;border-radius:50%;
+  border:1px solid var(--bd);background:var(--s1);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;font-size:12px;font-weight:600;color:var(--t3);
+  transition:all .2s;z-index:1;position:relative;
+}
+.wiz-step.done .wiz-dot{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.wiz-step.active .wiz-dot{
+  background:var(--acc);border-color:var(--acc);
+  color:#0B0C10;font-weight:700;
+  box-shadow:0 0 0 3px var(--acc-bg);
+}
+.wiz-step-title{font-size:13px;font-weight:500;color:var(--t2);padding-top:5px;transition:color .15s}
+.wiz-step.active .wiz-step-title{color:var(--t1);font-weight:600}
+.wiz-step.done .wiz-step-title{color:var(--ok)}
+.wiz-step-desc{font-size:11px;color:var(--t3);margin-top:2px;line-height:1.5}
+.wiz-body{flex:1;min-width:0}
+
+/* Wizard card */
+.wiz-card{
+  background:var(--s1);border:1px solid var(--bd);
+  border-radius:12px;padding:26px;margin-bottom:14px;
+}
+.wiz-card-title{
+  font-family:'Playfair Display',serif;
+  font-size:21px;font-weight:500;margin-bottom:6px;
+}
+.wiz-card-desc{font-size:13px;color:var(--t2);margin-bottom:22px;line-height:1.65}
+.step-actions{display:flex;gap:10px;justify-content:flex-end;padding-top:2px}
+
+/* ── FORMS ───────────────────────────────────────── */
+.fgroup{margin-bottom:18px}
+.fgroup:last-child{margin-bottom:0}
+label{
+  display:block;font-size:12px;font-weight:600;
+  color:var(--t2);margin-bottom:7px;letter-spacing:.02em;
+}
+.req{color:var(--acc);margin-left:2px}
+.hint{font-weight:400;color:var(--t3);font-size:11px;margin-left:6px}
+.pa-hint{background:var(--acc-bg);border-left:3px solid var(--acc-bd);border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12px;line-height:1.65;color:var(--t2)}
+.pa-hint strong{color:var(--t1);font-weight:600}
+.pa-hint code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--s2);padding:1px 5px;border-radius:4px;color:var(--t1)}
+.pa-hint .pa-hint-eg{margin-top:6px}
+input[type=text],input[type=email],textarea,select{
+  width:100%;background:var(--s2);border:1px solid var(--bd);
+  border-radius:7px;padding:10px 12px;color:var(--t1);
+  font-size:13px;font-family:inherit;outline:none;
+  transition:border-color .15s;
+}
+input[type=text]:focus,textarea:focus,select:focus{border-color:var(--acc-bd)}
+input::placeholder,textarea::placeholder{color:var(--t3)}
+textarea{resize:vertical;min-height:86px;line-height:1.6}
+select{
+  appearance:none;cursor:pointer;padding-right:32px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238A8FA5' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;
+}
+/* Dark dropdown popup (native option list defaults to white otherwise) */
+select option,select optgroup{
+  background:var(--s1);color:var(--t1);
+}
+
+/* ── Crop-region builder ─────────────────────────── */
+.sr-builder{display:flex;flex-direction:column;gap:9px}
+.sr-list{display:flex;flex-direction:column;gap:8px}
+.sr-row{
+  display:flex;align-items:center;gap:10px;
+  background:var(--s2);border:1px solid var(--bd);
+  border-radius:8px;padding:6px 8px 6px 12px;
+  transition:border-color .15s,background .15s;
+  animation:srPop .22s cubic-bezier(.16,1,.3,1);
+}
+.sr-row:hover{border-color:var(--bd2)}
+.sr-row:focus-within{border-color:var(--acc-bd);background:var(--s3)}
+@keyframes srPop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.sr-dot{
+  width:9px;height:9px;border-radius:50%;flex:0 0 auto;
+  box-shadow:0 0 0 3px rgba(255,255,255,.025);transition:background .15s;
+}
+.sr-idx{
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:var(--t3);min-width:11px;text-align:center;flex:0 0 auto;
+}
+.sr-row input[type=text]{
+  flex:1;width:auto;margin:0;border:none;background-color:transparent;
+  padding:5px 2px;font-family:'JetBrains Mono',monospace;
+  font-size:13px;color:var(--t1);border-radius:0;
+}
+.sr-row select{
+  flex:1;width:auto;margin:0;border:none;background-color:var(--s2);
+  padding:5px 22px 5px 2px;font-family:'JetBrains Mono',monospace;
+  font-size:13px;color:var(--t1);border-radius:0;
+  background-position:right 4px center;
+}
+.sr-row:focus-within select{background-color:var(--s3)}
+.sr-row input[type=text]:focus,.sr-row select:focus{border-color:transparent}
+.sr-row input[type=text]::placeholder{color:var(--t3)}
+.sr-mini{
+  flex:0 0 auto;width:26px;height:26px;border-radius:6px;border:none;
+  background:transparent;color:var(--t3);cursor:pointer;font-size:15px;line-height:1;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;
+}
+.sr-mini:hover{background:var(--s3);color:var(--t1)}
+.sr-del:hover{background:var(--err-bg);color:var(--err)}
+.sr-add{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:7px;
+  background:transparent;border:1px dashed var(--bd2);border-radius:8px;
+  padding:10px;color:var(--t2);font-size:12px;font-weight:600;
+  font-family:inherit;cursor:pointer;transition:all .15s;
+}
+.sr-add svg{transition:transform .2s}
+.sr-add:hover:not(:disabled){border-color:var(--acc-bd);color:var(--acc);background:var(--acc-bg)}
+.sr-add:hover:not(:disabled) svg{transform:rotate(90deg)}
+.sr-add:disabled{opacity:.35;cursor:not-allowed}
+.sr-foot{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;font-size:11px;color:var(--t3);line-height:1.6}
+.sr-foot-count{font-family:'JetBrains Mono',monospace;color:var(--t2)}
+.sr-foot-count b{color:var(--acc);font-weight:600}
+.sr-foot-eg code{color:var(--t2);font-family:'JetBrains Mono',monospace;font-size:10.5px}
+/* Single (default) crop region */
+.sr-single-card{
+  display:flex;align-items:flex-start;gap:11px;
+  background:var(--s2);border:1px solid var(--bd);
+  border-left:3px solid var(--acc);border-radius:7px;
+  padding:11px 13px;
+}
+.sr-single-card .sr-dot{margin-top:5px}
+.sr-single-name{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--t1);font-weight:600}
+.sr-single-desc{font-size:11.5px;color:var(--t2);line-height:1.6;margin-top:3px}
+.sr-hint-step4{
+  font-size:11.5px;color:var(--t2);line-height:1.6;
+  background:var(--acc-bg);border-radius:6px;padding:8px 11px;margin-top:9px;
+}
+.sr-hint-step4 b{color:var(--acc2);font-weight:600}
+.sr-adv-toggle{
+  display:block;width:100%;text-align:left;margin-top:9px;
+  background:transparent;border:none;cursor:pointer;
+  font-family:inherit;font-size:11px;color:var(--t3);
+  padding:2px 0;transition:color .15s;
+}
+.sr-adv-toggle:hover{color:var(--acc)}
+.sr-adv-toggle b{color:var(--t2);font-weight:600}
+.sr-adv-toggle:hover b{color:var(--acc)}
+#sr-multi{display:flex;flex-direction:column;gap:9px}
+.sr-multi-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font-size:11px;color:var(--t3);line-height:1.5;
+}
+.sr-adv-collapse{
+  flex:0 0 auto;background:transparent;border:none;cursor:pointer;
+  font-family:inherit;font-size:11px;color:var(--t3);padding:2px 4px;transition:color .15s;
+}
+.sr-adv-collapse:hover{color:var(--acc)}
+/* Mode tabs — 3-way crop mode selector */
+.sr-mode-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.sr-mode-tab{
+  flex:1 1 auto;padding:6px 10px;border-radius:6px;border:1px solid var(--bd);
+  background:var(--s2);color:var(--t2);font-family:inherit;font-size:11.5px;
+  cursor:pointer;transition:background .15s,color .15s,border-color .15s;text-align:center;
+}
+.sr-mode-tab:hover{color:var(--acc);border-color:var(--acc)}
+.sr-mode-tab.on{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:600}
+
+/* Info box */
+.info-box{
+  background:var(--s2);border:1px solid var(--bd);
+  border-left:3px solid var(--acc);
+  border-radius:0 7px 7px 0;
+  padding:12px 14px;font-size:12px;color:var(--t2);
+  line-height:1.65;margin-bottom:16px;
+}
+.info-box strong{color:var(--t1)}
+.info-box.ok{border-left-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
+.info-box.ok strong{color:var(--ok)}
+
+/* ── UPLOAD ──────────────────────────────────────── */
+.upload-zone{
+  border:2px dashed var(--bd);border-radius:10px;
+  padding:38px 24px;text-align:center;cursor:pointer;
+  transition:all .2s;background:var(--s2);
+}
+.upload-zone:hover{border-color:var(--acc-bd);background:var(--acc-bg)}
+.upload-icon{margin-bottom:11px;opacity:.45}
+.upload-zone:hover .upload-icon{opacity:.85;color:var(--acc)}
+.upload-title{font-size:14px;font-weight:600;margin-bottom:4px}
+.upload-desc{font-size:12px;color:var(--t2)}
+.upload-desc span{color:var(--acc);font-weight:500}
+.upload-hint{font-size:11px;color:var(--t3);margin-top:7px}
+.upload-progress{margin-top:16px}
+.upload-meta{display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px}
+.upload-meta .cnt{font-family:'JetBrains Mono',monospace;color:var(--t1)}
+.pbar-wrap{height:6px;background:var(--s2);border-radius:10px;overflow:hidden}
+.pbar{height:100%;border-radius:10px;background:linear-gradient(to right,var(--acc),var(--acc2));transition:width .4s ease}
+.pbar.green{background:linear-gradient(to right,var(--ok),#2EBF8A)}
+
+/* ── TRAINING UPLOAD PROGRESS (Drive) ─────────────── */
+.train-prog{
+  display:none;margin-top:14px;padding:14px 16px;
+  background:linear-gradient(135deg,var(--s1),var(--s0));
+  border:1px solid var(--acc-bd);border-radius:10px;
+  text-align:left;
+}
+.train-prog.on{display:block;animation:tpIn .35s cubic-bezier(.22,1,.36,1)}
+@keyframes tpIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.train-prog-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px;gap:10px}
+.train-prog-phase{font-size:12px;color:var(--t2);display:flex;align-items:center;min-width:0}
+.tp-dot{
+  flex-shrink:0;width:7px;height:7px;border-radius:50%;
+  background:var(--acc);margin-right:8px;
+  box-shadow:0 0 8px rgba(232,160,32,.55);
+  animation:tpPulse 1.1s ease-in-out infinite;
+}
+@keyframes tpPulse{50%{opacity:.3}}
+.train-prog-pct{
+  font-family:'JetBrains Mono',monospace;
+  font-size:16px;font-weight:600;color:var(--acc2);
+  font-variant-numeric:tabular-nums;flex-shrink:0;
+}
+.train-prog-bar{height:7px;background:var(--s3);border-radius:99px;overflow:hidden;position:relative}
+.train-prog-fill{
+  height:100%;width:0%;border-radius:99px;position:relative;overflow:hidden;
+  background:linear-gradient(90deg,var(--acc),var(--acc2));
+  transition:width .5s cubic-bezier(.22,1,.36,1);
+}
+.train-prog-fill::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.4) 50%,transparent 70%);
+  animation:tpShine 1.5s linear infinite;
+}
+@keyframes tpShine{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.train-prog-fill.indet{width:38%;animation:tpIndet 1.25s cubic-bezier(.45,.05,.55,.95) infinite;transition:none}
+@keyframes tpIndet{from{transform:translateX(-110%)}to{transform:translateX(300%)}}
+.train-prog-fill.ok{background:linear-gradient(90deg,var(--ok),#2EBF8A)}
+.train-prog-file{
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t3);
+  margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-variant-numeric:tabular-nums;
+}
+.thumb-grid{display:grid;grid-template-columns:repeat(auto-fill,54px);gap:6px;margin-top:13px}
+.thumb{
+  width:54px;height:54px;border-radius:6px;
+  background:var(--s3);border:1px solid var(--bd);
+  overflow:hidden;
+}
+.thumb-more{
+  background:var(--s2);display:flex;
+  align-items:center;justify-content:center;
+  font-size:12px;font-weight:600;color:var(--t2);
+}
+
+/* ── LABEL STUDIO EMBED ───────────────────────────── */
+.ls-embed{
+  background:var(--s0);border:1px solid var(--bd);
+  border-radius:10px;min-height:340px;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:13px;text-align:center;padding:32px;
+}
+.ls-icon{
+  width:58px;height:58px;background:var(--s1);
+  border-radius:12px;display:flex;
+  align-items:center;justify-content:center;font-size:28px;
+}
+.ls-title{font-size:15px;font-weight:600}
+.ls-desc{font-size:12px;color:var(--t2);max-width:290px;line-height:1.65}
+.ls-counts{display:flex;gap:22px;margin-top:4px}
+.ls-cnt-n{
+  font-family:'Playfair Display',serif;
+  font-size:28px;font-weight:500;color:var(--t1);
+}
+.ls-cnt-n.done{color:var(--ok)}
+.ls-cnt-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;margin-top:2px;letter-spacing:.05em}
+
+/* ── LOT EXAMPLES / CONFIG ───────────────────────── */
+.lot-rows{display:flex;flex-direction:column;gap:8px}
+.lot-row{display:flex;gap:8px;align-items:center}
+.lot-row input{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.04em}
+.rm-btn{
+  width:28px;height:28px;border-radius:6px;
+  background:transparent;border:1px solid transparent;
+  color:var(--t3);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;flex-shrink:0;font-size:18px;
+}
+.rm-btn:hover{background:var(--err-bg);color:var(--err);border-color:rgba(248,113,113,.2)}
+.regex-preview{
+  margin-top:15px;background:var(--s2);
+  border:1px solid var(--bd);border-radius:8px;padding:14px;
+}
+.rp-label{
+  font-size:10px;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--t3);margin-bottom:10px;
+}
+.regex-display{
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  color:var(--acc);background:var(--s0);
+  border:1px solid var(--bd);border-radius:5px;
+  padding:8px 11px;margin-bottom:11px;
+  overflow-x:auto;white-space:nowrap;
+}
+.regex-matches{display:flex;flex-direction:column;gap:5px}
+.rm-item{display:flex;align-items:center;gap:8px;font-size:12px}
+.rm-ic{width:15px;height:15px;flex-shrink:0}
+.rm-lot{font-family:'JetBrains Mono',monospace;color:var(--t2)}
+.rm-val{
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  background:rgba(52,211,153,.08);color:var(--ok);
+  padding:1px 6px;border-radius:3px;
+}
+
+/* ── PRODUCT ALIASES ─────────────────────────────── */
+.pa-head{display:grid;grid-template-columns:1fr 1.3fr 28px;gap:8px;margin-bottom:6px}
+.pa-head label{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);margin:0}
+.pa-rows{display:flex;flex-direction:column;gap:8px}
+.pa-row{display:grid;grid-template-columns:1fr 1.3fr 28px;gap:8px;align-items:center}
+.pa-row input{width:100%;min-width:0;font-size:13px}
+.pa-row .pa-preview{grid-column:1 / -1;font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-top:-2px;min-height:14px}
+.pa-row .pa-preview.warn{color:var(--warn);font-family:inherit}
+.pa-row .pa-preview code{background:var(--s2);padding:0 4px;border-radius:3px;color:var(--t1)}
+.pa-row .pa-keywords{font-family:'JetBrains Mono',monospace;letter-spacing:.03em}
+@media(max-width:560px){
+  .pa-head{display:none}
+  .pa-row{grid-template-columns:1fr 28px}
+  .pa-row .pa-keywords{grid-column:1 / -1}
+}
+
+/* Checkboxes */
+.cbgroup{display:flex;flex-direction:column;gap:8px}
+.cbitem{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 12px;border-radius:7px;
+  background:var(--s2);border:1px solid var(--bd);
+  cursor:pointer;transition:border-color .15s;
+}
+.cbitem:hover{border-color:var(--bd2)}
+.cbitem.on{border-color:var(--acc-bd);background:var(--acc-bg)}
+.cbitem.disabled{opacity:.45;cursor:not-allowed}
+.cbbox{
+  width:16px;height:16px;border-radius:4px;
+  border:1px solid var(--bd2);background:var(--s0);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;margin-top:1px;transition:all .15s;
+}
+.cbitem.on .cbbox{background:var(--acc);border-color:var(--acc)}
+.cbcheck{display:none;color:#0B0C10}
+.cbitem.on .cbcheck{display:flex}
+.cb-lbl{font-size:13px;font-weight:500;color:var(--t1)}
+.cb-desc{font-size:11px;color:var(--t2);margin-top:2px}
+
+/* Template picker */
+.tpl-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tpl-opt{
+  padding:13px;border-radius:8px;
+  border:1px solid var(--bd);background:var(--s2);
+  cursor:pointer;transition:all .15s;
+}
+.tpl-opt:hover{border-color:var(--bd2)}
+.tpl-opt.on{border-color:var(--acc-bd);background:var(--acc-bg)}
+.tpl-name{font-size:13px;font-weight:600;margin-bottom:6px}
+.tpl-opt.on .tpl-name{color:var(--acc)}
+.tpl-prev{
+  font-size:11px;color:var(--t2);line-height:1.55;
+  background:var(--s0);border-radius:5px;padding:8px;
+  font-style:italic;
+}
+
+/* ── EVAL PAGE ───────────────────────────────────── */
+.eval-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:14px}
+.eval-card{
+  background:var(--s1);border:1px solid var(--bd);
+  border-radius:10px;padding:18px;
+}
+.eval-lbl{
+  font-size:10px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--t3);
+  margin-bottom:10px;display:flex;align-items:center;gap:6px;
+}
+.i-tip{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:14px;height:14px;border-radius:50%;
+  border:1px solid var(--bd2);font-size:9px;
+  font-weight:700;color:var(--t3);cursor:help;
+  flex-shrink:0;
+}
+.eval-val{
+  font-family:'Playfair Display',serif;
+  font-size:36px;font-weight:500;line-height:1;
+  margin-bottom:6px;
+}
+.eval-val.g{color:var(--ok)}
+.eval-val.w{color:var(--warn)}
+.floor-ok{font-size:11px;color:var(--ok);display:flex;align-items:center;gap:5px}
+.floor-fail{font-size:11px;color:var(--err);display:flex;align-items:center;gap:5px}
+.bar-rows{display:flex;flex-direction:column;gap:9px}
+.bar-row{display:flex;align-items:center;gap:11px}
+.bar-cls{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;color:var(--t2);
+  width:128px;flex-shrink:0;
+}
+.bar-track{flex:1;height:7px;background:var(--s2);border-radius:10px;overflow:hidden}
+.bar-fill{height:100%;border-radius:10px;background:linear-gradient(to right,var(--ok),#2EBF8A)}
+.bar-fill.w{background:linear-gradient(to right,var(--warn),#E5A800)}
+.bar-pct{
+  font-family:'JetBrains Mono',monospace;
+  font-size:12px;width:38px;text-align:right;flex-shrink:0;
+}
+
+/* Confusion matrix */
+.cm-wrap{
+  background:var(--s0);border:1px solid var(--bd);
+  border-radius:8px;padding:14px;overflow-x:auto;
+}
+.cm-table{border-collapse:collapse;font-size:11px;min-width:100%}
+.cm-table th{
+  font-size:10px;font-weight:600;color:var(--t3);
+  padding:4px 6px;text-align:center;
+}
+.cm-table td{
+  width:46px;height:38px;text-align:center;
+  border-radius:3px;font-weight:600;font-size:12px;
+  font-family:'JetBrains Mono',monospace;
+}
+
+/* Deploy section */
+.deploy-sec{
+  background:var(--s1);border:1px solid var(--bd);
+  border-radius:10px;padding:20px;
+}
+.floor-pass{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 15px;border-radius:8px;
+  background:var(--ok-bg);border:1px solid rgba(52,211,153,.2);
+  margin-bottom:15px;
+}
+.floor-pass-txt{font-size:13px;color:var(--ok);font-weight:500;line-height:1}
+.floor-pass-txt small{display:block;font-size:11px;font-weight:400;opacity:.75;margin-top:3px}
+
+/* ── SUCCESS / STAGING ───────────────────────────── */
+.success-wrap{
+  max-width:580px;margin:0 auto;
+  text-align:center;padding-top:48px;
+}
+.staging-url{
+  background:var(--s1);border:1px solid var(--bd);
+  border-radius:10px;padding:18px;text-align:left;margin-bottom:20px;
+}
+.staging-url-lbl{
+  font-size:11px;color:var(--t3);
+  text-transform:uppercase;letter-spacing:.07em;margin-bottom:9px;
+}
+.staging-url-val{
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  color:var(--acc);background:var(--s0);
+  padding:9px 11px;border-radius:6px;word-break:break-all;
+}
+
+/* scrollbar */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--s3);border-radius:10px}
+
+/* ── ANNOTATOR (Step 3) ───────────────────── */
+.annot-wrap{
+  background:var(--s0);
+  border:1px solid var(--bd);
+  border-radius:10px;
+  padding:14px;
+  display:flex;flex-direction:column;gap:12px;
+}
+.annot-labelbar{
+  display:flex;gap:6px;flex-wrap:wrap;
+  padding:6px 0 4px;
+  border-bottom:1px solid var(--bd);
+  margin-bottom:6px;
+  align-items:center;
+}
+.annot-labelbar-hint{
+  font-size:10px;color:var(--t3);
+  text-transform:uppercase;letter-spacing:.07em;
+  margin-right:6px;
+}
+.annot-label-chip{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 11px;border-radius:14px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;
+  cursor:pointer;user-select:none;
+  background:var(--s2);border:1.5px solid var(--bd);
+  color:var(--t2);transition:all .13s;
+}
+.annot-label-chip:hover{border-color:var(--bd2);color:var(--t1)}
+.annot-label-chip.active{
+  background:var(--c-bg, var(--acc-bg));
+  border-color:var(--c-stroke, var(--acc));
+  color:var(--c-stroke, var(--acc));
+}
+.annot-label-chip-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--c-stroke, var(--acc));
+}
+.sr-grp-set{border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin:0;display:flex;flex-direction:column;gap:8px}
+.sr-grp-legend{font-size:11px;color:var(--t3);padding:0 6px;letter-spacing:.04em;text-transform:uppercase}
+.sr-grp-row{display:flex;align-items:center;gap:10px}
+.sr-grp-row .cbitem{flex:1;margin:0}
+.sr-grp-box{background-color:var(--s1);color:var(--t1);border:1px solid var(--bd);border-radius:8px;padding:5px 8px;font-size:12px;min-width:88px;min-height:32px;cursor:pointer}
+.sr-grp-box option{background:var(--s1);color:var(--t1)}
+.sr-grp-box:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.sr-grp-box:disabled{opacity:.4;cursor:not-allowed}
+.sr-grp-preview{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;min-height:26px}
+.sr-grp-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:999px;color:var(--t1)}
+.sr-grp-pill-dot{width:8px;height:8px;border-radius:50%;flex:none}
+.annot-thumbs{
+  display:flex;gap:6px;
+  overflow-x:auto;overflow-y:hidden;
+  padding:4px 2px;
+  min-height:64px;
+  scrollbar-width:thin;
+}
+.annot-thumb{
+  flex-shrink:0;width:54px;height:54px;
+  border-radius:5px;overflow:hidden;
+  position:relative;cursor:pointer;
+  background:var(--s2);
+  border:2px solid transparent;
+  transition:transform .12s, border-color .12s;
+}
+.annot-thumb:hover{transform:translateY(-2px)}
+.annot-thumb.current{border-color:var(--acc);transform:translateY(-2px)}
+.annot-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.annot-thumb-dot{
+  position:absolute;bottom:3px;right:3px;
+  width:9px;height:9px;border-radius:50%;
+  border:1.5px solid var(--bg);
+  background:transparent;
+  box-sizing:border-box;
+}
+.annot-thumb.labeled .annot-thumb-dot{background:var(--ok);border-color:var(--ok)}
+.annot-thumb-num{
+  position:absolute;top:2px;left:4px;
+  font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;
+  color:#fff;text-shadow:0 0 4px rgba(0,0,0,.85);
+}
+
+.annot-stage{
+  display:grid;grid-template-columns:1fr 240px;gap:12px;
+  min-height:380px;
+}
+.annot-canvas-wrap{
+  position:relative;background:var(--bg);
+  border:1px solid var(--bd);border-radius:8px;
+  overflow:hidden;
+  min-height:380px;
+  display:flex;align-items:center;justify-content:center;
+}
+.annot-canvas-wrap img{
+  max-width:100%;max-height:380px;display:block;user-select:none;-webkit-user-drag:none;
+}
+.annot-canvas-wrap canvas{
+  position:absolute;
+  cursor:crosshair;
+}
+.annot-coord{
+  position:absolute;bottom:8px;right:10px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:var(--acc);background:rgba(11,12,16,.75);
+  padding:2px 7px;border-radius:3px;
+  pointer-events:none;
+  letter-spacing:.04em;
+}
+.annot-empty{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:8px;color:var(--t3);font-size:12px;
+  pointer-events:none;
+}
+
+.annot-side{
+  background:var(--s1);border:1px solid var(--bd);
+  border-radius:8px;
+  padding:13px;
+  display:flex;flex-direction:column;
+}
+.annot-side-head{
+  display:flex;justify-content:space-between;
+  padding-bottom:11px;border-bottom:1px solid var(--bd);
+  margin-bottom:11px;
+}
+.annot-side-label{
+  font-size:10px;font-weight:600;text-transform:uppercase;
+  color:var(--t3);letter-spacing:.07em;margin-bottom:8px;
+}
+.annot-bbox-list{
+  flex:1;min-height:120px;
+  display:flex;flex-direction:column;gap:6px;
+  overflow-y:auto;
+}
+.annot-bbox-empty{
+  font-size:11px;color:var(--t3);font-style:italic;
+  text-align:center;padding:20px 0;
+}
+.annot-bbox-item{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 9px;border-radius:5px;
+  background:var(--s2);border:1px solid var(--bd);
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+}
+.annot-bbox-idx{
+  font-weight:700;color:var(--acc);
+  width:14px;flex-shrink:0;
+}
+.annot-bbox-label{
+  font-size:9px;font-weight:700;text-transform:uppercase;
+  padding:1px 6px;border-radius:8px;
+  background:var(--s3);color:var(--t2);
+  flex-shrink:0;
+}
+.annot-bbox-coord{
+  flex:1;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.annot-bbox-del{
+  background:transparent;border:none;color:var(--t3);
+  cursor:pointer;font-size:14px;width:20px;height:20px;
+  border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+}
+.annot-bbox-del:hover{background:var(--err-bg);color:var(--err)}
+.annot-hint{
+  margin-top:11px;padding-top:11px;
+  border-top:1px solid var(--bd);
+  font-size:10px;color:var(--t3);line-height:1.7;
+}
+.annot-hint kbd{
+  display:inline-block;font-family:'JetBrains Mono',monospace;
+  font-size:9px;padding:1px 5px;
+  background:var(--s2);border:1px solid var(--bd2);
+  border-radius:3px;color:var(--t2);
+  box-shadow:0 1px 0 var(--bg);
+}
+
+.annot-foot{
+  display:flex;align-items:center;gap:14px;
+  padding-top:8px;border-top:1px solid var(--bd);
+}
+.annot-progress{flex:1}
+.annot-progress-bar{
+  height:5px;background:var(--s2);
+  border-radius:10px;overflow:hidden;margin-bottom:5px;
+}
+.annot-progress-fill{
+  height:100%;border-radius:10px;
+  background:linear-gradient(to right,var(--acc),var(--acc2));
+  transition:width .25s ease;
+}
+.annot-progress-text{
+  display:flex;justify-content:space-between;
+  font-size:11px;color:var(--t2);
+}
+
+@media (max-width:760px){
+  .annot-stage{grid-template-columns:1fr}
+}
+
+/* ── DRAWER ───────────────────────────────── */
+.drawer-backdrop{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.55);
+  backdrop-filter:blur(2px);
+  opacity:0;pointer-events:none;
+  transition:opacity .2s ease;
+  z-index:90;
+}
+.drawer-backdrop.open{opacity:1}
+/* note: backdrop ไม่ดักคลิก — เพื่อให้กดการ์ดอื่นเปลี่ยน drawer ได้ทันที */
+.drawer{
+  position:fixed;top:0;right:0;bottom:0;
+  width:520px;max-width:92vw;
+  background:var(--s0);
+  border-left:1px solid var(--bd);
+  transform:translateX(105%);
+  transition:transform .25s cubic-bezier(.4,0,.2,1);
+  z-index:91;
+  display:flex;flex-direction:column;
+  box-shadow:-20px 0 50px rgba(0,0,0,.4);
+}
+.drawer.open{transform:translateX(0)}
+.drawer-head{
+  display:flex;align-items:center;
+  padding:16px 20px;
+  border-bottom:1px solid var(--bd);
+  flex-shrink:0;
+}
+.drawer-head-title{
+  font-family:'Playfair Display',serif;
+  font-size:17px;font-weight:500;
+  flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.drawer-close{
+  background:transparent;border:none;
+  color:var(--t2);cursor:pointer;
+  width:32px;height:32px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;
+  transition:all .15s;
+}
+.drawer-close:hover{background:var(--s2);color:var(--t1)}
+.drawer-body{
+  flex:1;overflow-y:auto;
+  padding:18px 20px 24px;
+}
+.dsec{margin-bottom:22px}
+.dsec:last-child{margin-bottom:0}
+.dsec-label{
+  font-size:10px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:var(--t3);margin-bottom:10px;
+}
+.dsec-row{
+  display:flex;justify-content:space-between;
+  font-size:13px;padding:5px 0;
+  border-bottom:1px solid var(--bd);
+}
+.dsec-row:last-child{border-bottom:none}
+.dsec-row .k{color:var(--t2)}
+.dsec-row .v{color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:12px}
+.dsec-stats{display:flex;gap:12px}
+.dsec-stat{
+  flex:1;background:var(--s1);border:1px solid var(--bd);
+  border-radius:7px;padding:11px 12px;
+}
+.dsec-stat-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em}
+.dsec-stat-val{
+  font-family:'JetBrains Mono',monospace;
+  font-size:16px;font-weight:500;
+  margin-top:3px;
+}
+.dsec-stat-val.g{color:var(--ok)}
+.dsec-stat-val.w{color:var(--warn)}
+.conf-edit{display:flex;align-items:center;gap:6px;margin-top:3px}
+.conf-input{
+  width:64px;background:var(--s2);border:1px solid var(--bd);
+  border-radius:5px;color:var(--t1);
+  font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:500;
+  padding:2px 6px;
+}
+.conf-input:focus{outline:none;border-color:var(--acc)}
+.code-block{
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  background:var(--s1);border:1px solid var(--bd);
+  border-radius:5px;padding:8px 10px;
+  color:var(--acc);margin-bottom:5px;
+  overflow-x:auto;white-space:nowrap;
+}
+.tag-pill{
+  display:inline-block;font-size:11px;
+  padding:2px 9px;border-radius:12px;
+  background:var(--s2);border:1px solid var(--bd);
+  color:var(--t2);margin-right:5px;margin-bottom:4px;
+  font-family:'JetBrains Mono',monospace;
+}
+.sample-row{
+  display:flex;gap:8px;
+  padding:10px 0;border-top:1px solid var(--bd);
+  align-items:flex-start;
+}
+.sample-row:first-of-type{border-top:none;padding-top:0}
+.sample-orig{
+  position:relative;
+  flex:1;min-width:0;
+}
+.sample-orig img{
+  width:100%;display:block;
+  border-radius:5px;background:var(--s2);
+}
+.sample-orig canvas{
+  position:absolute;top:0;left:0;
+  width:100%;height:100%;
+  pointer-events:none;
+}
+.sample-crops{
+  flex:1;display:flex;flex-direction:column;gap:5px;min-width:0;
+}
+.sample-crop{
+  position:relative;
+}
+.sample-crop img{
+  width:100%;display:block;
+  border-radius:5px;background:var(--s2);
+  border:1px solid var(--acc-bd);
+}
+.sample-crop-lbl{
+  position:absolute;top:4px;left:5px;
+  font-size:9px;font-weight:600;text-transform:uppercase;
+  background:var(--acc);color:#0B0C10;
+  padding:1px 6px;border-radius:8px;
+}
+.no-crop{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  color:var(--t3);font-size:11px;font-style:italic;
+  border:1px dashed var(--bd);border-radius:5px;
+  background:var(--s1);
+}
+.draft-progress{
+  height:6px;background:var(--s2);
+  border-radius:10px;overflow:hidden;margin:4px 0 12px;
+}
+.draft-progress-fill{
+  height:100%;background:linear-gradient(to right,var(--acc),var(--acc2));
+  border-radius:10px;
+}
+.drawer-actions{
+  display:flex;gap:10px;
+  padding:14px 20px;
+  border-top:1px solid var(--bd);
+  flex-shrink:0;
+  background:var(--s0);
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-icon">L</div>
+    <div>
+      <div class="sb-name">OCR Lot Checker</div>
+      <div class="sb-sub">Packaging Wizard</div>
+    </div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-label">Workspace</div>
+    <div class="nav-item active" id="nav-dash" onclick="showView('dashboard')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      Packaging
+      <span class="nav-badge">6</span>
+    </div>
+    <div class="nav-item soon">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      ผลการ Eval
+      <span class="nav-badge soon-tag">soon</span>
+    </div>
+    <div class="sb-label">ระบบ</div>
+    <div class="nav-item soon">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.07 4.93a10 10 0 0 0-14.14 0M4.93 19.07a10 10 0 0 0 14.14 0"/>
+      </svg>
+      การตั้งค่า
+      <span class="nav-badge soon-tag">soon</span>
+    </div>
+    <div class="nav-item soon">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      Audit Log
+      <span class="nav-badge soon-tag">soon</span>
+    </div>
+  </nav>
+  <div class="sb-footer">
+    <div class="user-av">OP</div>
+    <div>
+      <div class="user-name">Operations Team</div>
+      <div class="user-role">op@tdfb.co.th</div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <header class="topbar" id="topbar">
+    <button class="btn btn-ghost btn-sm" id="topbar-back" style="display:none" onclick="showView('dashboard')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+      </svg>
+      กลับ
+    </button>
+    <div class="topbar-title" id="topbar-title">Packaging <i>Wizard</i></div>
+    <div class="topbar-spacer"></div>
+    <button class="btn btn-primary btn-sm" id="topbar-add" onclick="startWizard()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      เพิ่ม Packaging
+    </button>
+  </header>
+
+  <div class="content">
+
+    <!-- ══ DASHBOARD ════════════════════════════════ -->
+    <div class="view active" id="view-dashboard">
+      <div class="dash-head">
+        <div>
+          <h1>Packaging<br><i>Classes</i></h1>
+          <p>AI model รู้จัก 6 ประเภทบรรจุภัณฑ์ — คลิกการ์ดเพื่อดูรายละเอียด</p>
+        </div>
+      </div>
+
+      <div class="sec-label">Packaging List</div>
+      <div class="pkg-grid" id="pkg-grid">
+        <div id="pkg-loading" style="grid-column:1/-1;text-align:center;color:var(--t3);padding:40px;font-size:13px">
+          กำลังโหลดจาก API...
+        </div>
+
+        <div class="pkg-card-add" onclick="startWizard()">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="16"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
+          </svg>
+          <div class="add-lbl">เพิ่ม Packaging ใหม่</div>
+        </div>
+
+      </div>
+    </div><!-- /dashboard -->
+
+    <!-- ══ WIZARD ════════════════════════════════════ -->
+    <div class="view" id="view-wizard">
+      <div class="wiz-layout">
+
+        <!-- Step sidebar -->
+        <div class="wiz-steps">
+          <div class="wiz-step" id="ws1">
+            <div class="wiz-dot" id="wd1">1</div>
+            <div>
+              <div class="wiz-step-title">ตั้งชื่อ</div>
+              <div class="wiz-step-desc">ชื่อ + pipeline</div>
+            </div>
+          </div>
+          <div class="wiz-step" id="ws2">
+            <div class="wiz-dot" id="wd2">2</div>
+            <div>
+              <div class="wiz-step-title">อัพรูป</div>
+              <div class="wiz-step-desc">50+ ตัวอย่าง</div>
+            </div>
+          </div>
+          <div class="wiz-step" id="ws3">
+            <div class="wiz-dot" id="wd3">3</div>
+            <div>
+              <div class="wiz-step-title">Annotation</div>
+              <div class="wiz-step-desc">Label bbox + train</div>
+            </div>
+          </div>
+          <div class="wiz-step" id="ws4">
+            <div class="wiz-dot" id="wd4">4</div>
+            <div>
+              <div class="wiz-step-title">Config</div>
+              <div class="wiz-step-desc">Lot pattern + fields</div>
+            </div>
+          </div>
+          <div class="wiz-step" id="ws5">
+            <div class="wiz-dot" id="wd5">5</div>
+            <div>
+              <div class="wiz-step-title">Eval & Deploy</div>
+              <div class="wiz-step-desc">ผล + deploy</div>
+            </div>
+          </div>
+        </div><!-- /wiz-steps -->
+
+        <!-- Body panels -->
+        <div class="wiz-body">
+
+          <!-- STEP 1 -->
+          <div id="sp1" class="step-panel">
+            <div class="wiz-card">
+              <div class="wiz-card-title">ตั้งชื่อ Packaging</div>
+              <div class="wiz-card-desc">กำหนดชื่อและรายละเอียดของประเภทบรรจุภัณฑ์ใหม่ที่ต้องการให้ AI รู้จัก</div>
+              <div class="fgroup">
+                <label>ชื่อแสดง <span class="req">*</span></label>
+                <input type="text" id="inp-display-name" value="New Tea Bag Box" placeholder="เช่น Capsule Box Premium">
+              </div>
+              <div class="fgroup">
+                <label>Key (code) <span class="req">*</span><span class="hint">ตัวพิมพ์เล็ก + _ เท่านั้น</span></label>
+                <input type="text" id="inp-key" value="new_tea_bag_box" style="font-family:'JetBrains Mono',monospace">
+              </div>
+              <div class="fgroup">
+                <label>คำอธิบาย <span class="hint">optional</span></label>
+                <textarea id="inp-desc" placeholder="อธิบายลักษณะ เช่น สีสัน, รูปร่าง, ตำแหน่งของ lot">กล่องชาถุง 20 ซอง — มีฉลากด้านหน้าแสดง lot และวันหมดอายุ</textarea>
+              </div>
+              <div class="fgroup">
+                <label>ประเภท Pipeline <span class="req">*</span></label>
+                <select id="inp-pipeline" onchange="onPipelineChange()">
+                  <option value="detector_ocr" selected>Detector + OCR (สำหรับ packaging ทั่วไป)</option>
+                  <option value="qr_scanner">QR Scanner (สำหรับที่มี QR code)</option>
+                </select>
+              </div>
+              <div class="fgroup" id="crop-fgroup">
+                <label>จุดที่จะ Crop <span class="hint">บริเวณที่ AI จะหากรอบมาอ่าน</span></label>
+
+                <div class="sr-mode-tabs">
+                  <button type="button" class="sr-mode-tab on" data-mode="single" onclick="srSetMode('single')">ข้อมูลอยู่ใกล้กัน — กรอบเดียว</button>
+                  <button type="button" class="sr-mode-tab" data-mode="multi_field" onclick="srSetMode('multi_field')">แต่ละข้อมูลอยู่คนละมุม</button>
+                  <button type="button" class="sr-mode-tab" data-mode="cross_check" onclick="srSetMode('cross_check')">lot อยู่หลายที่ ต้องเทียบ</button>
+                </div>
+
+                <!-- SINGLE (default) — one region called "lot" -->
+                <div id="sr-single">
+                  <div class="sr-single-card">
+                    <span class="sr-dot" style="background:#E8A020"></span>
+                    <div class="sr-single-body">
+                      <div class="sr-single-name">lot</div>
+                      <div class="sr-single-desc">AI หา "บริเวณ lot" ให้ — ลากกรอบครอบให้คลุม<b>ข้อความที่อยากอ่านทั้งหมด</b> (lot + วันหมดอายุ/ชื่อสินค้า/ขนาด ที่อยู่ใกล้กัน) ลากได้หลายกรอบในบริเวณเดียวกัน</div>
+                    </div>
+                  </div>
+                  <div class="sr-hint-step4">
+                    เลือก field ที่จะดึง (<b>วันหมดอายุ / ชื่อสินค้า / ขนาด</b>) ได้ใน <b>Step 4 (Config)</b> — แต่ค่าจะดึงจาก<b>ข้อความในกรอบที่คุณลาก</b> ฉะนั้นถ้าข้อความอยู่คนละมุม ลากกรอบครอบให้คลุมด้วย (ยังนับเป็นจุด lot จุดเดียว ไม่ต้องใช้โหมดขั้นสูง)
+                  </div>
+                  <button type="button" class="sr-adv-toggle" onclick="srToggleAdvanced(true)">
+                    ⚙ ขั้นสูง: lot พิมพ์ทั้งบน<b>กล่องนอก</b> + <b>ซองใน</b>? (เช่น container_label)
+                  </button>
+                </div>
+
+                <!-- MULTI (advanced) — physically-separate locations, cross-checked -->
+                <div id="sr-multi" style="display:none">
+                  <div class="sr-multi-head">
+                    <span>lot/วันที่ ปรากฏหลายตำแหน่ง — ครอบแยกเพื่อเทียบว่าตรงกัน</span>
+                    <button type="button" class="sr-adv-collapse" onclick="srToggleAdvanced(false)">↩ กลับเป็นจุดเดียว</button>
+                  </div>
+                  <div class="sr-list" id="sr-list"></div>
+                  <button type="button" class="sr-add" id="sr-add" onclick="srAdd()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    เพิ่มตำแหน่ง
+                  </button>
+                  <div class="sr-foot">
+                    <span class="sr-foot-count"><b id="sr-count">2</b> ตำแหน่ง</span>
+                    <span class="sr-foot-eg">เช่น <code>box · sachet</code> แบบ container_label (เทียบวันบนกล่องนอกกับซองใน)</span>
+                  </div>
+                </div>
+
+                <!-- MULTI_FIELD — each box holds ≥1 field; same box number = shared crop -->
+                <div id="sr-fields" style="display:none">
+                  <div class="sr-multi-head"><span>ติ๊ก field ที่ packaging นี้มี แล้วเลือก "กรอบที่" — field ที่อยู่กรอบเลขเดียวกันจะถูกอ่านจากกรอบเดียวกัน (เช่น lot กับวันหมดอายุ พิมพ์ติดกัน)</span></div>
+                  <fieldset class="sr-grp-set">
+                    <legend class="sr-grp-legend">Field และกรอบ</legend>
+                    <div class="sr-grp-row">
+                      <label class="cbitem on disabled"><input type="checkbox" data-field="lot" checked disabled> lot</label>
+                      <select class="sr-grp-box" data-box-for="lot" aria-label="กรอบของ lot" onchange="srPickBox('lot', this.value)"></select>
+                    </div>
+                    <div class="sr-grp-row">
+                      <label class="cbitem"><input type="checkbox" data-field="exp" onchange="srGroupChanged()"> วันหมดอายุ</label>
+                      <select class="sr-grp-box" data-box-for="exp" aria-label="กรอบของ วันหมดอายุ" onchange="srPickBox('exp', this.value)"></select>
+                    </div>
+                    <div class="sr-grp-row">
+                      <label class="cbitem"><input type="checkbox" data-field="product" onchange="srGroupChanged()"> ชื่อสินค้า</label>
+                      <select class="sr-grp-box" data-box-for="product" aria-label="กรอบของ ชื่อสินค้า" onchange="srPickBox('product', this.value)"></select>
+                    </div>
+                    <div class="sr-grp-row">
+                      <label class="cbitem"><input type="checkbox" data-field="size" onchange="srGroupChanged()"> ขนาด</label>
+                      <select class="sr-grp-box" data-box-for="size" aria-label="กรอบของ ขนาด" onchange="srPickBox('size', this.value)"></select>
+                    </div>
+                  </fieldset>
+                  <div class="sr-grp-preview" id="sr-grp-preview" aria-live="polite"></div>
+                </div>
+              </div>
+            </div>
+            <div class="step-actions">
+              <button class="btn btn-ghost btn-sm" onclick="cancelWizardStep1()">ยกเลิก</button>
+              <button class="btn btn-primary btn-sm" id="btn-step1-next" onclick="step1Next()">ถัดไป: อัพรูป →</button>
+            </div>
+          </div>
+
+          <!-- STEP 2 -->
+          <div id="sp2" class="step-panel" style="display:none">
+            <div class="wiz-card">
+              <!-- Edit-mode banner — shown only when current draft is an edit-draft -->
+              <div id="edit-mode-banner" style="display:none;margin:-2px 0 18px;padding:14px 16px;border-radius:9px;
+                background:linear-gradient(135deg,rgba(232,160,32,.08),rgba(232,160,32,.02));
+                border:1px solid var(--acc-bd);border-left-width:3px;display:flex;gap:12px;align-items:flex-start">
+                <div style="font-size:18px;line-height:1;margin-top:1px">✦</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-family:'Playfair Display',serif;font-size:15px;font-weight:500;color:var(--t1);margin-bottom:3px">
+                    Edit mode — <em id="emb-parent-name">—</em>
+                  </div>
+                  <div style="font-size:12px;color:var(--t2);line-height:1.7" id="emb-detail">—</div>
+                </div>
+              </div>
+              <div class="wiz-card-title">อัพโหลดรูปตัวอย่าง</div>
+              <div class="wiz-card-desc">อัพรูป packaging จากสถานการณ์จริง อย่างน้อย 50 รูป — หลากหลายมุม + แสง ช่วยให้ AI แม่นขึ้น</div>
+              <div class="info-box">
+                <strong>เคล็ดลับ:</strong> ถ่ายจากหลายมุม (ตรง/เฉียง), หลายระยะ, แสงต่างกัน, มีและไม่มีบรรจุภัณฑ์อื่นในเฟรม
+              </div>
+              <input type="file" id="file-input" multiple accept="image/*" style="display:none" onchange="handleFileSelect(this.files)">
+              <div class="upload-zone" id="uz" onclick="document.getElementById('file-input').click()">
+                <div class="upload-icon">
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                </div>
+                <div class="upload-title">คลิกเพื่อเลือกรูป หรือลากมาวางที่นี่</div>
+                <div class="upload-desc">รองรับ <span>JPG, PNG, HEIC</span></div>
+                <div class="upload-hint">แนะนำ 50–200 รูป · สูงสุด 10MB ต่อรูป</div>
+              </div>
+              <div id="upload-prog" style="display:none">
+                <div class="upload-meta" style="margin-top:14px">
+                  <span style="color:var(--t2)">อัพโหลดแล้ว</span>
+                  <span class="cnt" id="up-cnt">0 / 63 รูป</span>
+                </div>
+                <div class="pbar-wrap"><div class="pbar green" id="up-bar" style="width:0%"></div></div>
+                <div class="thumb-grid" id="up-thumbs"></div>
+              </div>
+            </div>
+            <div class="step-actions">
+              <button class="btn btn-ghost btn-sm" id="btn-step2-back" onclick="goStep(1)" title="กลับไปแก้ชื่อ/key/pipeline">← แก้ชื่อ packaging</button>
+              <button class="btn btn-secondary btn-sm" id="btn-step2-next" disabled onclick="goStep(3)">ถัดไป: Annotation →</button>
+            </div>
+          </div>
+
+          <!-- STEP 3 -->
+          <div id="sp3" class="step-panel" style="display:none">
+            <div class="wiz-card" style="padding:18px">
+              <div class="wiz-card-title" style="font-size:18px;margin-bottom:4px">Annotation — ลากกรอบ Lot</div>
+              <div class="wiz-card-desc" style="margin-bottom:14px">ลากเมาส์บนรูปสร้างกรอบรอบ <strong style="color:var(--t1)">lot number</strong> — อย่างน้อย 30 รูป — AI จะเรียนรู้จากที่ ops ลาก</div>
+
+              <!-- Annotator: thumbs + canvas + side panel -->
+              <div class="annot-wrap" id="annot-wrap">
+                <div class="annot-labelbar" id="annot-labelbar"></div>
+                <div class="annot-thumbs" id="annot-thumbs"></div>
+
+                <div class="annot-stage">
+                  <div class="annot-canvas-wrap" id="annot-canvas-wrap">
+                    <img id="annot-img" alt="">
+                    <canvas id="annot-canvas"></canvas>
+                    <div class="annot-coord" id="annot-coord">—</div>
+                    <div class="annot-empty" id="annot-empty">
+                      <div style="font-size:30px;opacity:.4">⊡</div>
+                      <div>เลือกรูปจากด้านบนเพื่อเริ่มลาก bbox</div>
+                    </div>
+                  </div>
+                  <aside class="annot-side">
+                    <div class="annot-side-head">
+                      <div>
+                        <div style="font-size:10px;color:var(--t3);letter-spacing:.07em;text-transform:uppercase">Current</div>
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--t1);margin-top:2px" id="annot-curname">—</div>
+                      </div>
+                      <div style="text-align:right">
+                        <div style="font-size:10px;color:var(--t3);letter-spacing:.07em;text-transform:uppercase">Position</div>
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--t1);margin-top:2px" id="annot-curpos">— / —</div>
+                      </div>
+                    </div>
+                    <div class="annot-side-label">Bounding boxes</div>
+                    <div class="annot-bbox-list" id="annot-bbox-list">
+                      <div class="annot-bbox-empty">ยังไม่มี bbox — ลากเมาส์บนรูป</div>
+                    </div>
+                    <div class="annot-hint">
+                      <kbd>←</kbd> <kbd>→</kbd> เปลี่ยนรูป &nbsp;·&nbsp; <kbd>Del</kbd> ลบ bbox ล่าสุด &nbsp;·&nbsp; <kbd>Esc</kbd> ยกเลิกลาก<br>
+                      <kbd>1</kbd>–<kbd>9</kbd> สลับ sub-region (สำหรับ multi-region)
+                    </div>
+                  </aside>
+                </div>
+
+                <div class="annot-foot">
+                  <div class="annot-progress">
+                    <div class="annot-progress-bar"><div class="annot-progress-fill" id="annot-pbar" style="width:0%"></div></div>
+                    <div class="annot-progress-text">
+                      <span>Labeled <strong id="annot-lc">0</strong> / <strong id="annot-target">30</strong></span>
+                      <span style="color:var(--t3)">Total: <span id="annot-total">—</span> รูป</span>
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:8px">
+                    <button class="btn btn-ghost btn-sm" onclick="annotGo(-1)">←</button>
+                    <button class="btn btn-ghost btn-sm" onclick="annotGo(1)">→</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Prelabel (edit-draft only): borrow the deployed detector -->
+              <div id="prelabel-bar" style="display:none; margin-top:14px;">
+                <div class="info-box">
+                  <span aria-hidden="true">🪄</span> <strong>Prelabel อัตโนมัติ</strong> —
+                  ใช้ detector ตัวที่ deploy อยู่ ใส่กรอบให้รูปที่ยังไม่ label
+                  <span style="color:var(--t3)">(ตรวจ/แก้ได้ภายหลัง)</span>
+                </div>
+                <div style="text-align:center; margin-top:10px;">
+                  <button class="btn btn-secondary" id="btn-prelabel" onclick="runPrelabel()"
+                    title="ใช้ deployed detector ใส่กรอบรูปที่ยังไม่ label อัตโนมัติ">
+                    <span aria-hidden="true">🪄</span> Prelabel รูปที่ยังไม่ label
+                  </button>
+                </div>
+              </div>
+
+              <!-- Ready → next, once labeled target is met -->
+              <div id="ls-done" style="display:none; margin-top:16px;">
+                <div class="info-box ok"><span aria-hidden="true">✅</span> <strong>Label ครบเป้า</strong> — พร้อมไปตั้งค่า Config</div>
+                <div style="text-align:center; margin-top:10px;">
+                  <button class="btn btn-primary" id="btn-step3-next" onclick="goStep(4)">
+                    ถัดไป: ตั้งค่า Config <span aria-hidden="true">→</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="step-actions">
+              <button class="btn btn-ghost btn-sm" onclick="goStep(2)" title="กลับไปอัพรูปเพิ่ม">← เพิ่มรูป</button>
+            </div>
+          </div>
+
+          <!-- STEP 4 -->
+          <div id="sp4" class="step-panel" style="display:none">
+            <div class="wiz-card">
+              <div class="wiz-card-title">ตั้งค่า Lot Pattern</div>
+              <div class="wiz-card-desc">ใส่ตัวอย่างเลข Lot 3–5 ตัว — ระบบจะสร้าง regex ให้อัตโนมัติและแสดง preview</div>
+              <div class="fgroup">
+                <label>ตัวอย่าง Lot Number <span class="req">*</span></label>
+                <div class="lot-rows" id="lot-rows">
+                  <div class="lot-row">
+                    <input type="text" value="TB0005001014612426" oninput="updateRegex()">
+                    <button class="rm-btn" onclick="removeLot(this)">×</button>
+                  </div>
+                  <div class="lot-row">
+                    <input type="text" value="TB0006001014789012" oninput="updateRegex()">
+                    <button class="rm-btn" onclick="removeLot(this)">×</button>
+                  </div>
+                  <div class="lot-row">
+                    <input type="text" value="TB0007001014999876" oninput="updateRegex()">
+                    <button class="rm-btn" onclick="removeLot(this)">×</button>
+                  </div>
+                </div>
+                <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addLot()">+ เพิ่มตัวอย่าง</button>
+              </div>
+              <div class="regex-preview">
+                <div class="rp-label">Pattern ที่สร้างขึ้น — ทดสอบกับตัวอย่าง</div>
+                <div class="regex-display" id="rx-display">(?i)LOT\s*[:\.\-]?\s*([A-Z]{2}\d{4,}[A-Z0-9]*)</div>
+                <div class="regex-matches" id="rx-matches"></div>
+              </div>
+            </div>
+
+            <div class="wiz-card">
+              <div class="wiz-card-title" style="font-size:18px">Fields ที่ต้องการ</div>
+              <div class="wiz-card-desc" style="margin-bottom:15px">เลือก field ที่ AI จะ extract จาก packaging นี้</div>
+              <div class="fgroup">
+                <label>Extract fields</label>
+                <div class="cbgroup" data-group="fields">
+                  <div class="cbitem on disabled" data-field="lot">
+                    <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
+                    <div><div class="cb-lbl">Lot Number</div><div class="cb-desc">บังคับ — ทุก packaging</div></div>
+                  </div>
+                  <div class="cbitem on" data-field="exp" onclick="toggleCb(this)">
+                    <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
+                    <div><div class="cb-lbl">Expiry Date</div><div class="cb-desc">ค้นหาจาก BBD / EXP / หมดอายุ</div></div>
+                  </div>
+                  <div class="cbitem" data-field="product" onclick="toggleCb(this); syncProductAliasVisibility()">
+                    <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
+                    <div><div class="cb-lbl">Product Name</div><div class="cb-desc">เช่น Houjicha Powder, Classic Rich 95%</div></div>
+                  </div>
+                  <div class="cbitem" data-field="size" onclick="toggleCb(this); updateAllProdPreviews()">
+                    <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
+                    <div><div class="cb-lbl">Size / Weight</div><div class="cb-desc">เช่น 40 g, 200 g, 1 kg</div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="fgroup" style="margin-top:18px">
+                <label>Sheet Checks</label>
+                <div class="cbgroup" data-group="sheet">
+                  <div class="cbitem on" data-field="lot" onclick="toggleCb(this)">
+                    <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
+                    <div><div class="cb-lbl">Lot match</div><div class="cb-desc">ตรวจว่า lot อยู่ใน Google Sheet</div></div>
+                  </div>
+                  <div class="cbitem on" data-field="exp" onclick="toggleCb(this)">
+                    <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
+                    <div><div class="cb-lbl">Exp match</div><div class="cb-desc">ตรวจวันหมดอายุตรงกับ sheet</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="wiz-card" id="pa-card" style="display:none">
+              <div class="wiz-card-title" style="font-size:18px">ชื่อ Product & คำที่พบบนซอง</div>
+              <div class="wiz-card-desc" style="margin-bottom:15px">
+                OCR อ่านข้อความบนบรรจุภัณฑ์แล้วระบบจะมองหา "คำที่พบบนซอง" เพื่อแปลงเป็น
+                "ชื่อ Product" ที่ต้องตรงกับคอลัมน์ Product Name ใน Google Sheet —
+                ใส่ product ใหม่ได้เองโดยไม่ต้องแก้โค้ด
+              </div>
+              <div class="pa-hint">
+                💡 ช่อง <strong>"ชื่อ Product"</strong> เป็น <strong>template</strong> — พิมพ์ข้อความได้อิสระ และใส่ <code>{size}</code> ตรงไหนก็ได้เพื่อให้ระบบแทนด้วยขนาดที่ OCR อ่านเจอ · ต้องตรงกับคอลัมน์ Product Name ใน Sheet แบบทุกตัวอักษร
+                <div class="pa-hint-eg">▸ <code>Medium {size}</code> → ถ้า OCR เจอ 40 g จะได้ <code>Medium 40 g</code> (แถวเดียวคุมได้ทุกขนาด)</div>
+                <div class="pa-hint-eg">▸ <code>Houjicha Powder</code> → ได้ <code>Houjicha Powder</code> (ไม่ใส่ <code>{size}</code> = ไม่ต่ออะไร)</div>
+                <div class="pa-hint-eg">▸ ถ้าใส่ <code>{size}</code> แต่ OCR อ่านขนาดไม่เจอ → product จะถือว่าไม่ผ่าน (เปิด field "ขนาด" ด้านบนด้วย)</div>
+              </div>
+              <div class="fgroup">
+                <div class="pa-head">
+                  <label>ชื่อ Product (ตรงกับ Sheet) <span class="req">*</span></label>
+                  <label>คำที่พบบนซอง (คั่นด้วย ,)</label>
+                  <span></span>
+                </div>
+                <div class="pa-rows" id="pa-rows"></div>
+                <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addProdAlias()">+ เพิ่ม Product</button>
+              </div>
+            </div>
+
+            <div class="wiz-card">
+              <div class="wiz-card-title" style="font-size:18px">Message Template</div>
+              <div class="wiz-card-desc" style="margin-bottom:14px">รูปแบบข้อความที่จะส่งไป Slack</div>
+              <div class="tpl-grid">
+                <div class="tpl-opt" data-template="lot_only" onclick="pickTpl(this)">
+                  <div class="tpl-name">Lot Only</div>
+                  <div class="tpl-prev">"...ตรวจ lot แล้ว ผ่าน | LOT: TB0005001014612426"</div>
+                </div>
+                <div class="tpl-opt on" data-template="default_full" onclick="pickTpl(this)">
+                  <div class="tpl-name">Default Full ✓</div>
+                  <div class="tpl-prev">"...ถูกต้อง ใช้งานต่อได้เลยค่า | Tea Bag Box 20s | LOT: TB0005..."</div>
+                </div>
+                <div class="tpl-opt" data-template="lot_exp" onclick="pickTpl(this)">
+                  <div class="tpl-name">Lot + Exp</div>
+                  <div class="tpl-prev">"...ถูกต้อง | BBD 04/05/2027 | LOT: TB0005..."</div>
+                </div>
+                <div class="tpl-opt" data-template="container" onclick="pickTpl(this)">
+                  <div class="tpl-name">Container + Sachet</div>
+                  <div class="tpl-prev">"...กล่อง+ซองตรง | LOT: TB0005..." (box+sachet)</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="step-actions" style="margin-top:14px">
+              <button class="btn btn-ghost btn-sm" onclick="goStep(3)" title="กลับไปแก้ annotation">← Annotation</button>
+              <button class="btn btn-primary btn-sm" id="btn-step4-next" onclick="step4Next()">ถัดไป: Full Training & Eval →</button>
+            </div>
+          </div>
+
+          <!-- STEP 5 -->
+          <div id="sp5" class="step-panel" style="display:none">
+            <div id="sp5-body">
+              <!-- Rendered dynamically by renderStep5() based on draft.status -->
+              <div style="text-align:center;padding:60px 0;color:var(--t3)">กำลังโหลด...</div>
+            </div>
+            <div class="step-actions" style="margin-top:14px">
+              <button class="btn btn-ghost btn-sm" onclick="goStep(4)" title="กลับไปแก้ config">← Config</button>
+            </div>
+          </div>
+
+        </div><!-- /wiz-body -->
+      </div><!-- /wiz-layout -->
+    </div><!-- /view-wizard -->
+
+    <!-- ══ STAGING ════════════════════════════════════ -->
+    <div class="view" id="view-staging">
+      <div class="success-wrap">
+        <div style="width:70px;height:70px;background:var(--ok-bg);border:1px solid rgba(52,211,153,.3);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:30px">🚀</div>
+        <h2 style="font-family:'Playfair Display',serif;font-size:26px;font-weight:500;margin-bottom:8px">Deploy to Staging สำเร็จ!</h2>
+        <p style="color:var(--t2);font-size:13px;line-height:1.75;margin-bottom:26px">
+          Model ใหม่ถูก deploy ไปที่ staging environment แล้ว<br>
+          ทดสอบกับรูปจริงก่อน promote ขึ้น production
+        </p>
+        <div class="staging-url">
+          <div class="staging-url-lbl">Staging URL</div>
+          <div class="staging-url-val">https://ocr-lot-checker-staging-459907489982.asia-southeast1.run.app</div>
+          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm">🔗 เปิด Staging</button>
+            <button class="btn btn-secondary btn-sm" onclick="promoProd()">⬆ Promote to Production</button>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--t3)">ทดสอบ New Tea Bag Box อย่างน้อย 5 รูปก่อน promote</div>
+      </div>
+    </div>
+
+    <!-- ══ SUCCESS ════════════════════════════════════ -->
+    <div class="view" id="view-success">
+      <div class="success-wrap">
+        <div style="font-size:56px;margin-bottom:20px">🎉</div>
+        <h2 style="font-family:'Playfair Display',serif;font-size:28px;font-weight:500;margin-bottom:8px">
+          <em style="font-style:italic;color:var(--acc)">New Tea Bag Box</em>
+        </h2>
+        <p style="font-size:15px;font-weight:600;margin-bottom:6px">Live ใน Production แล้ว!</p>
+        <p style="color:var(--t2);font-size:13px;line-height:1.75;margin-bottom:28px">
+          AI รู้จัก <strong>7 class</strong> แล้ว ✓<br>
+          Packaging ใหม่พร้อมใช้งานผ่าน n8n workflow
+        </p>
+        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="showView('dashboard')">← กลับ Dashboard</button>
+          <button class="btn btn-secondary" onclick="startWizard()">+ เพิ่ม Packaging อื่น</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</main>
+
+<!-- DRAWER -->
+<div class="drawer-backdrop" id="drawer-backdrop"></div>
+<aside class="drawer" id="drawer">
+  <header class="drawer-head">
+    <div class="drawer-head-title" id="drawer-title">—</div>
+    <button class="drawer-close" onclick="closeDrawer()" aria-label="ปิด">×</button>
+  </header>
+  <div class="drawer-body" id="drawer-body"></div>
+  <div class="drawer-actions" id="drawer-actions" style="display:none"></div>
+</aside>
+
+<script>
+// ─── API base ──────────────────────────────
+const API_BASE = (() => {
+  if (window.API_BASE_OVERRIDE) return window.API_BASE_OVERRIDE;
+  if (location.protocol === 'file:') return 'http://localhost:8080';
+  const h = location.hostname;
+  if (h === 'localhost' || h === '127.0.0.1') return 'http://localhost:8080';
+  return 'https://ocr-lot-checker-459907489982.asia-southeast1.run.app';
+})();
+
+async function api(method, path, body) {
+  const opts = { method, headers: {} };
+  if (body !== undefined) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(API_BASE + path, opts);
+  if (!r.ok) {
+    let msg;
+    try { msg = (await r.json()).detail || `HTTP ${r.status}`; }
+    catch { msg = `HTTP ${r.status}`; }
+    throw new Error(msg);
+  }
+  return r.status === 204 ? null : r.json();
+}
+
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]); }
+
+let _toastTimer = null;
+function showToast(msg, ms = 2800, action = null) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.className = 'toast';
+    t.setAttribute('role', 'status');
+    t.setAttribute('aria-live', 'polite');
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.classList.toggle('has-action', !!action);
+  if (action) {
+    const btn = document.createElement('button');
+    btn.className = 'toast-action';
+    btn.textContent = action.label;
+    btn.onclick = () => {
+      t.classList.remove('show');
+      clearTimeout(_toastTimer);
+      action.onClick();
+    };
+    t.appendChild(btn);
+  }
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+// ─── state ─────────────────────────────────
+let curStep = 1;
+let curDraftKey = null;
+
+const STEPS = [
+  {id:1,title:'ตั้งชื่อ',desc:'ชื่อ + pipeline'},
+  {id:2,title:'อัพรูป',desc:'50+ ตัวอย่าง'},
+  {id:3,title:'Annotation',desc:'Label bbox + train'},
+  {id:4,title:'Config',desc:'Lot pattern + fields'},
+  {id:5,title:'Eval & Deploy',desc:'ผล + deploy'},
+];
+
+let currentView = 'dashboard';
+function showView(id) {
+  // No-op guard — กัน fade-out/in ซ้ำเมื่อเรียกซ้ำ view เดิม
+  if (id === currentView) return;
+  currentView = id;
+  if (id === 'dashboard') {
+    curDraftKey = null;
+    syncUrl();
+  }
+
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (id === 'dashboard') {
+    document.getElementById('nav-dash').classList.add('active');
+    loadDashboard();
+  }
+  // Hide topbar "+ Add Packaging" while inside wizard — กันคลิกแล้ว reset เด้งกลับ step 1
+  const topbarAdd = document.getElementById('topbar-add');
+  if (topbarAdd) topbarAdd.style.display = (id === 'dashboard') ? '' : 'none';
+  // "← กลับ" โชว์เฉพาะใน wizard — draft ถูก auto-save ไว้แล้ว กลับมาทำต่อจาก dashboard ได้
+  const topbarBack = document.getElementById('topbar-back');
+  if (topbarBack) topbarBack.style.display = (id === 'wizard') ? '' : 'none';
+
+  const tt = document.getElementById('topbar-title');
+  if (id === 'dashboard') {
+    tt.innerHTML = 'Packaging <i>Wizard</i>';
+  } else {
+    const name = document.getElementById('inp-display-name')?.value || curDraftKey || 'New Packaging';
+    tt.innerHTML = `<span style="font-size:13px;color:var(--t3)">Packaging</span>
+       <span style="color:var(--t3);margin:0 6px">›</span>
+       <span style="font-size:14px;font-weight:500">${esc(name)}</span>`;
+  }
+}
+
+function startWizard() {
+  closeDrawer();
+  curStep = 1; curDraftKey = null;
+  cropRegions = [{ value: 'box', custom: false }, { value: 'sachet', custom: false }];
+  srSetMode('single');
+  onPipelineChange();
+  renderSteps();
+  showView('wizard');
+  syncUrl();
+}
+function goStep(n) {
+  curStep = n;
+  renderSteps();
+  // Scroll .content (มี overflow ของตัวเอง) — window.scrollTo ไม่มีผลกับ container นี้
+  const content = document.querySelector('.content');
+  if (content) content.scrollTo({top: 0, behavior: 'smooth'});
+  if (n === 2) initStep2();
+  if (n === 3) loadAnnotator();
+  if (n === 4) { prefillFieldsFromSubRegions(); syncProductAliasVisibility(); }
+  if (n === 5) loadStep5();
+  syncUrl();
+}
+
+// Detect edit-draft context and decorate step 2 accordingly
+async function initStep2() {
+  const banner = document.getElementById('edit-mode-banner');
+  const backBtn = document.getElementById('btn-step2-back');
+  if (!banner) return;
+
+  // Default: hide edit-mode chrome
+  banner.style.display = 'none';
+  if (backBtn) backBtn.style.display = '';
+
+  if (!curDraftKey || !curDraftKey.endsWith('__edit')) return;
+
+  try {
+    const [draft, imagesRes] = await Promise.all([
+      api('GET', `/api/packagings/${encodeURIComponent(curDraftKey)}`),
+      api('GET', `/api/packagings/${encodeURIComponent(curDraftKey)}/images`).catch(() => null),
+    ]);
+    const parentKey = curDraftKey.slice(0, -'__edit'.length);
+    const newCount = imagesRes ? (imagesRes.images || []).length : 0;
+    const refCount = imagesRes ? (imagesRes.parent_images || []).length : 0;
+
+    document.getElementById('emb-parent-name').textContent = draft.display_name || parentKey;
+    document.getElementById('emb-detail').innerHTML =
+      `กำลังเทรนทับ active <code style="color:var(--acc);font-family:'JetBrains Mono',monospace;font-size:11px">${esc(parentKey)}</code>
+       — รูปอ้างอิงเดิม <strong style="color:var(--t1)">${refCount}</strong> รูปจะถูกรวมตอนเทรน,
+       รูปใหม่ที่อัพ <strong style="color:var(--t1)">${newCount}</strong> รูป.
+       Deploy จะทับ YAML + detector.pt เดิม (มี auto-backup)`;
+    banner.style.display = 'flex';
+
+    // Hide "back to step 1" — name/key/pipeline are fixed in edit mode
+    if (backBtn) backBtn.style.display = 'none';
+
+    // If user already uploaded some images, mark step 2 as continueable
+    if (newCount > 0) {
+      const nextBtn = document.getElementById('btn-step2-next');
+      if (nextBtn) nextBtn.disabled = false;
+    }
+  } catch (err) {
+    console.warn('initStep2 — could not enrich edit banner:', err);
+  }
+}
+
+// URL persistence — survive page reload mid-wizard
+function syncUrl() {
+  const params = new URLSearchParams();
+  if (currentView === 'wizard' && curDraftKey) {
+    params.set('draft', curDraftKey);
+    params.set('step', String(curStep));
+  }
+  const q = params.toString();
+  const newHash = q ? '#' + q : '';
+  if (location.hash !== newHash) {
+    history.replaceState(null, '', location.pathname + newHash);
+  }
+}
+
+async function restoreFromUrl() {
+  const hash = (location.hash || '').replace(/^#/, '');
+  if (!hash) return false;
+  const params = new URLSearchParams(hash);
+  const key = params.get('draft');
+  const step = parseInt(params.get('step') || '0', 10);
+  if (!key || !step) return false;
+  try {
+    const pkg = await api('GET', `/api/packagings/${encodeURIComponent(key)}`);
+    if (pkg.status === 'active') return false; // active = ไม่ resume wizard
+    curDraftKey = key;
+    curStep = Math.max(1, Math.min(5, step));
+    renderSteps();
+    showView('wizard');
+    if (curStep === 3) loadAnnotator();
+    if (curStep === 5) loadStep5();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function renderSteps() {
+  document.querySelectorAll('.step-panel').forEach(p => p.style.display = 'none');
+  document.getElementById('sp' + curStep).style.display = 'block';
+  STEPS.forEach(s => {
+    const ws = document.getElementById('ws' + s.id);
+    const wd = document.getElementById('wd' + s.id);
+    ws.className = 'wiz-step';
+    if (s.id < curStep)        { ws.classList.add('done');   wd.innerHTML = '✓'; }
+    else if (s.id === curStep) { ws.classList.add('active'); wd.textContent = s.id; }
+    else                       { wd.textContent = s.id; }
+  });
+}
+
+// ─── DASHBOARD ─────────────────────────────
+// _editMap: parent_key → {key, status} ของ edit-draft, populated from /api/packagings response
+let _editMap = {};
+
+async function loadDashboard() {
+  const grid = document.getElementById('pkg-grid');
+  const loadingEl = document.getElementById('pkg-loading');
+  const addCard = grid.querySelector('.pkg-card-add');
+
+  if (loadingEl) loadingEl.textContent = 'กำลังโหลดจาก API...';
+
+  try {
+    const items = await api('GET', '/api/packagings');
+
+    // Index edit-drafts by their parent_key so the active card can flag them
+    _editMap = {};
+    for (const pkg of items) {
+      if (pkg.key && pkg.key.endsWith('__edit')) {
+        const parentKey = pkg.key.slice(0, -'__edit'.length);
+        _editMap[parentKey] = { key: pkg.key, status: pkg.status };
+      }
+    }
+
+    // Sort: active first → fresh drafts → archived last
+    const order = (p) => {
+      if (p.status === 'active') return 0;
+      if (p.status === 'archived') return 2;
+      return 1;
+    };
+    const visible = items
+      .filter(p => !p.key.endsWith('__edit'))  // edit-drafts surfaced via parent card
+      .sort((a, b) => order(a) - order(b) || a.display_name.localeCompare(b.display_name));
+
+    Array.from(grid.children).forEach(c => { if (c !== addCard) grid.removeChild(c); });
+    for (const pkg of visible) grid.insertBefore(renderCard(pkg), addCard);
+
+    // Sidebar counter shows live actives + drafts (not archived noise)
+    const liveCount = items.filter(p => p.status === 'active').length;
+    document.querySelector('#nav-dash .nav-badge').textContent = liveCount;
+
+    visible.forEach(pkg => { if (pkg.image_count > 0) loadCardImages(pkg.key); });
+  } catch (err) {
+    if (loadingEl) {
+      loadingEl.innerHTML = `<div style="color:var(--err);font-size:13px">❌ โหลด API ไม่ได้: ${esc(err.message)}</div>
+        <div style="color:var(--t3);font-size:11px;margin-top:6px">${esc(API_BASE)}</div>
+        <div style="color:var(--t3);font-size:11px;margin-top:4px">เริ่ม backend: <code>uvicorn main:app --port 8080</code></div>`;
+    }
+  }
+}
+
+function renderCard(pkg) {
+  const isActive = pkg.status === 'active';
+  const isArchived = pkg.status === 'archived';
+  const editingDraft = _editMap[pkg.key];
+  const hasEdit = isActive && !!editingDraft;
+
+  // Badge resolution — archived/editing trump live/data status
+  let badgeClass, badgeText;
+  if (isArchived) {
+    badgeClass = 'archived';
+    badgeText = '⊘ Archived';
+  } else if (isActive) {
+    const isLowData = pkg.image_count < 50;
+    badgeClass = isLowData ? 'warn' : 'live';
+    badgeText = isLowData ? '⚠ ข้อมูลน้อย' : '<span class="badge-pulse"></span>Live';
+  } else if (pkg.status === 'configured') {
+    badgeClass = 'warn';
+    badgeText = '⚙ Configured';
+  } else {
+    badgeClass = 'warn';
+    badgeText = '○ ' + pkg.status;
+  }
+
+  const pipelineLabel = pkg.pipeline === 'qr_scanner' ? 'QR Scanner' : 'Detector + OCR';
+  const imgValClass = (isActive && pkg.image_count < 50) ? 'w' : '';
+
+  const accVal = pkg.accuracy != null ? Math.round(pkg.accuracy * 100) + '%' : '—';
+  const accClass = pkg.accuracy == null ? '' : (pkg.accuracy >= 0.9 ? 'g' : pkg.accuracy >= 0.8 ? '' : 'w');
+  const confVal = pkg.conf_threshold != null ? pkg.conf_threshold.toFixed(2) : '—';
+
+  const div = document.createElement('div');
+  div.className = 'pkg-card'
+    + (isArchived ? ' is-archived' : '')
+    + (hasEdit ? ' has-edit' : '');
+  div.style.cursor = 'pointer';
+  div.onclick = () => openDrawer(pkg.key, pkg);
+  div.style.position = 'relative';
+
+  const editingCorner = hasEdit
+    ? `<div class="pkg-card-corner"><span class="badge-pulse"></span>Editing</div>`
+    : '';
+
+  div.innerHTML = `
+    ${editingCorner}
+    <div class="pkg-photo-strip" data-key="${esc(pkg.key)}">
+      <div style="flex:1;background:var(--s3)"></div>
+      <div style="flex:1;background:var(--s2)"></div>
+      <div style="flex:1;background:var(--s3)"></div>
+    </div>
+    <div class="pkg-card-body">
+      <span class="pkg-badge ${badgeClass}">${badgeText}</span>
+      <div class="pkg-name">${esc(pkg.display_name)}</div>
+      <div class="pkg-key">${esc(pkg.key)} · ${esc(pipelineLabel)}</div>
+      <div class="pkg-stats">
+        <div><div class="pkg-stat-lbl">Conf</div><div class="pkg-stat-val">${confVal}</div></div>
+        <div><div class="pkg-stat-lbl">Accuracy</div><div class="pkg-stat-val ${accClass}">${accVal}</div></div>
+        <div><div class="pkg-stat-lbl">Images</div><div class="pkg-stat-val ${imgValClass}">${pkg.image_count}</div></div>
+      </div>
+    </div>
+  `;
+  return div;
+}
+
+// ─── DRAWER ────────────────────────────────
+let drawerReqId = 0;          // race-condition guard
+let currentDrawerKey = null;  // ป้องกัน re-fetch รูปเดิม
+
+async function openDrawer(key, pkgSummary) {
+  if (key === currentDrawerKey && document.getElementById('drawer').classList.contains('open')) {
+    return; // already showing this packaging
+  }
+  currentDrawerKey = key;
+  const myReq = ++drawerReqId;
+
+  const drawer = document.getElementById('drawer');
+  const backdrop = document.getElementById('drawer-backdrop');
+  const body = document.getElementById('drawer-body');
+  const actions = document.getElementById('drawer-actions');
+  document.getElementById('drawer-title').textContent = pkgSummary.display_name;
+  body.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--t3);font-size:13px">กำลังโหลด...</div>';
+  actions.style.display = 'none';
+  drawer.classList.add('open');
+  backdrop.classList.add('open');
+
+  try {
+    const [pkg, samplesRes] = await Promise.all([
+      api('GET', `/api/packagings/${encodeURIComponent(key)}`),
+      api('GET', `/api/packagings/${encodeURIComponent(key)}/samples?count=6`),
+    ]);
+    if (myReq !== drawerReqId) return; // stale response — ignore
+    body.innerHTML = renderDrawerBody(pkg, samplesRes);
+    if (pkg.product_aliases && pkg.product_aliases.length) {
+      pkg.product_aliases.forEach(a =>
+        addProdAliasTo('drawer-pa-rows', a.canonical, (a.keywords || []).join(', ')));
+    }
+    renderDrawerActions(pkg);
+    setTimeout(() => { if (myReq === drawerReqId) drawBboxOverlays(samplesRes.samples); }, 50);
+  } catch (err) {
+    if (myReq !== drawerReqId) return;
+    body.innerHTML = `<div style="color:var(--err);padding:20px 0;font-size:13px">โหลดไม่สำเร็จ: ${esc(err.message)}</div>`;
+  }
+}
+
+function closeDrawer() {
+  currentDrawerKey = null;
+  drawerReqId++; // invalidate any in-flight request
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-backdrop').classList.remove('open');
+}
+
+// Esc to close
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+
+// Click outside drawer (but not on card) = close
+document.addEventListener('click', (e) => {
+  const drawer = document.getElementById('drawer');
+  if (!drawer.classList.contains('open')) return;
+  if (e.target.closest('.drawer')) return;       // click inside drawer = ignore
+  if (e.target.closest('.pkg-card')) return;     // click on card = its own handler switches drawer
+  if (e.target.closest('.pkg-card-add')) return; // click on "+" = wizard
+  if (e.target.closest('.sidebar')) return;      // click sidebar nav = ignore
+  if (e.target.closest('.topbar')) return;       // click topbar = ignore
+  if (e.target.closest('.toast')) return;        // click toast (e.g. Undo) = ignore
+  closeDrawer();
+});
+
+// ─── Conf threshold tuning (ADR 0004) ──────
+function onConfInput() {
+  const input = document.getElementById('conf-input');
+  const btn = document.getElementById('conf-save');
+  if (!input || !btn) return;
+  const changed = parseFloat(input.value) !== parseFloat(input.dataset.orig);
+  btn.style.display = changed ? '' : 'none';
+}
+
+function applyConfToDrawer(key, value) {
+  const input = document.getElementById('conf-input');
+  if (!input || currentDrawerKey !== key) return;
+  input.value = value.toFixed(2);
+  input.dataset.orig = input.value;
+  const btn = document.getElementById('conf-save');
+  if (btn) btn.style.display = 'none';
+}
+
+async function saveConfThreshold(key) {
+  const input = document.getElementById('conf-input');
+  const btn = document.getElementById('conf-save');
+  const val = parseFloat(input.value);
+  if (!(val >= 0.5 && val <= 0.95)) {
+    showToast('ค่า Conf ต้องอยู่ระหว่าง 0.50 – 0.95');
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const res = await api('PUT', `/api/packagings/${encodeURIComponent(key)}/conf`,
+      { conf_threshold: val });
+    applyConfToDrawer(key, res.conf_threshold);
+    loadDashboard(); // refresh card stats
+    showToast(`Conf ${res.previous.toFixed(2)} → ${res.conf_threshold.toFixed(2)}`, 8000, {
+      label: 'Undo',
+      onClick: () => undoConfThreshold(key, res.previous),
+    });
+  } catch (err) {
+    showToast('บันทึก Conf ไม่สำเร็จ: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function undoConfThreshold(key, previous) {
+  try {
+    const res = await api('PUT', `/api/packagings/${encodeURIComponent(key)}/conf`,
+      { conf_threshold: previous });
+    applyConfToDrawer(key, res.conf_threshold);
+    loadDashboard();
+    showToast(`คืนค่า Conf เป็น ${res.conf_threshold.toFixed(2)} แล้ว`);
+  } catch (err) {
+    showToast('Undo ไม่สำเร็จ: ' + err.message);
+  }
+}
+
+function collectDrawerAliases() {
+  return Array.from(document.querySelectorAll('#drawer-pa-rows .pa-row')).map(row => ({
+    canonical: row.querySelector('.pa-canonical').value.trim(),
+    keywords: row.querySelector('.pa-keywords').value.split(',').map(s => s.trim()).filter(Boolean),
+  })).filter(a => a.canonical && a.keywords.length);
+}
+
+async function saveDrawerAliases(key) {
+  const aliases = collectDrawerAliases();
+  if (!aliases.length) {
+    showToast('ต้องมีอย่างน้อย 1 product ที่มี keyword');
+    return;
+  }
+  try {
+    const res = await api('PUT', `/api/packagings/${encodeURIComponent(key)}/product-aliases`,
+      { product_aliases: aliases });
+    loadDashboard();
+    showToast(`บันทึก ${res.product_aliases.length} product แล้ว`, 8000, {
+      label: 'Undo',
+      onClick: () => undoDrawerAliases(key, res.previous),
+    });
+  } catch (err) {
+    showToast('บันทึก product names ไม่สำเร็จ: ' + err.message);
+  }
+}
+
+async function undoDrawerAliases(key, previous) {
+  if (!previous || !previous.length) return;
+  try {
+    await api('PUT', `/api/packagings/${encodeURIComponent(key)}/product-aliases`,
+      { product_aliases: previous });
+    loadDashboard();
+    showToast('คืนค่า product names เดิมแล้ว');
+  } catch (err) {
+    showToast('Undo ไม่สำเร็จ: ' + err.message);
+  }
+}
+
+async function revertDrawerAliases(key) {
+  if (!confirm('ลบ alias ที่ตั้งไว้ แล้วกลับไปใช้รายการ product มาตรฐานของระบบ?')) return;
+  try {
+    await api('DELETE', `/api/packagings/${encodeURIComponent(key)}/product-aliases`);
+    closeDrawer();
+    loadDashboard();
+    showToast('กลับไปใช้รายการ product มาตรฐานแล้ว');
+  } catch (err) {
+    showToast('ล้างไม่สำเร็จ: ' + err.message);
+  }
+}
+
+function renderDrawerBody(pkg, samplesRes) {
+  const isActive = pkg.status === 'active';
+  const pipelineLabel = pkg.pipeline === 'qr_scanner' ? 'QR Scanner' : 'Detector + OCR';
+  const accVal = pkg.accuracy != null ? Math.round(pkg.accuracy * 100) + '%' : '—';
+  const accClass = pkg.accuracy == null ? '' : (pkg.accuracy >= 0.9 ? 'g' : pkg.accuracy >= 0.8 ? '' : 'w');
+  const confVal = pkg.conf_threshold != null ? pkg.conf_threshold.toFixed(2) : '—';
+
+  // Conf — editable in-place for active packagings (runtime tuning, ADR 0004)
+  const confCell = (isActive && pkg.conf_threshold != null)
+    ? `<div class="dsec-stat">
+         <div class="dsec-stat-lbl">Conf</div>
+         <div class="conf-edit">
+           <input type="number" id="conf-input" class="conf-input"
+                  min="0.50" max="0.95" step="0.05"
+                  value="${confVal}" data-orig="${confVal}" oninput="onConfInput()">
+           <button id="conf-save" class="btn btn-primary btn-sm" style="display:none"
+                   onclick="saveConfThreshold('${esc(pkg.key)}')">บันทึก</button>
+         </div>
+       </div>`
+    : `<div class="dsec-stat"><div class="dsec-stat-lbl">Conf</div><div class="dsec-stat-val">${confVal}</div></div>`;
+
+  // Stats section
+  let html = `
+    <div class="dsec">
+      <div class="dsec-label">Overview</div>
+      <div class="dsec-stats">
+        ${confCell}
+        <div class="dsec-stat"><div class="dsec-stat-lbl">Accuracy</div><div class="dsec-stat-val ${accClass}">${accVal}</div></div>
+        <div class="dsec-stat"><div class="dsec-stat-lbl">Images</div><div class="dsec-stat-val">${pkg.image_count}</div></div>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--t2)">
+        <span style="color:var(--t3)">key:</span> <code style="font-family:'JetBrains Mono',monospace;color:var(--t1)">${esc(pkg.key)}</code>
+        &nbsp;·&nbsp; <span style="color:var(--t3)">pipeline:</span> ${esc(pipelineLabel)}
+      </div>
+    </div>`;
+
+  // Draft progress
+  if (!isActive) {
+    const stepMap = {draft:1, uploading:2, configured:4};
+    const step = stepMap[pkg.status] ?? 1;
+    html += `
+      <div class="dsec">
+        <div class="dsec-label">Wizard Progress — Step ${step} / 5</div>
+        <div class="draft-progress"><div class="draft-progress-fill" style="width:${step/5*100}%"></div></div>
+      </div>`;
+  }
+
+  // Config (only for active or if draft has config saved)
+  if (isActive || pkg.config) {
+    const cfg = pkg.config || {};
+    const lotPatterns = cfg.lot_patterns || [];
+    const fields = cfg.fields_extracted || [];
+    const sheetChecks = cfg.sheet_checks || [];
+    const tplKey = cfg.message_template_key;
+
+    if (isActive) {
+      html += `<div class="dsec"><div class="dsec-label">Config</div>
+        <div style="font-size:12px;color:var(--t3);font-style:italic">Active config อยู่ใน config/packagings/${esc(pkg.key)}.yaml — ใช้งานจริงในระบบ</div></div>`;
+      if ((pkg.fields_extracted || []).includes('product')) {
+        const sizeOn = (pkg.fields_extracted || []).includes('size') ? '1' : '0';
+        const onHardcoded = !(pkg.product_aliases && pkg.product_aliases.length);
+        const sizeNote = sizeOn === '1'
+          ? ' และใส่ <code>{size}</code> ถ้าต้องการให้ต่อขนาดท้ายชื่อ'
+          : '';
+        const warn = onHardcoded
+          ? `<div class="info-box" style="border-color:var(--err);margin:6px 0 10px">
+               ⚠ class นี้ยังใช้รายการ product มาตรฐานในระบบ (hardcode) อยู่ — ถ้าบันทึก alias ที่นี่ จะ<strong>แทนที่ทั้งหมดทันที</strong>:
+               ต้องใส่ product ทุกตัวที่ต้องการให้อ่านเอง${sizeNote} มิฉะนั้นของเดิมจะหาย
+             </div>`
+          : '';
+        const revertBtn = onHardcoded ? '' :
+          `<button class="btn btn-sm" onclick="revertDrawerAliases('${esc(pkg.key)}')">↩ กลับไปใช้รายการมาตรฐาน</button>`;
+        html += `<div class="dsec">
+          <div class="dsec-label">ชื่อ Product ที่อ่าน (แก้ได้ทันที — ไม่ต้อง retrain)</div>
+          ${warn}
+          <div id="drawer-pa-rows" class="pa-rows" data-size-on="${sizeOn}"></div>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn btn-sm" onclick="addProdAliasTo('drawer-pa-rows')">+ เพิ่ม product</button>
+            <button class="btn btn-primary btn-sm" onclick="saveDrawerAliases('${esc(pkg.key)}')">บันทึก product names</button>
+            ${revertBtn}
+          </div>
+        </div>`;
+      }
+    } else {
+      html += `<div class="dsec"><div class="dsec-label">Config</div>`;
+      if (lotPatterns.length) {
+        html += `<div class="dsec-label" style="margin-top:8px">Lot patterns</div>`;
+        lotPatterns.forEach(p => html += `<div class="code-block">${esc(p)}</div>`);
+      }
+      if (fields.length) {
+        html += `<div class="dsec-label" style="margin-top:8px">Fields extracted</div><div>`;
+        fields.forEach(f => html += `<span class="tag-pill">${esc(f)}</span>`);
+        html += `</div>`;
+      }
+      if (sheetChecks.length) {
+        html += `<div class="dsec-label" style="margin-top:8px">Sheet checks</div><div>`;
+        sheetChecks.forEach(s => html += `<span class="tag-pill">${esc(s)}</span>`);
+        html += `</div>`;
+      }
+      if (tplKey) {
+        html += `<div class="dsec-label" style="margin-top:8px">Template</div><span class="tag-pill">${esc(tplKey)}</span>`;
+      }
+      html += `</div>`;
+    }
+  }
+
+  // Samples
+  html += `<div class="dsec"><div class="dsec-label">Sample images (${samplesRes.samples.length})</div>`;
+  if (samplesRes.samples.length === 0) {
+    html += `<div style="color:var(--t3);font-size:12px;font-style:italic;padding:12px 0">ยังไม่มีรูป — Continue setup เพื่ออัพ</div>`;
+  } else {
+    samplesRes.samples.forEach((s, i) => html += renderSampleRow(s, i));
+  }
+  html += `</div>`;
+
+  return html;
+}
+
+function renderSampleRow(s, idx) {
+  const origSrc = `${API_BASE}${s.original_url}`;
+  let cropsHtml;
+  if (!s.regions.length) {
+    cropsHtml = `<div class="no-crop">QR Scanner — ไม่มี crop</div>`;
+  } else {
+    cropsHtml = `<div class="sample-crops">` + s.regions.map(r => `
+      <div class="sample-crop">
+        <img src="${API_BASE}${r.crop_url}" alt="crop" loading="lazy">
+        ${r.label ? `<span class="sample-crop-lbl">${esc(r.label)}</span>` : ''}
+      </div>`).join('') + `</div>`;
+  }
+  const bboxData = JSON.stringify(s.regions.map(r => r.bbox).filter(Boolean));
+  return `
+    <div class="sample-row">
+      <div class="sample-orig" data-bboxes='${esc(bboxData)}'>
+        <img src="${origSrc}" alt="${esc(s.name)}" loading="lazy" data-sample-idx="${idx}">
+        <canvas></canvas>
+      </div>
+      ${cropsHtml}
+    </div>`;
+}
+
+function drawBboxOverlays(samples) {
+  document.querySelectorAll('#drawer-body .sample-orig').forEach(wrap => {
+    const img = wrap.querySelector('img');
+    const canvas = wrap.querySelector('canvas');
+    const bboxes = JSON.parse(wrap.dataset.bboxes || '[]');
+    if (!bboxes.length) return;
+    const draw = () => {
+      if (!img.naturalWidth) return;
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.strokeStyle = '#E8A020';
+      ctx.lineWidth = Math.max(img.naturalWidth, img.naturalHeight) / 200;
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = ctx.lineWidth;
+      bboxes.forEach(b => {
+        if (!b) return;
+        ctx.strokeRect(b[0], b[1], b[2] - b[0], b[3] - b[1]);
+      });
+    };
+    if (img.complete) draw(); else img.addEventListener('load', draw);
+  });
+}
+
+function renderDrawerActions(pkg) {
+  const actions = document.getElementById('drawer-actions');
+  actions.style.display = 'flex';
+
+  // ARCHIVED — show only "Unarchive"
+  if (pkg.status === 'archived') {
+    actions.innerHTML = `
+      <div style="flex:1;font-size:11px;color:var(--t3);align-self:center">
+        ถูกปิดใช้งานอยู่ — model ยังจำ class แต่ pipeline เด้งกลับ
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="unarchivePackaging('${esc(pkg.key)}')">
+        เปิดใช้งานอีกครั้ง
+      </button>`;
+    return;
+  }
+
+  // ACTIVE — Edit + Archive, with state for in-progress edits
+  if (pkg.status === 'active') {
+    const editing = _editMap[pkg.key];
+    if (editing) {
+      actions.innerHTML = `
+        <button class="btn btn-danger btn-sm" onclick="discardEditDraft('${esc(editing.key)}')">
+          ทิ้ง draft แก้ไข
+        </button>
+        <div style="flex:1"></div>
+        <button class="btn btn-secondary btn-sm" onclick="archivePackaging('${esc(pkg.key)}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/>
+          </svg>
+          ปิดใช้งาน
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="continueDraft('${esc(editing.key)}', '${esc(editing.status)}')">
+          แก้ไขต่อ →
+        </button>`;
+    } else {
+      actions.innerHTML = `
+        <button class="btn btn-secondary btn-sm" onclick="archivePackaging('${esc(pkg.key)}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/>
+          </svg>
+          ปิดใช้งาน
+        </button>
+        <div style="flex:1"></div>
+        <button class="btn btn-primary btn-sm" onclick="cloneActive('${esc(pkg.key)}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z"/>
+          </svg>
+          แก้ไข + เทรนใหม่
+        </button>`;
+    }
+    return;
+  }
+
+  // DRAFT (fresh, no parent) — keep original Continue + Delete
+  actions.innerHTML = `
+    <button class="btn btn-danger btn-sm" onclick="deleteDraft('${esc(pkg.key)}')">ลบ draft</button>
+    <div style="flex:1"></div>
+    <button class="btn btn-primary btn-sm" onclick="continueDraft('${esc(pkg.key)}', '${esc(pkg.status)}')">Continue setup →</button>`;
+}
+
+// ─── ACTIVE EDIT/ARCHIVE ACTIONS ───────────
+async function cloneActive(key) {
+  try {
+    const draft = await api('POST', `/api/packagings/${encodeURIComponent(key)}/clone`);
+    showToast(`Cloned to ${draft.key} — เริ่มแก้ไข`);
+    continueDraft(draft.key, draft.status);  // 'draft' → step 2 (ยังไม่มีรูปใหม่)
+  } catch (err) {
+    alert(`Clone ไม่สำเร็จ: ${err.message}`);
+  }
+}
+
+async function archivePackaging(key) {
+  if (!confirm(`ปิดใช้งาน "${key}"?\n\nModel ยังจำ class นี้อยู่ แต่ pipeline จะส่งกลับ status="archived_class" จนกว่าจะกดเปิดใช้งานอีกครั้ง`)) return;
+  try {
+    await api('POST', `/api/packagings/${encodeURIComponent(key)}/archive`);
+    showToast(`Archived ${key}`);
+    closeDrawer();
+    loadDashboard();
+  } catch (err) {
+    alert(`Archive ไม่สำเร็จ: ${err.message}`);
+  }
+}
+
+async function unarchivePackaging(key) {
+  try {
+    await api('POST', `/api/packagings/${encodeURIComponent(key)}/unarchive`);
+    showToast(`Restored ${key}`);
+    closeDrawer();
+    loadDashboard();
+  } catch (err) {
+    alert(`Unarchive ไม่สำเร็จ: ${err.message}`);
+  }
+}
+
+async function discardEditDraft(editKey) {
+  if (!confirm(`ทิ้ง edit draft "${editKey}"?\n\nProgress การแก้ไขทั้งหมด (รูปใหม่ + annotations) จะหาย — packaging เดิมไม่กระทบ`)) return;
+  try {
+    await api('DELETE', `/api/packagings/${encodeURIComponent(editKey)}`);
+    showToast(`Discarded ${editKey}`);
+    closeDrawer();
+    loadDashboard();
+  } catch (err) {
+    alert(`ลบไม่สำเร็จ: ${err.message}`);
+  }
+}
+
+async function deleteDraft(key) {
+  if (!confirm(`ลบ draft "${key}" — ดำเนินการต่อ?`)) return;
+  try {
+    await api('DELETE', `/api/packagings/${encodeURIComponent(key)}`);
+    closeDrawer();
+    loadDashboard();
+  } catch (err) {
+    alert(`ลบไม่สำเร็จ: ${err.message}`);
+  }
+}
+
+function continueDraft(key, status) {
+  // status → step ที่ควรเข้าต่อ
+  const stepMap = {
+    draft: 2,            // เพิ่งสร้าง — ไปอัพรูป
+    uploading: 3,        // มีรูปแล้ว — ไป annotate
+    labeled_full: 3,     // pre-labeled แล้ว — verify ใน annotator
+    configured: 5,       // config ครบ — ไป eval/deploy
+    training_full: 5,    // full training ค้าง — กลับ step 5
+    trained: 5,          // มี eval แล้ว — review + deploy
+  };
+  curDraftKey = key;
+  curStep = stepMap[status] ?? 2;
+  closeDrawer();
+  renderSteps();
+  showView('wizard');
+  if (curStep === 3) loadAnnotator();
+  if (curStep === 5) loadStep5();
+  syncUrl();
+}
+
+async function loadCardImages(key) {
+  try {
+    const { images } = await api('GET', `/api/packagings/${encodeURIComponent(key)}/images`);
+    const strip = document.querySelector(`.pkg-photo-strip[data-key="${CSS.escape(key)}"]`);
+    if (!strip || images.length === 0) return;
+    strip.innerHTML = '';
+    images.slice(0, 3).forEach(img => {
+      const el = document.createElement('img');
+      el.src = `${API_BASE}/api/packagings/${encodeURIComponent(key)}/images/${encodeURIComponent(img.name)}`;
+      el.alt = `${key} sample`;
+      el.loading = 'lazy';
+      strip.appendChild(el);
+    });
+  } catch (e) { console.warn('loadCardImages', key, e); }
+}
+
+// ─── STEP 1 — Create draft ─────────────────
+function cancelWizardStep1() {
+  // Step 1 ยังไม่ได้สร้าง draft (curDraftKey ว่าง) → ออกไป dashboard ได้เลย ไม่มีอะไรเสีย
+  // ถ้าสร้างแล้ว → ถาม confirm
+  if (curDraftKey) {
+    if (!confirm('ลบ draft ที่กำลังสร้าง? Progress ทั้งหมดจะหาย')) return;
+    api('DELETE', `/api/packagings/${encodeURIComponent(curDraftKey)}`).catch(() => {});
+    curDraftKey = null;
+  }
+  showView('dashboard');
+}
+
+// ─── Crop-region picker (step 1) ──────────────
+// A "sub-region" is a PHYSICAL crop location (becomes a YOLO detector class),
+// NOT a field. Default = one region named "lot"; one crop yields many fields
+// (lot/exp/…), chosen in step 4. Advanced = 2+ physically-separate locations
+// (box/sachet) cross-checked, like container_label. See CONTEXT.md.
+const SR_PRESETS = ['box', 'sachet'];   // physical locations only — never field names
+const SR_MAX = 4;
+let cropMode = 'single';                // 'single' | 'multi_field' | 'cross_check'
+// multi-mode entries: {value, custom} — custom=true → free-text input row
+let cropRegions = [{ value: 'box', custom: false }, { value: 'sachet', custom: false }];
+
+// ── multi_field box-number grouping (step 1) ──
+// Fields sharing a box number form one YOLO group: tokens joined by '_'.
+const FIELD_ORDER = ['lot', 'exp', 'product', 'size'];
+let mfBox = { lot: 1, exp: 2, product: 3, size: 4 };   // field → box number
+
+function mfTickedFields() {
+  return FIELD_ORDER.filter(f => {
+    const cb = document.querySelector(`#sr-fields input[data-field="${f}"]`);
+    return cb && cb.checked;
+  });
+}
+
+function srGroupChanged() {
+  const k = Math.max(1, mfTickedFields().length);
+  FIELD_ORDER.forEach(f => {
+    const sel = document.querySelector(`#sr-fields select[data-box-for="${f}"]`);
+    const cb = document.querySelector(`#sr-fields input[data-field="${f}"]`);
+    if (!sel || !cb) return;
+    sel.disabled = !cb.checked;
+    let cur = mfBox[f] || 1;
+    if (cur > k) { cur = k; }
+    mfBox[f] = cur;
+    sel.innerHTML = Array.from({ length: k }, (_, i) => i + 1)
+      .map(n => `<option value="${n}"${n === cur ? ' selected' : ''}>กรอบ ${n}</option>`)
+      .join('');
+  });
+  renderGroupPreview();
+}
+
+function srPickBox(field, val) {
+  mfBox[field] = parseInt(val, 10) || 1;
+  srGroupChanged();
+}
+
+function srFieldGroups() {
+  const byBox = {};
+  mfTickedFields().forEach(f => { (byBox[mfBox[f]] ||= []).push(f); });
+  return Object.keys(byBox).sort((a, b) => a - b)
+    .map(b => FIELD_ORDER.filter(f => byBox[b].includes(f)).join('_'));
+}
+
+function prettyGroup(g) { return g.split('_').join(' + '); }
+
+function renderGroupPreview() {
+  const el = document.getElementById('sr-grp-preview');
+  if (!el) return;
+  el.innerHTML = srFieldGroups().map((g, i) => {
+    const color = ANNOT_COLORS[i % ANNOT_COLORS.length];
+    return `<span class="sr-grp-pill" style="background:${color}22;border:1px solid ${color}66">
+      <span class="sr-grp-pill-dot" style="background:${color}"></span>กรอบ ${i + 1}: ${esc(prettyGroup(g))}</span>`;
+  }).join('');
+}
+
+function srColor(i) { return ANNOT_COLORS[i % ANNOT_COLORS.length]; }
+
+function onPipelineChange() {
+  // QR pipeline reads a code, not a cropped region — hide the crop picker
+  const isQr = document.getElementById('inp-pipeline').value === 'qr_scanner';
+  const fg = document.getElementById('crop-fgroup');
+  if (fg) fg.style.display = isQr ? 'none' : '';
+}
+
+function srSetMode(mode) {
+  cropMode = mode;   // 'single' | 'multi_field' | 'cross_check'
+  document.querySelectorAll('.sr-mode-tab').forEach(t =>
+    t.classList.toggle('on', t.dataset.mode === mode));
+  const show = (id, on) => { const e = document.getElementById(id); if (e) e.style.display = on ? '' : 'none'; };
+  show('sr-single', mode === 'single');
+  show('sr-fields', mode === 'multi_field');
+  show('sr-multi', mode === 'cross_check');
+  if (mode === 'cross_check') srRender();
+  if (mode === 'multi_field') srGroupChanged();
+}
+
+function srToggleAdvanced(on) {
+  if (on && cropRegions.length < 2) {
+    cropRegions = [{ value: 'box', custom: false }, { value: 'sachet', custom: false }];
+  }
+  srSetMode(on ? 'cross_check' : 'single');
+}
+
+function srRender() {
+  const list = document.getElementById('sr-list');
+  if (!list) return;
+  const canDelete = cropRegions.length > 2;   // multi needs ≥ 2 locations
+  list.innerHTML = cropRegions.map((r, i) => {
+    const dot = `<span class="sr-dot" style="background:${srColor(i)}"></span>`;
+    const idx = `<span class="sr-idx">${i + 1}</span>`;
+    let control;
+    if (r.custom) {
+      control = `<input type="text" value="${esc(r.value)}" maxlength="24" spellcheck="false"
+                   placeholder="ชื่อตำแหน่ง (a-z, 0-9, _)"
+                   oninput="srEditCustom(${i}, this.value)">
+                 <button type="button" class="sr-mini" title="เลือกจากรายการ" onclick="srUsePreset(${i})">↩</button>`;
+    } else {
+      const opts = SR_PRESETS.map(p =>
+        `<option value="${p}"${p === r.value ? ' selected' : ''}>${p}</option>`).join('')
+        + `<option value="__custom__">✎ กำหนดเอง…</option>`;
+      control = `<select onchange="srPick(${i}, this.value)">${opts}</select>`;
+    }
+    const del = canDelete
+      ? `<button type="button" class="sr-mini sr-del" title="ลบตำแหน่งนี้" onclick="srRemove(${i})">×</button>`
+      : '';
+    return `<div class="sr-row">${dot}${idx}${control}${del}</div>`;
+  }).join('');
+  document.getElementById('sr-count').textContent = cropRegions.length;
+  document.getElementById('sr-add').disabled = cropRegions.length >= SR_MAX;
+}
+
+function srPick(i, val) {
+  if (val === '__custom__') {
+    cropRegions[i] = { value: '', custom: true };
+    srRender();
+    document.querySelectorAll('#sr-list .sr-row')[i]?.querySelector('input')?.focus();
+    return;
+  }
+  cropRegions[i] = { value: val, custom: false };
+  srRender();
+}
+
+function srEditCustom(i, val) {
+  // edit in place without re-render (keeps focus); sanitise on submit
+  cropRegions[i].value = val.trim().toLowerCase();
+}
+
+function srUsePreset(i) {
+  const used = cropRegions.map(r => r.value);
+  const free = SR_PRESETS.find(p => !used.includes(p)) || 'box';
+  cropRegions[i] = { value: free, custom: false };
+  srRender();
+}
+
+function srAdd() {
+  if (cropRegions.length >= SR_MAX) return;
+  const used = cropRegions.map(r => r.value);
+  const free = SR_PRESETS.find(p => !used.includes(p));
+  cropRegions.push(free ? { value: free, custom: false } : { value: '', custom: true });
+  srRender();
+}
+
+function srRemove(i) {
+  cropRegions.splice(i, 1);
+  srRender();
+}
+
+function srValues() {
+  return cropRegions.map(r => r.value.trim().toLowerCase()).filter(Boolean);
+}
+
+function srFieldValues() {
+  const out = ['lot'];
+  document.querySelectorAll('#sr-fields input[data-field]').forEach(cb => {
+    if (cb.checked && cb.dataset.field !== 'lot') out.push(cb.dataset.field);
+  });
+  return out;
+}
+
+async function step1Next() {
+  const btn = document.getElementById('btn-step1-next');
+  const display_name = document.getElementById('inp-display-name').value.trim();
+  const key = document.getElementById('inp-key').value.trim();
+  const description = document.getElementById('inp-desc').value.trim() || null;
+  const pipeline = document.getElementById('inp-pipeline').value;
+  // single → one region "lot"; multi_field → each field its own crop; cross_check → physical locations
+  let detection_mode = cropMode;
+  let sub_regions;
+  if (cropMode === 'single') { sub_regions = ['lot']; }
+  else if (cropMode === 'multi_field') { sub_regions = srFieldGroups(); }
+  else { sub_regions = srValues(); }   // cross_check
+
+  if (!display_name || !key) { alert('กรุณากรอกชื่อและ key'); return; }
+  if (!/^[a-z][a-z0-9_]*$/.test(key)) { alert('Key ต้องเป็น lowercase + _ เท่านั้น'); return; }
+  if (cropMode === 'cross_check') {
+    if (sub_regions.length < 2) { alert('โหมดหลายตำแหน่งต้องมีอย่างน้อย 2 ตำแหน่ง — หรือกลับเป็นจุดเดียว'); return; }
+    for (const r of sub_regions) {
+      if (!/^[a-z0-9_]+$/.test(r)) { alert(`ชื่อตำแหน่ง "${r}" ผิด — ใช้ a-z, 0-9, _ เท่านั้น`); return; }
+    }
+    if (new Set(sub_regions).size !== sub_regions.length) { alert('มีตำแหน่งซ้ำกัน — แต่ละตำแหน่งต้องไม่ซ้ำ'); return; }
+  }
+  if (cropMode === 'multi_field') {
+    const union = sub_regions.join('_').split('_');
+    if (!sub_regions.length || !union.includes('lot')) {
+      alert('โหมดแยก field ต้องมี lot อย่างน้อย 1 กรอบ'); return;
+    }
+  }
+
+  btn.disabled = true; btn.textContent = '⏳ กำลังสร้าง...';
+  try {
+    const body = await api('POST', '/api/packagings',
+      { key, display_name, description, pipeline, sub_regions, detection_mode });
+    curDraftKey = body.key;
+    goStep(2);
+  } catch (err) {
+    alert(`สร้าง packaging ไม่สำเร็จ: ${err.message}`);
+  } finally {
+    btn.disabled = false; btn.textContent = 'ถัดไป: อัพรูป →';
+  }
+}
+
+// ─── STEP 2 — Upload ───────────────────────
+async function handleFileSelect(files) {
+  if (!curDraftKey) { alert('ยังไม่ได้สร้าง draft — กลับ step 1'); return; }
+  if (!files || files.length === 0) return;
+
+  const prog = document.getElementById('upload-prog');
+  prog.style.display = 'block';
+  const bar = document.getElementById('up-bar');
+  const cnt = document.getElementById('up-cnt');
+  const thumbs = document.getElementById('up-thumbs');
+
+  bar.style.width = '15%';
+  cnt.textContent = `0 / ${files.length} รูป — กำลังอัพ...`;
+
+  const form = new FormData();
+  for (const f of files) form.append('files', f);
+
+  try {
+    const r = await fetch(`${API_BASE}/api/packagings/${encodeURIComponent(curDraftKey)}/images`, {
+      method: 'POST', body: form,
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const result = await r.json();
+
+    bar.style.width = '100%';
+    cnt.textContent = `${result.total_images} / ${result.total_images} รูป`;
+
+    thumbs.innerHTML = '';
+    const showCount = Math.min(result.files.length, 12);
+    for (let i = 0; i < showCount; i++) {
+      const t = document.createElement('div');
+      t.className = 'thumb';
+      const img = document.createElement('img');
+      img.src = `${API_BASE}/api/packagings/${encodeURIComponent(curDraftKey)}/images/${encodeURIComponent(result.files[i].name)}`;
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover';
+      t.appendChild(img);
+      thumbs.appendChild(t);
+    }
+    if (result.total_images > 12) {
+      const more = document.createElement('div');
+      more.className = 'thumb thumb-more';
+      more.textContent = '+' + (result.total_images - 12);
+      thumbs.appendChild(more);
+    }
+
+    const uz = document.getElementById('uz');
+    uz.innerHTML = `<div style="font-size:20px;margin-bottom:6px">✅</div>
+      <div style="color:var(--ok);font-weight:600">อัพแล้ว ${result.total_images} รูป</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:6px">คลิกเพื่อเพิ่มอีก</div>`;
+
+    if (result.total_images >= 10) document.getElementById('btn-step2-next').disabled = false;
+  } catch (err) {
+    alert(`อัพโหลดล้มเหลว: ${err.message}`);
+  } finally {
+    // Reset file input value — กันคลิกอัพไฟล์เดิม change event ไม่ fire
+    const fi = document.getElementById('file-input');
+    if (fi) fi.value = '';
+  }
+}
+
+// ─── STEP 3 — Inline bbox annotator ────────
+// Color palette สำหรับ sub-regions (สูงสุด 6 ก็พอ)
+const ANNOT_COLORS = [
+  '#E8A020', '#34D399', '#60A5FA', '#F472B6', '#A78BFA', '#FBBF24',
+];
+
+const annot = {
+  images: [],       // [{name, labeled, bbox_count}]
+  curIdx: -1,
+  bboxes: [],       // current image: [{x1,y1,x2,y2,label}] in image natural coords
+  imgNatural: {w:0, h:0},
+  canvasSize:  {w:0, h:0},
+  drag: null,       // {startX, startY, curX, curY} during drag
+  saveTimer: null,  // debounce save
+  ANNOT_TARGET: 30,
+  subRegions: ['lot'],   // populated from draft meta
+  currentLabel: 'lot',   // active label for new bbox
+};
+
+function annotLabelColor(label) {
+  const idx = annot.subRegions.indexOf(label);
+  return ANNOT_COLORS[Math.max(0, idx) % ANNOT_COLORS.length];
+}
+
+async function loadAnnotator() {
+  if (!curDraftKey) {
+    document.getElementById('annot-wrap').innerHTML =
+      '<div style="text-align:center;padding:40px;color:var(--t3);font-size:13px">ยังไม่ได้สร้าง draft — กลับ step 1</div>';
+    return;
+  }
+  try {
+    // Fetch packaging meta (for sub_regions)
+    const pkg = await api('GET', `/api/packagings/${encodeURIComponent(curDraftKey)}`);
+    annot.subRegions = (pkg.sub_regions && pkg.sub_regions.length) ? pkg.sub_regions : ['lot'];
+    annot.currentLabel = annot.subRegions[0];
+    renderLabelBar();
+
+    const data = await api('GET', `/api/packagings/${encodeURIComponent(curDraftKey)}/annotations`);
+    annot.images = data.items;
+    document.getElementById('annot-target').textContent = Math.min(annot.ANNOT_TARGET, annot.images.length);
+    document.getElementById('annot-total').textContent = annot.images.length;
+    renderThumbStrip();
+    const isEditDraft = curDraftKey && curDraftKey.endsWith('__edit');
+    document.getElementById('prelabel-bar').style.display = isEditDraft ? 'block' : 'none';
+    updateProgressUI();
+    if (annot.images.length === 0) {
+      document.getElementById('annot-empty').style.display = 'flex';
+      document.getElementById('annot-empty').textContent = 'ยังไม่มีรูป — กลับ step 2 อัพรูปก่อน';
+    } else {
+      // Select first unlabeled, fallback to first
+      const idx = annot.images.findIndex(im => !im.labeled);
+      annotSelect(idx >= 0 ? idx : 0);
+    }
+  } catch (err) {
+    document.getElementById('annot-wrap').innerHTML =
+      `<div style="text-align:center;padding:40px;color:var(--err);font-size:13px">โหลดไม่สำเร็จ: ${esc(err.message)}</div>`;
+  }
+}
+
+function renderLabelBar() {
+  const bar = document.getElementById('annot-labelbar');
+  if (!bar) return;
+  if (annot.subRegions.length <= 1) {
+    // Single sub-region — ซ่อน toolbar (ไม่ต้องเลือก)
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = 'flex';
+  bar.innerHTML = '<span class="annot-labelbar-hint">วาดเป็น:</span>' +
+    annot.subRegions.map((r, i) => {
+      const color = ANNOT_COLORS[i % ANNOT_COLORS.length];
+      const active = r === annot.currentLabel;
+      return `<span class="annot-label-chip ${active?'active':''}"
+        style="--c-stroke:${color};--c-bg:${color}22"
+        onclick="annotSetLabel('${esc(r)}')">
+        <span class="annot-label-chip-dot"></span>${esc(r.split('_').join(' + '))}
+        <span style="opacity:.5;font-size:9px;margin-left:3px">${i+1}</span>
+      </span>`;
+    }).join('');
+}
+
+function annotSetLabel(label) {
+  annot.currentLabel = label;
+  renderLabelBar();
+}
+
+function renderThumbStrip() {
+  const strip = document.getElementById('annot-thumbs');
+  strip.innerHTML = '';
+  annot.images.forEach((im, i) => {
+    const t = document.createElement('div');
+    t.className = 'annot-thumb' + (im.labeled ? ' labeled' : '') + (i === annot.curIdx ? ' current' : '');
+    t.onclick = () => annotSelect(i);
+    t.innerHTML = `
+      <img src="${API_BASE}/api/packagings/${encodeURIComponent(curDraftKey)}/images/${encodeURIComponent(im.name)}" alt="" loading="lazy">
+      <span class="annot-thumb-num">${i+1}</span>
+      <span class="annot-thumb-dot"></span>`;
+    strip.appendChild(t);
+  });
+}
+
+async function annotSelect(idx) {
+  if (idx < 0 || idx >= annot.images.length) return;
+  annot.curIdx = idx;
+  const im = annot.images[idx];
+  document.getElementById('annot-curname').textContent = im.name;
+  document.getElementById('annot-curpos').textContent = `${idx+1} / ${annot.images.length}`;
+  document.getElementById('annot-empty').style.display = 'none';
+  renderThumbStrip();
+  // Scroll thumb into view
+  const cur = document.querySelector(`.annot-thumb.current`);
+  if (cur) cur.scrollIntoView({behavior:'smooth', block:'nearest', inline:'center'});
+
+  // Load image + existing annotations
+  const img = document.getElementById('annot-img');
+  img.src = `${API_BASE}/api/packagings/${encodeURIComponent(curDraftKey)}/images/${encodeURIComponent(im.name)}`;
+  img.onload = () => {
+    annot.imgNatural = {w: img.naturalWidth, h: img.naturalHeight};
+    setupCanvas();
+  };
+
+  try {
+    const ann = await api('GET', `/api/packagings/${encodeURIComponent(curDraftKey)}/annotations/${encodeURIComponent(im.name)}`);
+    annot.bboxes = (ann.bboxes || []).map(b => ({
+      x1: b.x1, y1: b.y1, x2: b.x2, y2: b.y2,
+      label: b.label && annot.subRegions.includes(b.label) ? b.label : annot.subRegions[0],
+    }));
+    renderBboxList();
+    drawCanvas();
+  } catch (err) {
+    annot.bboxes = [];
+    renderBboxList();
+    drawCanvas();
+  }
+}
+
+function setupCanvas() {
+  const wrap = document.getElementById('annot-canvas-wrap');
+  const img = document.getElementById('annot-img');
+  const canvas = document.getElementById('annot-canvas');
+  // Match canvas position+size to actual rendered img size
+  const r = img.getBoundingClientRect();
+  const wr = wrap.getBoundingClientRect();
+  canvas.style.left = (r.left - wr.left) + 'px';
+  canvas.style.top  = (r.top  - wr.top)  + 'px';
+  canvas.style.width  = r.width + 'px';
+  canvas.style.height = r.height + 'px';
+  // Internal canvas resolution = image natural — keep bbox math in image coords
+  canvas.width  = annot.imgNatural.w;
+  canvas.height = annot.imgNatural.h;
+  annot.canvasSize = {w: r.width, h: r.height};
+  drawCanvas();
+}
+window.addEventListener('resize', () => { if (annot.curIdx >= 0) setupCanvas(); });
+
+function drawCanvas() {
+  const canvas = document.getElementById('annot-canvas');
+  if (!canvas.width) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const scale = canvas.width / 1000;
+  const lw = Math.max(2, scale * 3);
+  ctx.shadowColor = 'rgba(0,0,0,.55)';
+  ctx.font = `${Math.max(14, scale*22)}px "JetBrains Mono", monospace`;
+  const th = Math.max(14, scale * 22);
+  const pad = Math.max(4, scale * 8);
+  annot.bboxes.forEach((b, i) => {
+    const color = annotLabelColor(b.label);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    ctx.shadowBlur = lw * 1.5;
+    ctx.strokeRect(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1);
+    // Label chip
+    ctx.shadowBlur = 0;
+    const txt = `#${i+1} ${b.label}`;
+    const tw = ctx.measureText(txt).width;
+    ctx.fillStyle = 'rgba(11,12,16,.85)';
+    ctx.fillRect(b.x1, b.y1 - th - pad*0.5, tw + pad*2, th + pad*0.5);
+    ctx.fillStyle = color;
+    ctx.fillText(txt, b.x1 + pad, b.y1 - pad*0.7);
+  });
+  // Drag preview — uses current selected label color
+  if (annot.drag) {
+    const {startX, startY, curX, curY} = annot.drag;
+    const x = Math.min(startX, curX);
+    const y = Math.min(startY, curY);
+    const w = Math.abs(curX - startX);
+    const h = Math.abs(curY - startY);
+    ctx.setLineDash([lw*2, lw]);
+    ctx.strokeStyle = annotLabelColor(annot.currentLabel);
+    ctx.lineWidth = lw;
+    ctx.shadowBlur = lw;
+    ctx.strokeRect(x, y, w, h);
+    ctx.setLineDash([]);
+  }
+}
+
+function renderBboxList() {
+  const list = document.getElementById('annot-bbox-list');
+  if (annot.bboxes.length === 0) {
+    list.innerHTML = '<div class="annot-bbox-empty">ยังไม่มี bbox — ลากเมาส์บนรูป</div>';
+    return;
+  }
+  list.innerHTML = '';
+  annot.bboxes.forEach((b, i) => {
+    const color = annotLabelColor(b.label);
+    const item = document.createElement('div');
+    item.className = 'annot-bbox-item';
+    item.innerHTML = `
+      <span class="annot-bbox-idx" style="color:${color}">#${i+1}</span>
+      ${annot.subRegions.length > 1 ?
+        `<span class="annot-bbox-label" style="background:${color}22;color:${color}">${esc(b.label)}</span>`
+        : ''}
+      <span class="annot-bbox-coord">${Math.round(b.x1)},${Math.round(b.y1)}→${Math.round(b.x2)},${Math.round(b.y2)}</span>
+      <button class="annot-bbox-del" onclick="annotDelBbox(${i})" title="ลบ">×</button>`;
+    list.appendChild(item);
+  });
+}
+
+// ── canvas mouse events ──
+function annotCoords(e) {
+  const canvas = document.getElementById('annot-canvas');
+  const r = canvas.getBoundingClientRect();
+  const x = (e.clientX - r.left) * (canvas.width / r.width);
+  const y = (e.clientY - r.top)  * (canvas.height / r.height);
+  return {x: Math.max(0, Math.min(canvas.width, x)), y: Math.max(0, Math.min(canvas.height, y))};
+}
+function bindCanvasEvents() {
+  const canvas = document.getElementById('annot-canvas');
+  canvas.onmousedown = (e) => {
+    if (annot.curIdx < 0) return;
+    e.preventDefault();
+    const {x, y} = annotCoords(e);
+    annot.drag = {startX: x, startY: y, curX: x, curY: y};
+    drawCanvas();
+  };
+  canvas.onmousemove = (e) => {
+    const {x, y} = annotCoords(e);
+    document.getElementById('annot-coord').textContent = `x: ${Math.round(x)}  y: ${Math.round(y)}`;
+    if (annot.drag) {
+      annot.drag.curX = x;
+      annot.drag.curY = y;
+      drawCanvas();
+    }
+  };
+  canvas.onmouseleave = () => {
+    document.getElementById('annot-coord').textContent = '—';
+  };
+  const finishDrag = (e) => {
+    if (!annot.drag) return;
+    const {startX, startY, curX, curY} = annot.drag;
+    annot.drag = null;
+    const x1 = Math.min(startX, curX);
+    const y1 = Math.min(startY, curY);
+    const x2 = Math.max(startX, curX);
+    const y2 = Math.max(startY, curY);
+    // Skip tiny accidental drags
+    if (x2 - x1 < 6 || y2 - y1 < 6) { drawCanvas(); return; }
+    annot.bboxes.push({x1, y1, x2, y2, label: annot.currentLabel});
+    renderBboxList();
+    drawCanvas();
+    saveAnnotation();
+  };
+  canvas.onmouseup = finishDrag;
+  document.addEventListener('mouseup', (e) => { if (annot.drag) finishDrag(e); });
+}
+
+function annotDelBbox(idx) {
+  annot.bboxes.splice(idx, 1);
+  renderBboxList();
+  drawCanvas();
+  saveAnnotation();
+}
+
+function annotGo(delta) {
+  if (annot.curIdx < 0) return;
+  const next = Math.max(0, Math.min(annot.images.length - 1, annot.curIdx + delta));
+  if (next !== annot.curIdx) annotSelect(next);
+}
+
+async function saveAnnotation() {
+  if (annot.curIdx < 0) return;
+  const im = annot.images[annot.curIdx];
+  clearTimeout(annot.saveTimer);
+  annot.saveTimer = setTimeout(async () => {
+    try {
+      await api('PUT', `/api/packagings/${encodeURIComponent(curDraftKey)}/annotations/${encodeURIComponent(im.name)}`, {
+        bboxes: annot.bboxes.map(b => ({x1: b.x1, y1: b.y1, x2: b.x2, y2: b.y2, label: b.label})),
+      });
+      im.labeled = annot.bboxes.length > 0;
+      im.bbox_count = annot.bboxes.length;
+      renderThumbStrip();
+      updateProgressUI();
+    } catch (err) {
+      console.warn('save annotation failed', err);
+    }
+  }, 250);
+}
+
+function updateProgressUI() {
+  const labeled = annot.images.filter(im => im.labeled).length;
+  const target = Math.min(annot.ANNOT_TARGET, annot.images.length);
+  document.getElementById('annot-lc').textContent = labeled;
+  document.getElementById('annot-pbar').style.width = Math.min(100, labeled / target * 100) + '%';
+  // Reveal "ready → Config" once target met
+  document.getElementById('ls-done').style.display = labeled >= target ? 'block' : 'none';
+}
+
+// Keyboard shortcuts within step 3
+document.addEventListener('keydown', (e) => {
+  if (curStep !== 3) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'ArrowLeft')   { e.preventDefault(); annotGo(-1); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); annotGo(1); }
+  else if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (annot.bboxes.length) { e.preventDefault(); annotDelBbox(annot.bboxes.length - 1); }
+  }
+  else if (e.key === 'Escape' && annot.drag) { annot.drag = null; drawCanvas(); }
+  else if (e.key >= '1' && e.key <= '9') {
+    // Quick switch sub-region (1-9)
+    const idx = parseInt(e.key) - 1;
+    if (idx < annot.subRegions.length) {
+      e.preventDefault();
+      annotSetLabel(annot.subRegions[idx]);
+    }
+  }
+});
+
+// Bind immediately (script is at end of body — DOM already parsed)
+bindCanvasEvents();
+
+// ─── Training upload progress (Drive) ─────────
+// Poll GET /training/progress ระหว่างรอ POST /training/{seed|full}/start
+// แล้ววาด % bar — backend รายงานทีละไฟล์ (full) หรือทีละ chunk (seed bundle)
+const TRAIN_PHASE_LABELS = {
+  starting:      'กำลังเตรียม Drive…',
+  bundle:        'กำลังรวมรูปเป็น bundle…',
+  upload_bundle: 'อัปโหลด bundle ขึ้น Drive',
+  upload_images: 'อัปโหลดรูปขึ้น Drive',
+  notebook:      'เตรียม notebook…',
+  done:          'เสร็จแล้ว',
+};
+const fmtMB = b => (b / 1048576).toFixed(1);
+
+function trainProgressStart(key, mountEl) {
+  mountEl.classList.add('on');
+  mountEl.innerHTML = `
+    <div class="train-prog-head">
+      <span class="train-prog-phase"><span class="tp-dot"></span><span class="tp-txt">กำลังเริ่ม…</span></span>
+      <span class="train-prog-pct">&nbsp;</span>
+    </div>
+    <div class="train-prog-bar"><div class="train-prog-fill indet"></div></div>
+    <div class="train-prog-file">&nbsp;</div>`;
+  const txt  = mountEl.querySelector('.tp-txt');
+  const pct  = mountEl.querySelector('.train-prog-pct');
+  const fill = mountEl.querySelector('.train-prog-fill');
+  const file = mountEl.querySelector('.train-prog-file');
+
+  let stopped = false;
+  const tick = async () => {
+    if (stopped) return;
+    try {
+      const p = await api('GET', `/api/packagings/${encodeURIComponent(key)}/training/progress`);
+      if (stopped || !p || p.phase === 'idle' || p.phase === 'error') return;
+      txt.textContent = TRAIN_PHASE_LABELS[p.phase] || p.phase;
+      if (p.percent != null) {
+        fill.classList.remove('indet');
+        fill.style.width = p.percent + '%';
+        pct.textContent = p.percent + '%';
+        if (p.phase === 'upload_images') {
+          file.textContent = `${p.done} / ${p.total} รูป${p.detail ? ' · ' + p.detail : ''}`;
+        } else if (p.phase === 'upload_bundle') {
+          file.textContent = `${fmtMB(p.done)} / ${fmtMB(p.total)} MB`;
+        }
+      } else {
+        fill.classList.add('indet');
+        fill.style.width = '';
+        pct.innerHTML = '&nbsp;';
+        file.innerHTML = '&nbsp;';
+      }
+    } catch { /* poll พลาดครั้งเดียวไม่เป็นไร — รอบหน้าลองใหม่ */ }
+  };
+  const timer = setInterval(tick, 600);
+  tick();
+
+  return {
+    finish(ok) {
+      stopped = true;
+      clearInterval(timer);
+      if (ok) {
+        fill.classList.remove('indet');
+        fill.classList.add('ok');
+        fill.style.width = '100%';
+        pct.textContent = '100%';
+        txt.textContent = 'อัปโหลดเสร็จแล้ว ✓';
+        setTimeout(() => mountEl.classList.remove('on'), 2200);
+      } else {
+        mountEl.classList.remove('on');
+      }
+    },
+  };
+}
+
+async function runPrelabel() {
+  if (!curDraftKey) { alert('ยังไม่ได้สร้าง draft'); return; }
+  const btn = document.getElementById('btn-prelabel');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.setAttribute('aria-busy', 'true');
+  btn.textContent = '⏳ กำลัง prelabel…';
+  try {
+    const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/prelabel`);
+    showToast(`✓ Prelabel แล้ว ${res.prelabeled} รูป · ข้าม ${res.skipped_already_labeled} · ผิดพลาด ${res.errors}`);
+    await loadAnnotator();
+  } catch (err) {
+    alert(`Prelabel ไม่สำเร็จ: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
+    btn.textContent = original;
+  }
+}
+
+// ─── STEP 4 — Lot pattern + Config ─────────
+function addLot() {
+  const rows = document.getElementById('lot-rows');
+  const d = document.createElement('div');
+  d.className = 'lot-row';
+  d.innerHTML = `<input type="text" placeholder="เลข lot ตัวอย่าง" oninput="updateRegex()" style="font-family:'JetBrains Mono',monospace;font-size:13px">
+    <button class="rm-btn" onclick="removeLot(this)">×</button>`;
+  rows.appendChild(d);
+}
+function removeLot(btn) { btn.closest('.lot-row').remove(); updateRegex(); }
+
+let regexDebounce = null;
+function updateRegex() {
+  clearTimeout(regexDebounce);
+  regexDebounce = setTimeout(async () => {
+    const examples = Array.from(document.querySelectorAll('#lot-rows input'))
+      .map(i => i.value.trim()).filter(Boolean);
+    const matchesEl = document.getElementById('rx-matches');
+    if (examples.length === 0) { matchesEl.innerHTML = ''; return; }
+
+    try {
+      const body = await api('POST', '/api/packagings/regex/preview', { examples });
+      document.getElementById('rx-display').textContent = body.pattern;
+      matchesEl.innerHTML = '';
+      body.matches.forEach(m => {
+        const row = document.createElement('div');
+        row.className = 'rm-item';
+        row.innerHTML = `
+          <svg class="rm-ic" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="7"
+              fill="${m.ok?'rgba(52,211,153,.12)':'rgba(248,113,113,.08)'}"
+              stroke="${m.ok?'rgba(52,211,153,.4)':'rgba(248,113,113,.35)'}"/>
+            ${m.ok
+              ? '<path d="M5 8l2 2 4-4" stroke="#34D399" stroke-width="1.5" stroke-linecap="round"/>'
+              : '<path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#F87171" stroke-width="1.5" stroke-linecap="round"/>'}
+          </svg>
+          <span class="rm-lot">${esc(m.input)}</span>
+          ${m.ok ? `<span class="rm-val">${esc(m.match)}</span>` : '<span style="font-size:11px;color:var(--err)">ไม่ match</span>'}`;
+        matchesEl.appendChild(row);
+      });
+    } catch (err) {
+      console.warn('regex preview', err);
+    }
+  }, 350);
+}
+updateRegex();
+
+function toggleCb(el) { if (!el.classList.contains('disabled')) el.classList.toggle('on'); }
+function pickTpl(el)  { document.querySelectorAll('.tpl-opt').forEach(t => t.classList.remove('on')); el.classList.add('on'); }
+
+function prefillFieldsFromSubRegions() {
+  if (cropMode !== 'multi_field') return;
+  const want = new Set(srFieldValues());
+  document.querySelectorAll('#sp4 [data-group="fields"] .cbitem[data-field]').forEach(el => {
+    if (el.dataset.field === 'lot') return;
+    el.classList.toggle('on', want.has(el.dataset.field));
+  });
+}
+
+// ─── Product aliases (shared by step 4 + drawer) ──────
+function isProductFieldOn() {
+  return !!document.querySelector('#sp4 [data-group="fields"] .cbitem.on[data-field="product"]');
+}
+function isSizeFieldOn() {
+  return !!document.querySelector('#sp4 [data-group="fields"] .cbitem.on[data-field="size"]');
+}
+// size-on is live-DOM in step 4 (#pa-rows has no data-size-on), static in the drawer
+function paSizeOn(row) {
+  const rows = row.closest('.pa-rows');
+  if (rows && rows.dataset.sizeOn != null) return rows.dataset.sizeOn === '1';
+  return isSizeFieldOn();
+}
+function addProdAliasTo(containerId, canonical = '', keywords = '') {
+  const c = String(canonical).replace(/"/g, '&quot;');
+  const k = String(keywords).replace(/"/g, '&quot;');
+  document.getElementById(containerId).insertAdjacentHTML('beforeend', `
+    <div class="pa-row">
+      <input type="text" class="pa-canonical" aria-label="ชื่อ Product (template)" placeholder="Medium {size}" value="${c}" oninput="updateProdPreview(this.closest('.pa-row'))">
+      <input type="text" class="pa-keywords" aria-label="คำที่พบบนซอง คั่นด้วยจุลภาค" placeholder="medium" value="${k}">
+      <button class="rm-btn" onclick="removeProdAlias(this)" aria-label="ลบ product นี้">×</button>
+      <div class="pa-preview"></div>
+    </div>`);
+  updateProdPreview(document.getElementById(containerId).lastElementChild);
+}
+function addProdAlias(canonical = '', keywords = '') { addProdAliasTo('pa-rows', canonical, keywords); }
+const PA_SAMPLE_SIZE = '40 g';
+function updateProdPreview(row) {
+  if (!row) return;
+  const out = row.querySelector('.pa-preview');
+  const tpl = row.querySelector('.pa-canonical').value.trim();
+  if (!out) return;
+  if (!tpl) { out.textContent = ''; out.className = 'pa-preview'; return; }
+  if (tpl.includes('{size}')) {
+    if (!paSizeOn(row)) {
+      out.innerHTML = '⚠ ใช้ <code>{size}</code> แต่ยังไม่เปิด field "ขนาด"';
+      out.className = 'pa-preview warn';
+      return;
+    }
+    const resolved = tpl.replace(/\{size\}/g, PA_SAMPLE_SIZE).replace(/\s+/g, ' ').trim();
+    out.textContent = `→ "${resolved}"  (ตัวอย่างขนาด ${PA_SAMPLE_SIZE})`;
+  } else {
+    out.textContent = `→ "${tpl}"`;
+  }
+  out.className = 'pa-preview';
+}
+function updateAllProdPreviews() {
+  document.querySelectorAll('#pa-rows .pa-row').forEach(updateProdPreview);
+}
+function removeProdAlias(btn) { btn.closest('.pa-row').remove(); }
+function syncProductAliasVisibility() {
+  const card = document.getElementById('pa-card');
+  if (!card) return;
+  const on = isProductFieldOn();
+  card.style.display = on ? '' : 'none';
+  if (on && !document.querySelector('#pa-rows .pa-row')) addProdAlias();
+}
+
+function collectConfig() {
+  const fields = ['lot'];
+  document.querySelectorAll('#sp4 [data-group="fields"] .cbitem.on[data-field]').forEach(el => {
+    if (el.dataset.field !== 'lot') fields.push(el.dataset.field);
+  });
+  const sheet_checks = [];
+  document.querySelectorAll('#sp4 [data-group="sheet"] .cbitem.on[data-field]').forEach(el => {
+    sheet_checks.push(el.dataset.field);
+  });
+  const tpl = document.querySelector('#sp4 .tpl-opt.on');
+  const product_aliases = isProductFieldOn()
+    ? Array.from(document.querySelectorAll('#pa-rows .pa-row')).map(row => ({
+        canonical: row.querySelector('.pa-canonical').value.trim(),
+        keywords: row.querySelector('.pa-keywords').value
+          .split(',').map(s => s.trim()).filter(Boolean),
+      })).filter(a => a.canonical && a.keywords.length)  // ทิ้ง row ที่ไม่มี keyword (match ไม่ได้ + จะไป bypass hardcode fallback เงียบ ๆ)
+    : [];
+  return {
+    lot_patterns: [document.getElementById('rx-display').textContent.trim()],
+    fields_extracted: fields,
+    sheet_checks,
+    message_template_key: tpl ? tpl.dataset.template : 'default_full',
+    product_aliases,
+  };
+}
+
+async function step4Next() {
+  if (!curDraftKey) { goStep(5); return; }
+  const btn = document.getElementById('btn-step4-next');
+  btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
+  try {
+    await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/config`, collectConfig());
+    goStep(5);
+  } catch (err) {
+    alert(`บันทึก config ไม่สำเร็จ: ${err.message}`);
+  } finally {
+    btn.disabled = false; btn.textContent = 'ถัดไป: Full Training & Eval →';
+  }
+}
+
+// ─── STEP 5 — Full Training + Eval + Deploy ───────────
+async function loadStep5() {
+  if (!curDraftKey) {
+    document.getElementById('sp5-body').innerHTML =
+      '<div style="text-align:center;padding:60px 0;color:var(--t3)">ยังไม่ได้สร้าง draft</div>';
+    return;
+  }
+  const body = document.getElementById('sp5-body');
+  body.innerHTML = '<div style="text-align:center;padding:60px 0;color:var(--t3)">กำลังโหลด...</div>';
+  try {
+    const pkg = await api('GET', `/api/packagings/${encodeURIComponent(curDraftKey)}`);
+    const status = pkg.status;
+    if (status === 'training_full') {
+      renderStep5_training(pkg);
+    } else if (status === 'trained' || status === 'deployed') {
+      // Try fetching eval
+      try {
+        const ev = await api('GET', `/api/packagings/${encodeURIComponent(curDraftKey)}/eval`);
+        renderStep5_eval(pkg, ev);
+      } catch {
+        renderStep5_preTraining(pkg);
+      }
+    } else {
+      renderStep5_preTraining(pkg);
+    }
+  } catch (err) {
+    body.innerHTML = `<div style="color:var(--err);padding:30px;text-align:center">โหลดไม่สำเร็จ: ${esc(err.message)}</div>`;
+  }
+}
+
+function renderStep5_preTraining(pkg) {
+  document.getElementById('sp5-body').innerHTML = `
+    <div class="wiz-card">
+      <div class="wiz-card-title">Full Training</div>
+      <div class="wiz-card-desc">รัน full training บน Colab — ใช้ทั้ง 50+ รูปที่ label แล้ว (รวมที่ verify จาก seed) — ใช้เวลา ~30-60 นาที</div>
+      <div class="info-box">
+        <strong>ต้องทำก่อน Deploy:</strong> full training จะคำนวณ mAP@0.5 + precision/recall ที่ใช้เช็ค hard floor
+      </div>
+      <div style="text-align:center;margin-top:14px">
+        <button class="btn btn-primary" id="btn-full-start" onclick="startFullTraining()">
+          🚀 Publish dataset + เปิด Training Notebook
+        </button>
+      </div>
+      <div id="full-prog" class="train-prog"></div>
+    </div>`;
+}
+
+function renderStep5_training(pkg) {
+  document.getElementById('sp5-body').innerHTML = `
+    <div class="wiz-card">
+      <div class="wiz-card-title">Full Training — รอ Colab</div>
+      <div class="info-box">
+        <strong>📒 Training notebook เปิดแล้ว</strong> — กด <code>Runtime → Run all</code>
+        (detector ~60 นาที + classifier ~30 นาที). Model จะเซฟลง Drive
+        (<code>data check lot/</code> + <code>data classify check lot/models/</code>).
+      </div>
+      <div style="text-align:center;margin-top:14px">
+        <button class="btn btn-primary" id="btn-sync-model" onclick="syncTrainedModel()">
+          ✅ Train เสร็จแล้ว — ดึง model จาก Drive
+        </button>
+      </div>
+      <div id="sync-msg" style="margin-top:10px;text-align:center;color:var(--t3);font-size:13px"></div>
+    </div>`;
+}
+
+function renderStep5_eval(pkg, evRes) {
+  const ev = evRes.eval || {};
+  const floor = evRes.hard_floor || {};
+  const passed = floor.passed;
+  const isEditDraft = pkg.key && pkg.key.endsWith('__edit');
+  const parentKey = isEditDraft ? pkg.key.slice(0, -'__edit'.length) : null;
+  const map50 = ev.detector_mAP_50;
+  const prec = ev.precision;
+  const rec = ev.recall;
+  const fmt = v => v == null ? '—' : (v < 1 ? v.toFixed(3) : Math.round(v));
+  const pct = v => v == null ? '—' : Math.round(v * 100) + '%';
+
+  const floorRows = floor.hard_floor ? Object.entries(floor.hard_floor).map(([k, min]) => {
+    const actual = ev[k];
+    const ok = actual != null && actual >= min;
+    return `<div class="dsec-row">
+      <span class="k">${esc(k)}</span>
+      <span class="v" style="color:var(--${ok?'ok':'err'})">${fmt(actual)} / ${fmt(min)} ${ok?'✓':'✗'}</span>
+    </div>`;
+  }).join('') : '';
+
+  const deployedStatus = pkg.status === 'deployed';
+  document.getElementById('sp5-body').innerHTML = `
+    <div class="wiz-card">
+      <div class="wiz-card-title">ผลการประเมิน Model</div>
+      <div class="wiz-card-desc">ตัวเลขจาก val set (20% ของ labeled images)</div>
+      <div class="eval-grid">
+        <div class="eval-card">
+          <div class="eval-lbl">Detector mAP@0.5 <span class="i-tip" title="ความแม่นรวม — ≥0.65 hard floor, ≥0.80 แนะนำ">i</span></div>
+          <div class="eval-val ${map50 != null ? (map50>=0.80?'g':map50>=0.65?'':'w') : ''}">${fmt(map50)}</div>
+        </div>
+        <div class="eval-card">
+          <div class="eval-lbl">Precision <span class="i-tip" title="% prediction ที่ถูก">i</span></div>
+          <div class="eval-val ${prec != null ? (prec>=0.85?'g':prec>=0.70?'':'w') : ''}">${pct(prec)}</div>
+        </div>
+      </div>
+      <div class="dsec" style="margin-top:14px">
+        <div class="dsec-label">Hard Floor Check</div>
+        ${floorRows}
+      </div>
+      <div class="dsec">
+        <div class="dsec-label">Training Details</div>
+        <div class="dsec-row"><span class="k">Epochs</span><span class="v">${ev.epochs ?? '—'}</span></div>
+        <div class="dsec-row"><span class="k">Image size</span><span class="v">${ev.imgsz ?? '—'}</span></div>
+        <div class="dsec-row"><span class="k">Train / Val</span><span class="v">${ev.train_count ?? '—'} / ${ev.val_count ?? '—'}</span></div>
+        <div class="dsec-row"><span class="k">Recall</span><span class="v">${pct(rec)}</span></div>
+      </div>
+    </div>
+
+    <div class="deploy-sec">
+      ${passed ? `
+        <div class="floor-pass">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          <div class="floor-pass-txt">
+            ผ่าน Hard Floor — พร้อม Deploy
+            <small>ทุก metric ≥ ขั้นต่ำ</small>
+          </div>
+        </div>` : `
+        <div class="floor-pass" style="background:var(--err-bg);border-color:rgba(248,113,113,.25)">
+          <div class="floor-pass-txt" style="color:var(--err)">
+            ❌ ไม่ผ่าน Hard Floor
+            <small style="color:var(--t2)">กลับไปเพิ่มรูป + verify annotation แล้ว retrain</small>
+          </div>
+        </div>`}
+      ${isEditDraft ? `
+        <div style="margin-top:14px;padding:12px 14px;border-radius:8px;
+          background:linear-gradient(135deg,rgba(232,160,32,.08),rgba(232,160,32,.02));
+          border:1px solid var(--acc-bd);border-left-width:3px;font-size:12px;line-height:1.7;color:var(--t2)">
+          <div style="font-family:'Playfair Display',serif;font-size:13px;font-weight:500;color:var(--t1);margin-bottom:4px">
+            กำลังจะทับ <em style="color:var(--acc)">${esc(parentKey)}</em>
+          </div>
+          Deploy จะ:
+          <span style="color:var(--t1)">backup</span> YAML + <code style="color:var(--acc);font-family:'JetBrains Mono',monospace;font-size:11px">models/detector.pt</code> ตัวเก่า
+          → เขียนทับด้วย model ใหม่ → reload registry.
+          ถ้า hard-floor fail จะ <span style="color:var(--ok)">auto-rollback</span> ทันที.
+        </div>` : ''}
+      ${deployedStatus ? `
+        <div style="text-align:center;padding:10px;color:var(--ok);font-weight:600">
+          ✅ Deployed แล้ว — packaging live ใน production
+        </div>` : `
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+          <button class="btn btn-success" id="btn-deploy" onclick="doDeploy()" ${passed?'':'disabled'}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            ${isEditDraft ? `Deploy & Overwrite ${esc(parentKey)}` : 'Deploy to Production'}
+          </button>
+          <button class="btn btn-ghost" onclick="loadStep5()">↻ Refresh</button>
+        </div>`}
+    </div>`;
+}
+
+async function syncTrainedModel() {
+  if (!curDraftKey) return;
+  const btn = document.getElementById('btn-sync-model');
+  const msg = document.getElementById('sync-msg');
+  btn.disabled = true;
+  btn.textContent = '⏳ กำลังดึง model จาก Drive...';
+  msg.textContent = '';
+  try {
+    await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/full/sync`);
+    await loadStep5();   // status → trained → renders Eval + Deploy
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '✅ Train เสร็จแล้ว — ดึง model จาก Drive';
+    msg.style.color = 'var(--err)';
+    msg.textContent = err.message.includes('ยังเทรนไม่เสร็จ')
+      ? 'ยังเทรนไม่เสร็จ — รอ Colab รันให้จบแล้วลองใหม่'
+      : `ดึง model ไม่สำเร็จ: ${err.message}`;
+  }
+}
+
+async function startFullTraining() {
+  if (!curDraftKey) return;
+  const btn = document.getElementById('btn-full-start');
+  btn.disabled = true;
+  btn.textContent = '⏳ กำลังเขียน dataset เข้า Drive...';
+  const prog = trainProgressStart(curDraftKey, document.getElementById('full-prog'));
+  try {
+    const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/full/start`);
+    prog.finish(true);
+    window.open(res.colab_url, '_blank');
+    await loadStep5();
+  } catch (err) {
+    prog.finish(false);
+    btn.disabled = false;
+    btn.textContent = '🚀 ลองอีกครั้ง';
+    alert(`Start full training ไม่สำเร็จ: ${err.message}`);
+  }
+}
+
+async function doDeploy() {
+  const isEdit = curDraftKey && curDraftKey.endsWith('__edit');
+  const parentKey = isEdit ? curDraftKey.slice(0, -'__edit'.length) : null;
+  const prompt = isEdit
+    ? `Deploy ทับ active "${parentKey}"? ตัวเก่าจะถูก backup ก่อน — Cloud Run restart ~30s`
+    : 'Deploy packaging นี้ขึ้น production? Cloud Run จะ restart ~30s';
+  if (!confirm(prompt)) return;
+  const btn = document.getElementById('btn-deploy');
+  btn.disabled = true;
+  btn.textContent = '⏳ Deploying...';
+  try {
+    const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/deploy`);
+    const cr = res.cloud_run || {};
+    let msg = '✅ Deploy สำเร็จ!\n\n';
+    msg += `Target: ${res.target_key || curDraftKey}\n`;
+    msg += `YAML: ${res.yaml_path}\n`;
+    if (res.model_promoted) msg += `Model: ${res.model_promoted}\n`;
+    if (res.backup && res.backup.files && res.backup.files.length) {
+      msg += `Backup: ${res.backup.files.length} files @ ${res.backup.timestamp}\n`;
+    }
+    msg += '\n' + (cr.triggered
+      ? `Cloud Run revision: triggered (~30s downtime)`
+      : `⚠ Cloud Run restart skipped: ${cr.reason || 'permission missing'}`);
+    alert(msg);
+    // Edit-draft is consumed on success — return to dashboard
+    if (isEdit) {
+      curDraftKey = null;
+      showView('dashboard');
+    } else {
+      await loadStep5();
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = isEdit ? `Deploy & Overwrite ${parentKey}` : 'Deploy to Production';
+    alert(`Deploy failed: ${err.message}`);
+  }
+}
+
+renderSteps();
+srSetMode('single');
+onPipelineChange();
+// Bootstrap: ถ้า URL มี draft+step → resume wizard, ไม่งั้นไป dashboard
+(async () => {
+  const resumed = await restoreFromUrl();
+  if (!resumed) loadDashboard();
+})();
+// Browser back/forward → sync state
+window.addEventListener('popstate', () => { restoreFromUrl(); });
+</script>
+</body>
+</html>

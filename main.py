@@ -16,7 +16,7 @@ from pipeline.packaging_registry import PackagingRegistry
 from pipeline.pipeline_runner import PipelineRunner
 from pipeline.preprocessor import Preprocessor
 from pipeline.qr_scanner import QrScanner
-from services import model_registry
+from services import config_overrides, model_registry
 from utils.sheet_checker import SheetChecker
 
 load_dotenv()
@@ -36,11 +36,17 @@ sheet_checker: SheetChecker | None = None
 registry: PackagingRegistry | None = None
 
 
+def reload_registry() -> None:
+    """Rebuild the registry with runtime tuning overrides merged in (ADR 0004)."""
+    global registry
+    registry = PackagingRegistry(overrides=config_overrides.load())
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global classifier, detector, pipeline_runner, sheet_checker, registry
     logger.info("Startup — loading models and config")
-    registry = PackagingRegistry()
+    reload_registry()
     clf_path, det_path = model_registry.sync()
     classifier = ImageClassifier(clf_path)
     detector = RegionDetector(det_path)
@@ -70,7 +76,7 @@ app.include_router(packagings_router)
 @app.get("/health")
 def health():
     """Health check สำหรับ Cloud Run"""
-    return {"status": "ok"}
+    return {"status": "ok", "test_mode": os.getenv("TEST_MODE") == "1"}
 
 
 @app.post("/predict")
@@ -180,7 +186,9 @@ async def predict(
 
     template = registry.get_template(config.message_template_key)
     lot_for_message = (
-        result.get("lot_box") if config.sub_regions else result.get("lot_number")
+        result.get("lot_box")
+        if config.detection_mode == "cross_check"
+        else result.get("lot_number")
     )
     verify_message = build_verify_message(config, template, sheet, lot_for_message)
 

@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,7 +23,19 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-_PACKAGING_DIR = Path("config/packagings")
+_KEY_RE = re.compile(r"[a-zA-Z0-9_\-]{1,64}")
+
+
+def _validate_key(key: str) -> None:
+    """Reject keys that could escape the GCS object namespace (`/`, `..`, etc.)."""
+    if not _KEY_RE.fullmatch(key):
+        raise ValueError(f"unsafe packaging key: {key!r}")
+
+def _packaging_dir() -> Path:
+    """Packagings dir — `OCR_CONFIG_DIR` env (test harness) or repo `config/packagings`."""
+    return Path(os.getenv("OCR_CONFIG_DIR", "config")) / "packagings"
+
+
 _MODELS_DIR = Path(os.getenv("MODELS_DIR", "models"))
 _BACKUP_KEEP = 3
 _CLOUD_RUN_PROJECT = os.getenv("CLOUD_RUN_PROJECT", "pj-ai-detect-lot-no")
@@ -43,7 +56,7 @@ def write_packaging_yaml(key: str, draft_meta: dict[str, Any]) -> Path:
     pipeline = draft_meta.get("pipeline", "detector_ocr")
 
     existing: dict[str, Any] = {}
-    out = _PACKAGING_DIR / f"{key}.yaml"
+    out = _packaging_dir() / f"{key}.yaml"
     if out.exists():
         try:
             existing = yaml.safe_load(out.read_text(encoding="utf-8")) or {}
@@ -57,7 +70,16 @@ def write_packaging_yaml(key: str, draft_meta: dict[str, Any]) -> Path:
         "fields_extracted": cfg.get("fields_extracted"),
         "sheet_checks": cfg.get("sheet_checks"),
         "message_template_key": cfg.get("message_template_key"),
+        "product_aliases": cfg.get("product_aliases"),
     }
+
+    sub_regions_final = draft_meta.get("sub_regions") or existing.get("sub_regions", [])
+    detection_mode = draft_meta.get("detection_mode") or existing.get("detection_mode", "single")
+    default_prefixes = (
+        [f"{key}_{sr}" for sr in sub_regions_final]
+        if detection_mode == "multi_field" and sub_regions_final
+        else [f"{key}_lot"]
+    )
 
     data = {
         "key": key,
@@ -67,7 +89,8 @@ def write_packaging_yaml(key: str, draft_meta: dict[str, Any]) -> Path:
         "accuracy": existing.get("accuracy"),  # cleared by /eval if retrained
         "gate_on_lot": existing.get("gate_on_lot", True),
         "lot_short_fallback": existing.get("lot_short_fallback", False),
-        "sub_regions": draft_meta.get("sub_regions") or existing.get("sub_regions", []),
+        "sub_regions": sub_regions_final,
+        "detection_mode": detection_mode,
         "lot_patterns": edited["lot_patterns"] if edited["lot_patterns"] is not None
             else existing.get("lot_patterns", []),
         "fields_extracted": edited["fields_extracted"] if edited["fields_extracted"] is not None
@@ -78,11 +101,14 @@ def write_packaging_yaml(key: str, draft_meta: dict[str, Any]) -> Path:
         "message_template_key": edited["message_template_key"]
             if edited["message_template_key"] is not None
             else existing.get("message_template_key", "lot_only"),
+        "product_aliases": edited["product_aliases"]
+            if edited["product_aliases"] is not None
+            else existing.get("product_aliases", []),
         "model_classifier_label": existing.get("model_classifier_label", key),
-        "detector_yolo_prefixes": existing.get("detector_yolo_prefixes", [f"{key}_lot"]),
+        "detector_yolo_prefixes": existing.get("detector_yolo_prefixes", default_prefixes),
     }
 
-    _PACKAGING_DIR.mkdir(parents=True, exist_ok=True)
+    _packaging_dir().mkdir(parents=True, exist_ok=True)
     out.write_text(
         yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
         encoding="utf-8",
@@ -104,9 +130,9 @@ def backup_artifacts(parent_key: str) -> dict[str, Any]:
     ts = _bak_suffix()
     manifest: dict[str, Any] = {"timestamp": ts, "files": []}
 
-    yaml_src = _PACKAGING_DIR / f"{parent_key}.yaml"
+    yaml_src = _packaging_dir() / f"{parent_key}.yaml"
     if yaml_src.exists():
-        dst = _PACKAGING_DIR / f"{parent_key}.yaml.bak-{ts}"
+        dst = _packaging_dir() / f"{parent_key}.yaml.bak-{ts}"
         shutil.copy2(yaml_src, dst)
         manifest["files"].append({"src": str(yaml_src), "bak": str(dst)})
         logger.info("Backed up YAML: %s", dst)
@@ -135,7 +161,7 @@ def restore_backup(manifest: dict[str, Any]) -> None:
 
 def _rotate_backups(parent_key: str, keep: int = _BACKUP_KEEP) -> None:
     """Keep only the most recent N backups per artifact type."""
-    yaml_baks = sorted(_PACKAGING_DIR.glob(f"{parent_key}.yaml.bak-*"))
+    yaml_baks = sorted(_packaging_dir().glob(f"{parent_key}.yaml.bak-*"))
     for old in yaml_baks[:-keep]:
         try:
             old.unlink()
@@ -153,20 +179,27 @@ def _rotate_backups(parent_key: str, keep: int = _BACKUP_KEEP) -> None:
                 pass
 
 
-def promote_draft_model(draft_key: str) -> Path | None:
-    """Copy a draft's trained detector to production `models/detector.pt`.
+def promote_draft_model(draft_key: str) -> dict[str, Path]:
+    """Copy a draft's trained detector + classifier to production models/.
 
-    Returns the destination path, or None if the draft has no trained model.
-    Caller is responsible for backing up the previous detector first.
+    Returns {"detector": Path, "classifier": Path} for whichever artifacts
+    exist under DRAFT_DIR/{draft_key}/models/. Caller backs up the previous
+    models first.
     """
-    src = Path("data/drafts") / draft_key / "models" / "full_detector.pt"
-    if not src.exists():
-        return None
+    draft_models = Path(os.getenv("DRAFT_DIR", "data/drafts")) / draft_key / "models"
     _MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    dst = _MODELS_DIR / "detector.pt"
-    shutil.copy2(src, dst)
-    logger.info("Promoted draft detector: %s → %s", src, dst)
-    return dst
+    promoted: dict[str, Path] = {}
+    for src_name, dst_name, label in (
+        ("full_detector.pt", "detector.pt", "detector"),
+        ("full_classifier.pt", "classifier.pt", "classifier"),
+    ):
+        src = draft_models / src_name
+        if src.exists():
+            dst = _MODELS_DIR / dst_name
+            shutil.copy2(src, dst)
+            logger.info("Promoted draft %s: %s → %s", label, src, dst)
+            promoted[label] = dst
+    return promoted
 
 
 def archive_packaging(key: str) -> Path:
@@ -174,10 +207,10 @@ def archive_packaging(key: str) -> Path:
 
     Returns the new path. Raises FileNotFoundError if no active YAML exists.
     """
-    src = _PACKAGING_DIR / f"{key}.yaml"
+    src = _packaging_dir() / f"{key}.yaml"
     if not src.exists():
         raise FileNotFoundError(f"no active YAML for '{key}'")
-    dst = _PACKAGING_DIR / f"{key}.yaml.archived"
+    dst = _packaging_dir() / f"{key}.yaml.archived"
     if dst.exists():
         dst.unlink()  # collapse stale archive if any
     src.rename(dst)
@@ -187,10 +220,10 @@ def archive_packaging(key: str) -> Path:
 
 def unarchive_packaging(key: str) -> Path:
     """Restore: rename {key}.yaml.archived → {key}.yaml."""
-    src = _PACKAGING_DIR / f"{key}.yaml.archived"
+    src = _packaging_dir() / f"{key}.yaml.archived"
     if not src.exists():
         raise FileNotFoundError(f"no archived YAML for '{key}'")
-    dst = _PACKAGING_DIR / f"{key}.yaml"
+    dst = _packaging_dir() / f"{key}.yaml"
     if dst.exists():
         raise FileExistsError(f"active '{key}' already exists — refusing to overwrite")
     src.rename(dst)
@@ -204,6 +237,94 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: f.read(65536), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def _empty_manifest() -> dict[str, Any]:
+    return {"version": 0, "packagings": {}, "archived": [], "models": {}}
+
+
+def publish_packaging_to_gcs(key: str) -> dict[str, Any]:
+    """Push the active YAML + current models to GCS so the change survives Cloud
+    Run revisions. Manifest is written LAST — if any upload fails the manifest is
+    untouched, so a new revision never sees a partial state.
+
+    Returns {'published': False, 'reason': ...} when GCS is not configured
+    (local dev / TEST_MODE) — callers treat that as a no-op, not an error.
+    """
+    from services import gcs_store
+
+    _validate_key(key)
+    store = gcs_store.get_store()
+    if store is None:
+        return {"published": False, "reason": "GCS_CONFIG_BUCKET not set"}
+
+    yaml_path = _packaging_dir() / f"{key}.yaml"
+    if not yaml_path.exists():
+        raise FileNotFoundError(f"no active YAML for '{key}'")
+
+    # Read manifest first so we can skip re-uploading unchanged (large) models.
+    manifest = store.read_json(gcs_store.MANIFEST_PATH) or _empty_manifest()
+    existing_models = manifest.get("models") or {}
+
+    yaml_text = yaml_path.read_text(encoding="utf-8")
+    store.put_text(
+        f"{gcs_store.PACKAGINGS_PREFIX}{key}.yaml", yaml_text, content_type="application/x-yaml"
+    )
+
+    models_meta: dict[str, Any] = {}
+    for label, fname in (("detector", "detector.pt"), ("classifier", "classifier.pt")):
+        src = _MODELS_DIR / fname
+        if src.exists():
+            obj = f"{gcs_store.MODELS_PREFIX}{fname}"
+            sha = sha256_file(src)
+            if existing_models.get(label, {}).get("sha256") != sha:
+                store.upload_file(obj, src)  # only upload when content changed
+            models_meta[label] = {"object": obj, "sha256": sha}
+
+    manifest.setdefault("packagings", {})[key] = {
+        "sha": hashlib.sha256(yaml_text.encode("utf-8")).hexdigest()
+    }
+    manifest["archived"] = [k for k in manifest.get("archived", []) if k != key]
+    if models_meta:
+        manifest.setdefault("models", {}).update(models_meta)
+    manifest["version"] = int(manifest.get("version", 0)) + 1
+    manifest["updated_at"] = datetime.now(timezone.utc).isoformat()
+    store.write_json(gcs_store.MANIFEST_PATH, manifest)  # commit point — LAST
+
+    logger.info("Published %s to GCS (version=%s, models=%s)", key, manifest["version"], list(models_meta))
+    return {"published": True, "version": manifest["version"], "models": list(models_meta)}
+
+
+def set_archived_in_gcs(key: str, archived: bool) -> dict[str, Any]:
+    """Toggle a packaging's archived state in the GCS manifest (commit point).
+
+    archived=True → registry overlay tombstones the key (removed from /predict).
+    The YAML object is kept so unarchive can restore it. No-op when GCS unset.
+    """
+    from services import gcs_store
+
+    _validate_key(key)
+    store = gcs_store.get_store()
+    if store is None:
+        return {"published": False, "reason": "GCS_CONFIG_BUCKET not set"}
+
+    manifest = store.read_json(gcs_store.MANIFEST_PATH) or _empty_manifest()
+    archived_set = set(manifest.get("archived", []))
+    packagings = manifest.setdefault("packagings", {})
+    if archived:
+        archived_set.add(key)
+        packagings.pop(key, None)
+    else:
+        archived_set.discard(key)
+        if store.exists(f"{gcs_store.PACKAGINGS_PREFIX}{key}.yaml"):
+            packagings[key] = packagings.get(key, {"sha": ""})
+    manifest["archived"] = sorted(archived_set)
+    manifest["version"] = int(manifest.get("version", 0)) + 1
+    manifest["updated_at"] = datetime.now(timezone.utc).isoformat()
+    store.write_json(gcs_store.MANIFEST_PATH, manifest)
+
+    logger.info("Set archived=%s for %s in GCS (version=%s)", archived, key, manifest["version"])
+    return {"published": True, "archived": archived, "version": manifest["version"]}
 
 
 def trigger_cloud_run_revision() -> dict[str, Any]:

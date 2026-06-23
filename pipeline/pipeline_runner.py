@@ -1,7 +1,9 @@
 import logging
 
 from pipeline.packaging_registry import PackagingConfig
+from utils.field_groups import parse_group
 from utils.image_utils import stack_images_vertically
+from utils.validators import find_lot, find_expiry, find_product_name, find_size
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +30,13 @@ class PipelineRunner:
             result.setdefault("size", None)
             return result, None
 
-        if config.sub_regions:
+        # Detection mode is the explicit router (see CONTEXT.md / spec
+        # 2026-06-14-multi-field-detection). cross_check = compare same value
+        # across crops; multi_field = each crop is a different field.
+        if config.detection_mode == "cross_check":
             return self._run_multi_region(image_bytes, config)
-
+        if config.detection_mode == "multi_field":
+            return self._run_multi_field(image_bytes, config)
         return self._run_single_region(image_bytes, config)
 
     def _run_single_region(
@@ -82,6 +88,52 @@ class PipelineRunner:
             "exp_box":      box.get("exp_date"),
             "exp_sachet":   sachet.get("exp_date"),
             "status":       "ok" if any(c.get("lot_number") for c in crops) else "not_found",
+        }
+        bbox = detections[0].bbox if detections else None
+        return result, bbox
+
+    def _run_multi_field(
+        self, image_bytes: bytes, config: PackagingConfig
+    ) -> tuple[dict, object]:
+        """multi_field — each field has its own crop class {key}_{field}.
+        OCR each crop separately and assign its text to that field's extractor.
+        Returns the SAME dict shape as _run_single_region (no lot_box/sachet)."""
+        detections = self._detector.crop_all(image_bytes, config.key)
+        prefix = f"{config.key}_"
+        texts: dict[str, list[str]] = {}
+        raw_parts: list[str] = []
+        for det in detections:
+            cls = det.class_name or ""
+            if not cls.startswith(prefix):
+                continue
+            group = cls[len(prefix):]
+            processed = self._preprocessor.run(det.cropped_bytes, config.key)
+            text = self._ocr_engine.run(processed, config=config)["raw_text"]
+            raw_parts.append(text)
+            for field in parse_group(group):
+                texts.setdefault(field, []).append(text)
+
+        def joined(field: str) -> str:
+            return "\n".join(texts.get(field, [])).strip()
+
+        lot_text = joined("lot")
+        lot = (
+            find_lot(lot_text, image_class=config.key, patterns=config.lot_patterns)
+            if lot_text else None
+        )
+        result = {
+            "lot_number":   lot,
+            "exp_date":     find_expiry(joined("exp")) if texts.get("exp") else None,
+            "mfg_date":     None,
+            "product_name": find_product_name(joined("product"), config.product_aliases) if texts.get("product") else None,
+            "size":         find_size(joined("size")) if texts.get("size") else None,
+            "raw_text":     "\n".join(raw_parts),
+            "confidence":   None,
+            "lot_box":      None,
+            "lot_sachet":   None,
+            "exp_box":      None,
+            "exp_sachet":   None,
+            "status":       "ok" if lot else "not_found",
         }
         bbox = detections[0].bbox if detections else None
         return result, bbox

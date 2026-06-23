@@ -80,11 +80,6 @@ body{
 .nav-item:hover{background:var(--s1);color:var(--t1)}
 .nav-item.active{background:var(--acc-bg);color:var(--acc)}
 .nav-item.soon{opacity:.4;cursor:not-allowed;pointer-events:none}
-.nav-item.locked{opacity:.45;cursor:not-allowed}
-.nav-item.locked:hover{background:transparent;color:var(--t2)}
-.nav-item.locked::after{
-  content:'🔒';font-size:9px;margin-left:auto;opacity:.6;
-}
 
 /* Toast */
 .toast{
@@ -100,6 +95,12 @@ body{
   max-width:90vw;
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.has-action{pointer-events:auto;display:flex;align-items:center;gap:14px}
+.toast-action{
+  background:transparent;border:none;color:var(--acc);
+  font-size:13px;font-weight:600;cursor:pointer;padding:0;
+}
+.toast-action:hover{text-decoration:underline}
 .soon-tag{background:transparent !important;border:1px solid var(--bd) !important;color:var(--t3) !important;text-transform:uppercase;font-size:9px !important}
 .nav-item svg{flex-shrink:0;opacity:.7}
 .nav-item.active svg{opacity:1}
@@ -364,6 +365,10 @@ label{
 }
 .req{color:var(--acc);margin-left:2px}
 .hint{font-weight:400;color:var(--t3);font-size:11px;margin-left:6px}
+.pa-hint{background:var(--acc-bg);border-left:3px solid var(--acc-bd);border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12px;line-height:1.65;color:var(--t2)}
+.pa-hint strong{color:var(--t1);font-weight:600}
+.pa-hint code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--s2);padding:1px 5px;border-radius:4px;color:var(--t1)}
+.pa-hint .pa-hint-eg{margin-top:6px}
 input[type=text],input[type=email],textarea,select{
   width:100%;background:var(--s2);border:1px solid var(--bd);
   border-radius:7px;padding:10px 12px;color:var(--t1);
@@ -378,6 +383,110 @@ select{
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238A8FA5' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 12px center;
 }
+/* Dark dropdown popup (native option list defaults to white otherwise) */
+select option,select optgroup{
+  background:var(--s1);color:var(--t1);
+}
+
+/* ── Crop-region builder ─────────────────────────── */
+.sr-builder{display:flex;flex-direction:column;gap:9px}
+.sr-list{display:flex;flex-direction:column;gap:8px}
+.sr-row{
+  display:flex;align-items:center;gap:10px;
+  background:var(--s2);border:1px solid var(--bd);
+  border-radius:8px;padding:6px 8px 6px 12px;
+  transition:border-color .15s,background .15s;
+  animation:srPop .22s cubic-bezier(.16,1,.3,1);
+}
+.sr-row:hover{border-color:var(--bd2)}
+.sr-row:focus-within{border-color:var(--acc-bd);background:var(--s3)}
+@keyframes srPop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.sr-dot{
+  width:9px;height:9px;border-radius:50%;flex:0 0 auto;
+  box-shadow:0 0 0 3px rgba(255,255,255,.025);transition:background .15s;
+}
+.sr-idx{
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:var(--t3);min-width:11px;text-align:center;flex:0 0 auto;
+}
+.sr-row input[type=text]{
+  flex:1;width:auto;margin:0;border:none;background-color:transparent;
+  padding:5px 2px;font-family:'JetBrains Mono',monospace;
+  font-size:13px;color:var(--t1);border-radius:0;
+}
+.sr-row select{
+  flex:1;width:auto;margin:0;border:none;background-color:var(--s2);
+  padding:5px 22px 5px 2px;font-family:'JetBrains Mono',monospace;
+  font-size:13px;color:var(--t1);border-radius:0;
+  background-position:right 4px center;
+}
+.sr-row:focus-within select{background-color:var(--s3)}
+.sr-row input[type=text]:focus,.sr-row select:focus{border-color:transparent}
+.sr-row input[type=text]::placeholder{color:var(--t3)}
+.sr-mini{
+  flex:0 0 auto;width:26px;height:26px;border-radius:6px;border:none;
+  background:transparent;color:var(--t3);cursor:pointer;font-size:15px;line-height:1;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;
+}
+.sr-mini:hover{background:var(--s3);color:var(--t1)}
+.sr-del:hover{background:var(--err-bg);color:var(--err)}
+.sr-add{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:7px;
+  background:transparent;border:1px dashed var(--bd2);border-radius:8px;
+  padding:10px;color:var(--t2);font-size:12px;font-weight:600;
+  font-family:inherit;cursor:pointer;transition:all .15s;
+}
+.sr-add svg{transition:transform .2s}
+.sr-add:hover:not(:disabled){border-color:var(--acc-bd);color:var(--acc);background:var(--acc-bg)}
+.sr-add:hover:not(:disabled) svg{transform:rotate(90deg)}
+.sr-add:disabled{opacity:.35;cursor:not-allowed}
+.sr-foot{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;font-size:11px;color:var(--t3);line-height:1.6}
+.sr-foot-count{font-family:'JetBrains Mono',monospace;color:var(--t2)}
+.sr-foot-count b{color:var(--acc);font-weight:600}
+.sr-foot-eg code{color:var(--t2);font-family:'JetBrains Mono',monospace;font-size:10.5px}
+/* Single (default) crop region */
+.sr-single-card{
+  display:flex;align-items:flex-start;gap:11px;
+  background:var(--s2);border:1px solid var(--bd);
+  border-left:3px solid var(--acc);border-radius:7px;
+  padding:11px 13px;
+}
+.sr-single-card .sr-dot{margin-top:5px}
+.sr-single-name{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--t1);font-weight:600}
+.sr-single-desc{font-size:11.5px;color:var(--t2);line-height:1.6;margin-top:3px}
+.sr-hint-step4{
+  font-size:11.5px;color:var(--t2);line-height:1.6;
+  background:var(--acc-bg);border-radius:6px;padding:8px 11px;margin-top:9px;
+}
+.sr-hint-step4 b{color:var(--acc2);font-weight:600}
+.sr-adv-toggle{
+  display:block;width:100%;text-align:left;margin-top:9px;
+  background:transparent;border:none;cursor:pointer;
+  font-family:inherit;font-size:11px;color:var(--t3);
+  padding:2px 0;transition:color .15s;
+}
+.sr-adv-toggle:hover{color:var(--acc)}
+.sr-adv-toggle b{color:var(--t2);font-weight:600}
+.sr-adv-toggle:hover b{color:var(--acc)}
+#sr-multi{display:flex;flex-direction:column;gap:9px}
+.sr-multi-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font-size:11px;color:var(--t3);line-height:1.5;
+}
+.sr-adv-collapse{
+  flex:0 0 auto;background:transparent;border:none;cursor:pointer;
+  font-family:inherit;font-size:11px;color:var(--t3);padding:2px 4px;transition:color .15s;
+}
+.sr-adv-collapse:hover{color:var(--acc)}
+/* Mode tabs — 3-way crop mode selector */
+.sr-mode-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.sr-mode-tab{
+  flex:1 1 auto;padding:6px 10px;border-radius:6px;border:1px solid var(--bd);
+  background:var(--s2);color:var(--t2);font-family:inherit;font-size:11.5px;
+  cursor:pointer;transition:background .15s,color .15s,border-color .15s;text-align:center;
+}
+.sr-mode-tab:hover{color:var(--acc);border-color:var(--acc)}
+.sr-mode-tab.on{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:600}
 
 /* Info box */
 .info-box{
@@ -410,6 +519,50 @@ select{
 .pbar-wrap{height:6px;background:var(--s2);border-radius:10px;overflow:hidden}
 .pbar{height:100%;border-radius:10px;background:linear-gradient(to right,var(--acc),var(--acc2));transition:width .4s ease}
 .pbar.green{background:linear-gradient(to right,var(--ok),#2EBF8A)}
+
+/* ── TRAINING UPLOAD PROGRESS (Drive) ─────────────── */
+.train-prog{
+  display:none;margin-top:14px;padding:14px 16px;
+  background:linear-gradient(135deg,var(--s1),var(--s0));
+  border:1px solid var(--acc-bd);border-radius:10px;
+  text-align:left;
+}
+.train-prog.on{display:block;animation:tpIn .35s cubic-bezier(.22,1,.36,1)}
+@keyframes tpIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.train-prog-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px;gap:10px}
+.train-prog-phase{font-size:12px;color:var(--t2);display:flex;align-items:center;min-width:0}
+.tp-dot{
+  flex-shrink:0;width:7px;height:7px;border-radius:50%;
+  background:var(--acc);margin-right:8px;
+  box-shadow:0 0 8px rgba(232,160,32,.55);
+  animation:tpPulse 1.1s ease-in-out infinite;
+}
+@keyframes tpPulse{50%{opacity:.3}}
+.train-prog-pct{
+  font-family:'JetBrains Mono',monospace;
+  font-size:16px;font-weight:600;color:var(--acc2);
+  font-variant-numeric:tabular-nums;flex-shrink:0;
+}
+.train-prog-bar{height:7px;background:var(--s3);border-radius:99px;overflow:hidden;position:relative}
+.train-prog-fill{
+  height:100%;width:0%;border-radius:99px;position:relative;overflow:hidden;
+  background:linear-gradient(90deg,var(--acc),var(--acc2));
+  transition:width .5s cubic-bezier(.22,1,.36,1);
+}
+.train-prog-fill::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.4) 50%,transparent 70%);
+  animation:tpShine 1.5s linear infinite;
+}
+@keyframes tpShine{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.train-prog-fill.indet{width:38%;animation:tpIndet 1.25s cubic-bezier(.45,.05,.55,.95) infinite;transition:none}
+@keyframes tpIndet{from{transform:translateX(-110%)}to{transform:translateX(300%)}}
+.train-prog-fill.ok{background:linear-gradient(90deg,var(--ok),#2EBF8A)}
+.train-prog-file{
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t3);
+  margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-variant-numeric:tabular-nums;
+}
 .thumb-grid{display:grid;grid-template-columns:repeat(auto-fill,54px);gap:6px;margin-top:13px}
 .thumb{
   width:54px;height:54px;border-radius:6px;
@@ -480,6 +633,22 @@ select{
   font-family:'JetBrains Mono',monospace;font-size:11px;
   background:rgba(52,211,153,.08);color:var(--ok);
   padding:1px 6px;border-radius:3px;
+}
+
+/* ── PRODUCT ALIASES ─────────────────────────────── */
+.pa-head{display:grid;grid-template-columns:1fr 1.3fr 28px;gap:8px;margin-bottom:6px}
+.pa-head label{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);margin:0}
+.pa-rows{display:flex;flex-direction:column;gap:8px}
+.pa-row{display:grid;grid-template-columns:1fr 1.3fr 28px;gap:8px;align-items:center}
+.pa-row input{width:100%;min-width:0;font-size:13px}
+.pa-row .pa-preview{grid-column:1 / -1;font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-top:-2px;min-height:14px}
+.pa-row .pa-preview.warn{color:var(--warn);font-family:inherit}
+.pa-row .pa-preview code{background:var(--s2);padding:0 4px;border-radius:3px;color:var(--t1)}
+.pa-row .pa-keywords{font-family:'JetBrains Mono',monospace;letter-spacing:.03em}
+@media(max-width:560px){
+  .pa-head{display:none}
+  .pa-row{grid-template-columns:1fr 28px}
+  .pa-row .pa-keywords{grid-column:1 / -1}
 }
 
 /* Checkboxes */
@@ -656,6 +825,17 @@ select{
   width:8px;height:8px;border-radius:50%;
   background:var(--c-stroke, var(--acc));
 }
+.sr-grp-set{border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin:0;display:flex;flex-direction:column;gap:8px}
+.sr-grp-legend{font-size:11px;color:var(--t3);padding:0 6px;letter-spacing:.04em;text-transform:uppercase}
+.sr-grp-row{display:flex;align-items:center;gap:10px}
+.sr-grp-row .cbitem{flex:1;margin:0}
+.sr-grp-box{background-color:var(--s1);color:var(--t1);border:1px solid var(--bd);border-radius:8px;padding:5px 8px;font-size:12px;min-width:88px;min-height:32px;cursor:pointer}
+.sr-grp-box option{background:var(--s1);color:var(--t1)}
+.sr-grp-box:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.sr-grp-box:disabled{opacity:.4;cursor:not-allowed}
+.sr-grp-preview{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;min-height:26px}
+.sr-grp-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:999px;color:var(--t1)}
+.sr-grp-pill-dot{width:8px;height:8px;border-radius:50%;flex:none}
 .annot-thumbs{
   display:flex;gap:6px;
   overflow-x:auto;overflow-y:hidden;
@@ -884,6 +1064,14 @@ select{
 }
 .dsec-stat-val.g{color:var(--ok)}
 .dsec-stat-val.w{color:var(--warn)}
+.conf-edit{display:flex;align-items:center;gap:6px;margin-top:3px}
+.conf-input{
+  width:64px;background:var(--s2);border:1px solid var(--bd);
+  border-radius:5px;color:var(--t1);
+  font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:500;
+  padding:2px 6px;
+}
+.conf-input:focus{outline:none;border-color:var(--acc)}
 .code-block{
   font-family:'JetBrains Mono',monospace;font-size:11px;
   background:var(--s1);border:1px solid var(--bd);
@@ -1014,6 +1202,12 @@ select{
 <!-- MAIN -->
 <main class="main">
   <header class="topbar" id="topbar">
+    <button class="btn btn-ghost btn-sm" id="topbar-back" style="display:none" onclick="showView('dashboard')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+      </svg>
+      กลับ
+    </button>
     <div class="topbar-title" id="topbar-title">Packaging <i>Wizard</i></div>
     <div class="topbar-spacer"></div>
     <button class="btn btn-primary btn-sm" id="topbar-add" onclick="startWizard()">
@@ -1118,19 +1312,77 @@ select{
               </div>
               <div class="fgroup">
                 <label>ประเภท Pipeline <span class="req">*</span></label>
-                <select id="inp-pipeline">
+                <select id="inp-pipeline" onchange="onPipelineChange()">
                   <option value="detector_ocr" selected>Detector + OCR (สำหรับ packaging ทั่วไป)</option>
                   <option value="qr_scanner">QR Scanner (สำหรับที่มี QR code)</option>
                 </select>
               </div>
-              <div class="fgroup">
-                <label>Sub-regions <span class="hint">บริเวณที่จะ crop — comma-separated (default: lot)</span></label>
-                <input type="text" id="inp-sub-regions" value="lot" placeholder="lot, name, size"
-                  style="font-family:'JetBrains Mono',monospace;font-size:13px">
-                <div style="font-size:11px;color:var(--t3);margin-top:5px;line-height:1.6">
-                  ตัวอย่าง: <code style="color:var(--acc)">lot</code> (รูปเดียว),
-                  <code style="color:var(--acc)">lot, name, size</code> (3 จุดเหมือน back_label),
-                  <code style="color:var(--acc)">box, sachet</code> (2 จุดเหมือน container_label)
+              <div class="fgroup" id="crop-fgroup">
+                <label>จุดที่จะ Crop <span class="hint">บริเวณที่ AI จะหากรอบมาอ่าน</span></label>
+
+                <div class="sr-mode-tabs">
+                  <button type="button" class="sr-mode-tab on" data-mode="single" onclick="srSetMode('single')">ข้อมูลอยู่ใกล้กัน — กรอบเดียว</button>
+                  <button type="button" class="sr-mode-tab" data-mode="multi_field" onclick="srSetMode('multi_field')">แต่ละข้อมูลอยู่คนละมุม</button>
+                  <button type="button" class="sr-mode-tab" data-mode="cross_check" onclick="srSetMode('cross_check')">lot อยู่หลายที่ ต้องเทียบ</button>
+                </div>
+
+                <!-- SINGLE (default) — one region called "lot" -->
+                <div id="sr-single">
+                  <div class="sr-single-card">
+                    <span class="sr-dot" style="background:#E8A020"></span>
+                    <div class="sr-single-body">
+                      <div class="sr-single-name">lot</div>
+                      <div class="sr-single-desc">AI หา "บริเวณ lot" ให้ — ลากกรอบครอบให้คลุม<b>ข้อความที่อยากอ่านทั้งหมด</b> (lot + วันหมดอายุ/ชื่อสินค้า/ขนาด ที่อยู่ใกล้กัน) ลากได้หลายกรอบในบริเวณเดียวกัน</div>
+                    </div>
+                  </div>
+                  <div class="sr-hint-step4">
+                    เลือก field ที่จะดึง (<b>วันหมดอายุ / ชื่อสินค้า / ขนาด</b>) ได้ใน <b>Step 4 (Config)</b> — แต่ค่าจะดึงจาก<b>ข้อความในกรอบที่คุณลาก</b> ฉะนั้นถ้าข้อความอยู่คนละมุม ลากกรอบครอบให้คลุมด้วย (ยังนับเป็นจุด lot จุดเดียว ไม่ต้องใช้โหมดขั้นสูง)
+                  </div>
+                  <button type="button" class="sr-adv-toggle" onclick="srToggleAdvanced(true)">
+                    ⚙ ขั้นสูง: lot พิมพ์ทั้งบน<b>กล่องนอก</b> + <b>ซองใน</b>? (เช่น container_label)
+                  </button>
+                </div>
+
+                <!-- MULTI (advanced) — physically-separate locations, cross-checked -->
+                <div id="sr-multi" style="display:none">
+                  <div class="sr-multi-head">
+                    <span>lot/วันที่ ปรากฏหลายตำแหน่ง — ครอบแยกเพื่อเทียบว่าตรงกัน</span>
+                    <button type="button" class="sr-adv-collapse" onclick="srToggleAdvanced(false)">↩ กลับเป็นจุดเดียว</button>
+                  </div>
+                  <div class="sr-list" id="sr-list"></div>
+                  <button type="button" class="sr-add" id="sr-add" onclick="srAdd()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    เพิ่มตำแหน่ง
+                  </button>
+                  <div class="sr-foot">
+                    <span class="sr-foot-count"><b id="sr-count">2</b> ตำแหน่ง</span>
+                    <span class="sr-foot-eg">เช่น <code>box · sachet</code> แบบ container_label (เทียบวันบนกล่องนอกกับซองใน)</span>
+                  </div>
+                </div>
+
+                <!-- MULTI_FIELD — each box holds ≥1 field; same box number = shared crop -->
+                <div id="sr-fields" style="display:none">
+                  <div class="sr-multi-head"><span>ติ๊ก field ที่ packaging นี้มี แล้วเลือก "กรอบที่" — field ที่อยู่กรอบเลขเดียวกันจะถูกอ่านจากกรอบเดียวกัน (เช่น lot กับวันหมดอายุ พิมพ์ติดกัน)</span></div>
+                  <fieldset class="sr-grp-set">
+                    <legend class="sr-grp-legend">Field และกรอบ</legend>
+                    <div class="sr-grp-row">
+                      <label class="cbitem on disabled"><input type="checkbox" data-field="lot" checked disabled> lot</label>
+                      <select class="sr-grp-box" data-box-for="lot" aria-label="กรอบของ lot" onchange="srPickBox('lot', this.value)"></select>
+                    </div>
+                    <div class="sr-grp-row">
+                      <label class="cbitem"><input type="checkbox" data-field="exp" onchange="srGroupChanged()"> วันหมดอายุ</label>
+                      <select class="sr-grp-box" data-box-for="exp" aria-label="กรอบของ วันหมดอายุ" onchange="srPickBox('exp', this.value)"></select>
+                    </div>
+                    <div class="sr-grp-row">
+                      <label class="cbitem"><input type="checkbox" data-field="product" onchange="srGroupChanged()"> ชื่อสินค้า</label>
+                      <select class="sr-grp-box" data-box-for="product" aria-label="กรอบของ ชื่อสินค้า" onchange="srPickBox('product', this.value)"></select>
+                    </div>
+                    <div class="sr-grp-row">
+                      <label class="cbitem"><input type="checkbox" data-field="size" onchange="srGroupChanged()"> ขนาด</label>
+                      <select class="sr-grp-box" data-box-for="size" aria-label="กรอบของ ขนาด" onchange="srPickBox('size', this.value)"></select>
+                    </div>
+                  </fieldset>
+                  <div class="sr-grp-preview" id="sr-grp-preview" aria-live="polite"></div>
                 </div>
               </div>
             </div>
@@ -1192,7 +1444,7 @@ select{
           <div id="sp3" class="step-panel" style="display:none">
             <div class="wiz-card" style="padding:18px">
               <div class="wiz-card-title" style="font-size:18px;margin-bottom:4px">Annotation — ลากกรอบ Lot</div>
-              <div class="wiz-card-desc" style="margin-bottom:14px">ลากเมาส์บนรูปสร้างกรอบรอบ <strong style="color:var(--t1)">lot number</strong> — อย่างน้อย 20 รูป — AI จะเรียนรู้จากที่ ops ลาก</div>
+              <div class="wiz-card-desc" style="margin-bottom:14px">ลากเมาส์บนรูปสร้างกรอบรอบ <strong style="color:var(--t1)">lot number</strong> — อย่างน้อย 30 รูป — AI จะเรียนรู้จากที่ ops ลาก</div>
 
               <!-- Annotator: thumbs + canvas + side panel -->
               <div class="annot-wrap" id="annot-wrap">
@@ -1235,7 +1487,7 @@ select{
                   <div class="annot-progress">
                     <div class="annot-progress-bar"><div class="annot-progress-fill" id="annot-pbar" style="width:0%"></div></div>
                     <div class="annot-progress-text">
-                      <span>Labeled <strong id="annot-lc">0</strong> / <strong id="annot-target">20</strong></span>
+                      <span>Labeled <strong id="annot-lc">0</strong> / <strong id="annot-target">30</strong></span>
                       <span style="color:var(--t3)">Total: <span id="annot-total">—</span> รูป</span>
                     </div>
                   </div>
@@ -1246,28 +1498,27 @@ select{
                 </div>
               </div>
 
-              <!-- Post-annotation: Colab seed training (still simulated for now) -->
-              <div id="ls-done" style="display:none;margin-top:16px">
-                <div class="info-box ok">✅ <strong>Label ครบเป้า</strong> — พร้อม seed training</div>
-                <div style="text-align:center;margin-top:10px">
-                  <button class="btn btn-primary" onclick="openColab()" id="btn-open-colab">
-                    🚀 เริ่ม Seed Training (เปิด Colab)
+              <!-- Prelabel (edit-draft only): borrow the deployed detector -->
+              <div id="prelabel-bar" style="display:none; margin-top:14px;">
+                <div class="info-box">
+                  <span aria-hidden="true">🪄</span> <strong>Prelabel อัตโนมัติ</strong> —
+                  ใช้ detector ตัวที่ deploy อยู่ ใส่กรอบให้รูปที่ยังไม่ label
+                  <span style="color:var(--t3)">(ตรวจ/แก้ได้ภายหลัง)</span>
+                </div>
+                <div style="text-align:center; margin-top:10px;">
+                  <button class="btn btn-secondary" id="btn-prelabel" onclick="runPrelabel()"
+                    title="ใช้ deployed detector ใส่กรอบรูปที่ยังไม่ label อัตโนมัติ">
+                    <span aria-hidden="true">🪄</span> Prelabel รูปที่ยังไม่ label
                   </button>
                 </div>
               </div>
-              <div id="colab-done" style="display:none;margin-top:12px">
-                <div class="info-box">
-                  <strong>📒 Colab tab เปิดแล้ว</strong> — ใน Colab:
-                  <ol style="margin:6px 0 0 18px;padding:0;font-size:12px;line-height:1.7">
-                    <li>กด <kbd style="font-family:'JetBrains Mono',monospace;background:var(--s2);padding:1px 5px;border-radius:3px;border:1px solid var(--bd)">Runtime → Run all</kbd> (หรือ Ctrl+F9)</li>
-                    <li>ตอน Colab ขอ auth → กด Allow (อัปโหลด model กลับ Drive)</li>
-                    <li>รอประมาณ <strong>10-15 นาที</strong> — เมื่อขึ้น <strong>"TRAINING DONE"</strong></li>
-                    <li>กลับมาคลิกปุ่มข้างล่าง</li>
-                  </ol>
-                </div>
-                <div style="margin-top:10px;text-align:center">
-                  <button class="btn btn-primary" onclick="trainingSeedDone()" id="btn-step3-next">
-                    Training done — Pull model + pre-label →
+
+              <!-- Ready → next, once labeled target is met -->
+              <div id="ls-done" style="display:none; margin-top:16px;">
+                <div class="info-box ok"><span aria-hidden="true">✅</span> <strong>Label ครบเป้า</strong> — พร้อมไปตั้งค่า Config</div>
+                <div style="text-align:center; margin-top:10px;">
+                  <button class="btn btn-primary" id="btn-step3-next" onclick="goStep(4)">
+                    ถัดไป: ตั้งค่า Config <span aria-hidden="true">→</span>
                   </button>
                 </div>
               </div>
@@ -1321,11 +1572,11 @@ select{
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Expiry Date</div><div class="cb-desc">ค้นหาจาก BBD / EXP / หมดอายุ</div></div>
                   </div>
-                  <div class="cbitem" data-field="product" onclick="toggleCb(this)">
+                  <div class="cbitem" data-field="product" onclick="toggleCb(this); syncProductAliasVisibility()">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Product Name</div><div class="cb-desc">เช่น Houjicha Powder, Classic Rich 95%</div></div>
                   </div>
-                  <div class="cbitem" data-field="size" onclick="toggleCb(this)">
+                  <div class="cbitem" data-field="size" onclick="toggleCb(this); updateAllProdPreviews()">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Size / Weight</div><div class="cb-desc">เช่น 40 g, 200 g, 1 kg</div></div>
                   </div>
@@ -1343,6 +1594,30 @@ select{
                     <div><div class="cb-lbl">Exp match</div><div class="cb-desc">ตรวจวันหมดอายุตรงกับ sheet</div></div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div class="wiz-card" id="pa-card" style="display:none">
+              <div class="wiz-card-title" style="font-size:18px">ชื่อ Product & คำที่พบบนซอง</div>
+              <div class="wiz-card-desc" style="margin-bottom:15px">
+                OCR อ่านข้อความบนบรรจุภัณฑ์แล้วระบบจะมองหา "คำที่พบบนซอง" เพื่อแปลงเป็น
+                "ชื่อ Product" ที่ต้องตรงกับคอลัมน์ Product Name ใน Google Sheet —
+                ใส่ product ใหม่ได้เองโดยไม่ต้องแก้โค้ด
+              </div>
+              <div class="pa-hint">
+                💡 ช่อง <strong>"ชื่อ Product"</strong> เป็น <strong>template</strong> — พิมพ์ข้อความได้อิสระ และใส่ <code>{size}</code> ตรงไหนก็ได้เพื่อให้ระบบแทนด้วยขนาดที่ OCR อ่านเจอ · ต้องตรงกับคอลัมน์ Product Name ใน Sheet แบบทุกตัวอักษร
+                <div class="pa-hint-eg">▸ <code>Medium {size}</code> → ถ้า OCR เจอ 40 g จะได้ <code>Medium 40 g</code> (แถวเดียวคุมได้ทุกขนาด)</div>
+                <div class="pa-hint-eg">▸ <code>Houjicha Powder</code> → ได้ <code>Houjicha Powder</code> (ไม่ใส่ <code>{size}</code> = ไม่ต่ออะไร)</div>
+                <div class="pa-hint-eg">▸ ถ้าใส่ <code>{size}</code> แต่ OCR อ่านขนาดไม่เจอ → product จะถือว่าไม่ผ่าน (เปิด field "ขนาด" ด้านบนด้วย)</div>
+              </div>
+              <div class="fgroup">
+                <div class="pa-head">
+                  <label>ชื่อ Product (ตรงกับ Sheet) <span class="req">*</span></label>
+                  <label>คำที่พบบนซอง (คั่นด้วย ,)</label>
+                  <span></span>
+                </div>
+                <div class="pa-rows" id="pa-rows"></div>
+                <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addProdAlias()">+ เพิ่ม Product</button>
               </div>
             </div>
 
@@ -1473,7 +1748,7 @@ async function api(method, path, body) {
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]); }
 
 let _toastTimer = null;
-function showToast(msg, ms = 2800) {
+function showToast(msg, ms = 2800, action = null) {
   let t = document.getElementById('toast');
   if (!t) {
     t = document.createElement('div');
@@ -1484,6 +1759,18 @@ function showToast(msg, ms = 2800) {
     document.body.appendChild(t);
   }
   t.textContent = msg;
+  t.classList.toggle('has-action', !!action);
+  if (action) {
+    const btn = document.createElement('button');
+    btn.className = 'toast-action';
+    btn.textContent = action.label;
+    btn.onclick = () => {
+      t.classList.remove('show');
+      clearTimeout(_toastTimer);
+      action.onClick();
+    };
+    t.appendChild(btn);
+  }
   t.classList.add('show');
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => t.classList.remove('show'), ms);
@@ -1505,15 +1792,7 @@ let currentView = 'dashboard';
 function showView(id) {
   // No-op guard — กัน fade-out/in ซ้ำเมื่อเรียกซ้ำ view เดิม
   if (id === currentView) return;
-  // Block sidebar/breadcrumb leaving wizard with active draft — ออกได้ผ่าน step actions เท่านั้น
-  if (currentView === 'wizard' && id === 'dashboard' && curDraftKey) {
-    showToast('อยู่ใน wizard — กดปุ่ม "ยกเลิก" บน step 1 ถ้าต้องการออก');
-    return;
-  }
   currentView = id;
-  // Visual: gray out sidebar Packaging while in wizard
-  const navDash = document.getElementById('nav-dash');
-  if (navDash) navDash.classList.toggle('locked', id === 'wizard' && !!curDraftKey);
   if (id === 'dashboard') {
     curDraftKey = null;
     syncUrl();
@@ -1529,13 +1808,14 @@ function showView(id) {
   // Hide topbar "+ Add Packaging" while inside wizard — กันคลิกแล้ว reset เด้งกลับ step 1
   const topbarAdd = document.getElementById('topbar-add');
   if (topbarAdd) topbarAdd.style.display = (id === 'dashboard') ? '' : 'none';
+  // "← กลับ" โชว์เฉพาะใน wizard — draft ถูก auto-save ไว้แล้ว กลับมาทำต่อจาก dashboard ได้
+  const topbarBack = document.getElementById('topbar-back');
+  if (topbarBack) topbarBack.style.display = (id === 'wizard') ? '' : 'none';
 
   const tt = document.getElementById('topbar-title');
   if (id === 'dashboard') {
     tt.innerHTML = 'Packaging <i>Wizard</i>';
   } else {
-    // Breadcrumb เป็น label เฉยๆ — ไม่ clickable เพื่อกันกดโดนเด้ง
-    // ทางออก: sidebar "Packaging" nav-item หรือ step 1 "ยกเลิก"
     const name = document.getElementById('inp-display-name')?.value || curDraftKey || 'New Packaging';
     tt.innerHTML = `<span style="font-size:13px;color:var(--t3)">Packaging</span>
        <span style="color:var(--t3);margin:0 6px">›</span>
@@ -1546,6 +1826,9 @@ function showView(id) {
 function startWizard() {
   closeDrawer();
   curStep = 1; curDraftKey = null;
+  cropRegions = [{ value: 'box', custom: false }, { value: 'sachet', custom: false }];
+  srSetMode('single');
+  onPipelineChange();
   renderSteps();
   showView('wizard');
   syncUrl();
@@ -1558,6 +1841,7 @@ function goStep(n) {
   if (content) content.scrollTo({top: 0, behavior: 'smooth'});
   if (n === 2) initStep2();
   if (n === 3) loadAnnotator();
+  if (n === 4) { prefillFieldsFromSubRegions(); syncProductAliasVisibility(); }
   if (n === 5) loadStep5();
   syncUrl();
 }
@@ -1654,7 +1938,7 @@ function renderSteps() {
 }
 
 // ─── DASHBOARD ─────────────────────────────
-// _editMap: parent_key → edit-draft key, populated from /api/packagings response
+// _editMap: parent_key → {key, status} ของ edit-draft, populated from /api/packagings response
 let _editMap = {};
 
 async function loadDashboard() {
@@ -1672,7 +1956,7 @@ async function loadDashboard() {
     for (const pkg of items) {
       if (pkg.key && pkg.key.endsWith('__edit')) {
         const parentKey = pkg.key.slice(0, -'__edit'.length);
-        _editMap[parentKey] = pkg.key;
+        _editMap[parentKey] = { key: pkg.key, status: pkg.status };
       }
     }
 
@@ -1706,8 +1990,8 @@ async function loadDashboard() {
 function renderCard(pkg) {
   const isActive = pkg.status === 'active';
   const isArchived = pkg.status === 'archived';
-  const editingDraftKey = _editMap[pkg.key];
-  const hasEdit = isActive && !!editingDraftKey;
+  const editingDraft = _editMap[pkg.key];
+  const hasEdit = isActive && !!editingDraft;
 
   // Badge resolution — archived/editing trump live/data status
   let badgeClass, badgeText;
@@ -1794,6 +2078,10 @@ async function openDrawer(key, pkgSummary) {
     ]);
     if (myReq !== drawerReqId) return; // stale response — ignore
     body.innerHTML = renderDrawerBody(pkg, samplesRes);
+    if (pkg.product_aliases && pkg.product_aliases.length) {
+      pkg.product_aliases.forEach(a =>
+        addProdAliasTo('drawer-pa-rows', a.canonical, (a.keywords || []).join(', ')));
+    }
     renderDrawerActions(pkg);
     setTimeout(() => { if (myReq === drawerReqId) drawBboxOverlays(samplesRes.samples); }, 50);
   } catch (err) {
@@ -1821,8 +2109,114 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('.pkg-card-add')) return; // click on "+" = wizard
   if (e.target.closest('.sidebar')) return;      // click sidebar nav = ignore
   if (e.target.closest('.topbar')) return;       // click topbar = ignore
+  if (e.target.closest('.toast')) return;        // click toast (e.g. Undo) = ignore
   closeDrawer();
 });
+
+// ─── Conf threshold tuning (ADR 0004) ──────
+function onConfInput() {
+  const input = document.getElementById('conf-input');
+  const btn = document.getElementById('conf-save');
+  if (!input || !btn) return;
+  const changed = parseFloat(input.value) !== parseFloat(input.dataset.orig);
+  btn.style.display = changed ? '' : 'none';
+}
+
+function applyConfToDrawer(key, value) {
+  const input = document.getElementById('conf-input');
+  if (!input || currentDrawerKey !== key) return;
+  input.value = value.toFixed(2);
+  input.dataset.orig = input.value;
+  const btn = document.getElementById('conf-save');
+  if (btn) btn.style.display = 'none';
+}
+
+async function saveConfThreshold(key) {
+  const input = document.getElementById('conf-input');
+  const btn = document.getElementById('conf-save');
+  const val = parseFloat(input.value);
+  if (!(val >= 0.5 && val <= 0.95)) {
+    showToast('ค่า Conf ต้องอยู่ระหว่าง 0.50 – 0.95');
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const res = await api('PUT', `/api/packagings/${encodeURIComponent(key)}/conf`,
+      { conf_threshold: val });
+    applyConfToDrawer(key, res.conf_threshold);
+    loadDashboard(); // refresh card stats
+    showToast(`Conf ${res.previous.toFixed(2)} → ${res.conf_threshold.toFixed(2)}`, 8000, {
+      label: 'Undo',
+      onClick: () => undoConfThreshold(key, res.previous),
+    });
+  } catch (err) {
+    showToast('บันทึก Conf ไม่สำเร็จ: ' + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function undoConfThreshold(key, previous) {
+  try {
+    const res = await api('PUT', `/api/packagings/${encodeURIComponent(key)}/conf`,
+      { conf_threshold: previous });
+    applyConfToDrawer(key, res.conf_threshold);
+    loadDashboard();
+    showToast(`คืนค่า Conf เป็น ${res.conf_threshold.toFixed(2)} แล้ว`);
+  } catch (err) {
+    showToast('Undo ไม่สำเร็จ: ' + err.message);
+  }
+}
+
+function collectDrawerAliases() {
+  return Array.from(document.querySelectorAll('#drawer-pa-rows .pa-row')).map(row => ({
+    canonical: row.querySelector('.pa-canonical').value.trim(),
+    keywords: row.querySelector('.pa-keywords').value.split(',').map(s => s.trim()).filter(Boolean),
+  })).filter(a => a.canonical && a.keywords.length);
+}
+
+async function saveDrawerAliases(key) {
+  const aliases = collectDrawerAliases();
+  if (!aliases.length) {
+    showToast('ต้องมีอย่างน้อย 1 product ที่มี keyword');
+    return;
+  }
+  try {
+    const res = await api('PUT', `/api/packagings/${encodeURIComponent(key)}/product-aliases`,
+      { product_aliases: aliases });
+    loadDashboard();
+    showToast(`บันทึก ${res.product_aliases.length} product แล้ว`, 8000, {
+      label: 'Undo',
+      onClick: () => undoDrawerAliases(key, res.previous),
+    });
+  } catch (err) {
+    showToast('บันทึก product names ไม่สำเร็จ: ' + err.message);
+  }
+}
+
+async function undoDrawerAliases(key, previous) {
+  if (!previous || !previous.length) return;
+  try {
+    await api('PUT', `/api/packagings/${encodeURIComponent(key)}/product-aliases`,
+      { product_aliases: previous });
+    loadDashboard();
+    showToast('คืนค่า product names เดิมแล้ว');
+  } catch (err) {
+    showToast('Undo ไม่สำเร็จ: ' + err.message);
+  }
+}
+
+async function revertDrawerAliases(key) {
+  if (!confirm('ลบ alias ที่ตั้งไว้ แล้วกลับไปใช้รายการ product มาตรฐานของระบบ?')) return;
+  try {
+    await api('DELETE', `/api/packagings/${encodeURIComponent(key)}/product-aliases`);
+    closeDrawer();
+    loadDashboard();
+    showToast('กลับไปใช้รายการ product มาตรฐานแล้ว');
+  } catch (err) {
+    showToast('ล้างไม่สำเร็จ: ' + err.message);
+  }
+}
 
 function renderDrawerBody(pkg, samplesRes) {
   const isActive = pkg.status === 'active';
@@ -1831,12 +2225,26 @@ function renderDrawerBody(pkg, samplesRes) {
   const accClass = pkg.accuracy == null ? '' : (pkg.accuracy >= 0.9 ? 'g' : pkg.accuracy >= 0.8 ? '' : 'w');
   const confVal = pkg.conf_threshold != null ? pkg.conf_threshold.toFixed(2) : '—';
 
+  // Conf — editable in-place for active packagings (runtime tuning, ADR 0004)
+  const confCell = (isActive && pkg.conf_threshold != null)
+    ? `<div class="dsec-stat">
+         <div class="dsec-stat-lbl">Conf</div>
+         <div class="conf-edit">
+           <input type="number" id="conf-input" class="conf-input"
+                  min="0.50" max="0.95" step="0.05"
+                  value="${confVal}" data-orig="${confVal}" oninput="onConfInput()">
+           <button id="conf-save" class="btn btn-primary btn-sm" style="display:none"
+                   onclick="saveConfThreshold('${esc(pkg.key)}')">บันทึก</button>
+         </div>
+       </div>`
+    : `<div class="dsec-stat"><div class="dsec-stat-lbl">Conf</div><div class="dsec-stat-val">${confVal}</div></div>`;
+
   // Stats section
   let html = `
     <div class="dsec">
       <div class="dsec-label">Overview</div>
       <div class="dsec-stats">
-        <div class="dsec-stat"><div class="dsec-stat-lbl">Conf</div><div class="dsec-stat-val">${confVal}</div></div>
+        ${confCell}
         <div class="dsec-stat"><div class="dsec-stat-lbl">Accuracy</div><div class="dsec-stat-val ${accClass}">${accVal}</div></div>
         <div class="dsec-stat"><div class="dsec-stat-lbl">Images</div><div class="dsec-stat-val">${pkg.image_count}</div></div>
       </div>
@@ -1866,10 +2274,33 @@ function renderDrawerBody(pkg, samplesRes) {
     const tplKey = cfg.message_template_key;
 
     if (isActive) {
-      // For active, config comes from the YAML — we don't expose them via API yet.
-      // Show pipeline + sample count for now.
       html += `<div class="dsec"><div class="dsec-label">Config</div>
         <div style="font-size:12px;color:var(--t3);font-style:italic">Active config อยู่ใน config/packagings/${esc(pkg.key)}.yaml — ใช้งานจริงในระบบ</div></div>`;
+      if ((pkg.fields_extracted || []).includes('product')) {
+        const sizeOn = (pkg.fields_extracted || []).includes('size') ? '1' : '0';
+        const onHardcoded = !(pkg.product_aliases && pkg.product_aliases.length);
+        const sizeNote = sizeOn === '1'
+          ? ' และใส่ <code>{size}</code> ถ้าต้องการให้ต่อขนาดท้ายชื่อ'
+          : '';
+        const warn = onHardcoded
+          ? `<div class="info-box" style="border-color:var(--err);margin:6px 0 10px">
+               ⚠ class นี้ยังใช้รายการ product มาตรฐานในระบบ (hardcode) อยู่ — ถ้าบันทึก alias ที่นี่ จะ<strong>แทนที่ทั้งหมดทันที</strong>:
+               ต้องใส่ product ทุกตัวที่ต้องการให้อ่านเอง${sizeNote} มิฉะนั้นของเดิมจะหาย
+             </div>`
+          : '';
+        const revertBtn = onHardcoded ? '' :
+          `<button class="btn btn-sm" onclick="revertDrawerAliases('${esc(pkg.key)}')">↩ กลับไปใช้รายการมาตรฐาน</button>`;
+        html += `<div class="dsec">
+          <div class="dsec-label">ชื่อ Product ที่อ่าน (แก้ได้ทันที — ไม่ต้อง retrain)</div>
+          ${warn}
+          <div id="drawer-pa-rows" class="pa-rows" data-size-on="${sizeOn}"></div>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn btn-sm" onclick="addProdAliasTo('drawer-pa-rows')">+ เพิ่ม product</button>
+            <button class="btn btn-primary btn-sm" onclick="saveDrawerAliases('${esc(pkg.key)}')">บันทึก product names</button>
+            ${revertBtn}
+          </div>
+        </div>`;
+      }
     } else {
       html += `<div class="dsec"><div class="dsec-label">Config</div>`;
       if (lotPatterns.length) {
@@ -1970,10 +2401,10 @@ function renderDrawerActions(pkg) {
 
   // ACTIVE — Edit + Archive, with state for in-progress edits
   if (pkg.status === 'active') {
-    const editingKey = _editMap[pkg.key];
-    if (editingKey) {
+    const editing = _editMap[pkg.key];
+    if (editing) {
       actions.innerHTML = `
-        <button class="btn btn-danger btn-sm" onclick="discardEditDraft('${esc(editingKey)}')">
+        <button class="btn btn-danger btn-sm" onclick="discardEditDraft('${esc(editing.key)}')">
           ทิ้ง draft แก้ไข
         </button>
         <div style="flex:1"></div>
@@ -1983,7 +2414,7 @@ function renderDrawerActions(pkg) {
           </svg>
           ปิดใช้งาน
         </button>
-        <button class="btn btn-primary btn-sm" onclick="continueDraft('${esc(editingKey)}', 'uploading')">
+        <button class="btn btn-primary btn-sm" onclick="continueDraft('${esc(editing.key)}', '${esc(editing.status)}')">
           แก้ไขต่อ →
         </button>`;
     } else {
@@ -2017,7 +2448,7 @@ async function cloneActive(key) {
   try {
     const draft = await api('POST', `/api/packagings/${encodeURIComponent(key)}/clone`);
     showToast(`Cloned to ${draft.key} — เริ่มแก้ไข`);
-    continueDraft(draft.key, 'uploading');
+    continueDraft(draft.key, draft.status);  // 'draft' → step 2 (ยังไม่มีรูปใหม่)
   } catch (err) {
     alert(`Clone ไม่สำเร็จ: ${err.message}`);
   }
@@ -2074,7 +2505,6 @@ function continueDraft(key, status) {
   const stepMap = {
     draft: 2,            // เพิ่งสร้าง — ไปอัพรูป
     uploading: 3,        // มีรูปแล้ว — ไป annotate
-    training_seed: 3,    // seed training ค้าง — กลับ annotator
     labeled_full: 3,     // pre-labeled แล้ว — verify ใน annotator
     configured: 5,       // config ครบ — ไป eval/deploy
     training_full: 5,    // full training ค้าง — กลับ step 5
@@ -2115,16 +2545,175 @@ function cancelWizardStep1() {
     api('DELETE', `/api/packagings/${encodeURIComponent(curDraftKey)}`).catch(() => {});
     curDraftKey = null;
   }
-  currentView = 'dashboard';
-  syncUrl();
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.getElementById('view-dashboard').classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('nav-dash').classList.add('active');
-  document.getElementById('nav-dash').classList.remove('locked');
-  document.getElementById('topbar-add').style.display = '';
-  document.getElementById('topbar-title').innerHTML = 'Packaging <i>Wizard</i>';
-  loadDashboard();
+  showView('dashboard');
+}
+
+// ─── Crop-region picker (step 1) ──────────────
+// A "sub-region" is a PHYSICAL crop location (becomes a YOLO detector class),
+// NOT a field. Default = one region named "lot"; one crop yields many fields
+// (lot/exp/…), chosen in step 4. Advanced = 2+ physically-separate locations
+// (box/sachet) cross-checked, like container_label. See CONTEXT.md.
+const SR_PRESETS = ['box', 'sachet'];   // physical locations only — never field names
+const SR_MAX = 4;
+let cropMode = 'single';                // 'single' | 'multi_field' | 'cross_check'
+// multi-mode entries: {value, custom} — custom=true → free-text input row
+let cropRegions = [{ value: 'box', custom: false }, { value: 'sachet', custom: false }];
+
+// ── multi_field box-number grouping (step 1) ──
+// Fields sharing a box number form one YOLO group: tokens joined by '_'.
+const FIELD_ORDER = ['lot', 'exp', 'product', 'size'];
+let mfBox = { lot: 1, exp: 2, product: 3, size: 4 };   // field → box number
+
+function mfTickedFields() {
+  return FIELD_ORDER.filter(f => {
+    const cb = document.querySelector(`#sr-fields input[data-field="${f}"]`);
+    return cb && cb.checked;
+  });
+}
+
+function srGroupChanged() {
+  const k = Math.max(1, mfTickedFields().length);
+  FIELD_ORDER.forEach(f => {
+    const sel = document.querySelector(`#sr-fields select[data-box-for="${f}"]`);
+    const cb = document.querySelector(`#sr-fields input[data-field="${f}"]`);
+    if (!sel || !cb) return;
+    sel.disabled = !cb.checked;
+    let cur = mfBox[f] || 1;
+    if (cur > k) { cur = k; }
+    mfBox[f] = cur;
+    sel.innerHTML = Array.from({ length: k }, (_, i) => i + 1)
+      .map(n => `<option value="${n}"${n === cur ? ' selected' : ''}>กรอบ ${n}</option>`)
+      .join('');
+  });
+  renderGroupPreview();
+}
+
+function srPickBox(field, val) {
+  mfBox[field] = parseInt(val, 10) || 1;
+  srGroupChanged();
+}
+
+function srFieldGroups() {
+  const byBox = {};
+  mfTickedFields().forEach(f => { (byBox[mfBox[f]] ||= []).push(f); });
+  return Object.keys(byBox).sort((a, b) => a - b)
+    .map(b => FIELD_ORDER.filter(f => byBox[b].includes(f)).join('_'));
+}
+
+function prettyGroup(g) { return g.split('_').join(' + '); }
+
+function renderGroupPreview() {
+  const el = document.getElementById('sr-grp-preview');
+  if (!el) return;
+  el.innerHTML = srFieldGroups().map((g, i) => {
+    const color = ANNOT_COLORS[i % ANNOT_COLORS.length];
+    return `<span class="sr-grp-pill" style="background:${color}22;border:1px solid ${color}66">
+      <span class="sr-grp-pill-dot" style="background:${color}"></span>กรอบ ${i + 1}: ${esc(prettyGroup(g))}</span>`;
+  }).join('');
+}
+
+function srColor(i) { return ANNOT_COLORS[i % ANNOT_COLORS.length]; }
+
+function onPipelineChange() {
+  // QR pipeline reads a code, not a cropped region — hide the crop picker
+  const isQr = document.getElementById('inp-pipeline').value === 'qr_scanner';
+  const fg = document.getElementById('crop-fgroup');
+  if (fg) fg.style.display = isQr ? 'none' : '';
+}
+
+function srSetMode(mode) {
+  cropMode = mode;   // 'single' | 'multi_field' | 'cross_check'
+  document.querySelectorAll('.sr-mode-tab').forEach(t =>
+    t.classList.toggle('on', t.dataset.mode === mode));
+  const show = (id, on) => { const e = document.getElementById(id); if (e) e.style.display = on ? '' : 'none'; };
+  show('sr-single', mode === 'single');
+  show('sr-fields', mode === 'multi_field');
+  show('sr-multi', mode === 'cross_check');
+  if (mode === 'cross_check') srRender();
+  if (mode === 'multi_field') srGroupChanged();
+}
+
+function srToggleAdvanced(on) {
+  if (on && cropRegions.length < 2) {
+    cropRegions = [{ value: 'box', custom: false }, { value: 'sachet', custom: false }];
+  }
+  srSetMode(on ? 'cross_check' : 'single');
+}
+
+function srRender() {
+  const list = document.getElementById('sr-list');
+  if (!list) return;
+  const canDelete = cropRegions.length > 2;   // multi needs ≥ 2 locations
+  list.innerHTML = cropRegions.map((r, i) => {
+    const dot = `<span class="sr-dot" style="background:${srColor(i)}"></span>`;
+    const idx = `<span class="sr-idx">${i + 1}</span>`;
+    let control;
+    if (r.custom) {
+      control = `<input type="text" value="${esc(r.value)}" maxlength="24" spellcheck="false"
+                   placeholder="ชื่อตำแหน่ง (a-z, 0-9, _)"
+                   oninput="srEditCustom(${i}, this.value)">
+                 <button type="button" class="sr-mini" title="เลือกจากรายการ" onclick="srUsePreset(${i})">↩</button>`;
+    } else {
+      const opts = SR_PRESETS.map(p =>
+        `<option value="${p}"${p === r.value ? ' selected' : ''}>${p}</option>`).join('')
+        + `<option value="__custom__">✎ กำหนดเอง…</option>`;
+      control = `<select onchange="srPick(${i}, this.value)">${opts}</select>`;
+    }
+    const del = canDelete
+      ? `<button type="button" class="sr-mini sr-del" title="ลบตำแหน่งนี้" onclick="srRemove(${i})">×</button>`
+      : '';
+    return `<div class="sr-row">${dot}${idx}${control}${del}</div>`;
+  }).join('');
+  document.getElementById('sr-count').textContent = cropRegions.length;
+  document.getElementById('sr-add').disabled = cropRegions.length >= SR_MAX;
+}
+
+function srPick(i, val) {
+  if (val === '__custom__') {
+    cropRegions[i] = { value: '', custom: true };
+    srRender();
+    document.querySelectorAll('#sr-list .sr-row')[i]?.querySelector('input')?.focus();
+    return;
+  }
+  cropRegions[i] = { value: val, custom: false };
+  srRender();
+}
+
+function srEditCustom(i, val) {
+  // edit in place without re-render (keeps focus); sanitise on submit
+  cropRegions[i].value = val.trim().toLowerCase();
+}
+
+function srUsePreset(i) {
+  const used = cropRegions.map(r => r.value);
+  const free = SR_PRESETS.find(p => !used.includes(p)) || 'box';
+  cropRegions[i] = { value: free, custom: false };
+  srRender();
+}
+
+function srAdd() {
+  if (cropRegions.length >= SR_MAX) return;
+  const used = cropRegions.map(r => r.value);
+  const free = SR_PRESETS.find(p => !used.includes(p));
+  cropRegions.push(free ? { value: free, custom: false } : { value: '', custom: true });
+  srRender();
+}
+
+function srRemove(i) {
+  cropRegions.splice(i, 1);
+  srRender();
+}
+
+function srValues() {
+  return cropRegions.map(r => r.value.trim().toLowerCase()).filter(Boolean);
+}
+
+function srFieldValues() {
+  const out = ['lot'];
+  document.querySelectorAll('#sr-fields input[data-field]').forEach(cb => {
+    if (cb.checked && cb.dataset.field !== 'lot') out.push(cb.dataset.field);
+  });
+  return out;
 }
 
 async function step1Next() {
@@ -2133,20 +2722,33 @@ async function step1Next() {
   const key = document.getElementById('inp-key').value.trim();
   const description = document.getElementById('inp-desc').value.trim() || null;
   const pipeline = document.getElementById('inp-pipeline').value;
-  const sub_regions = document.getElementById('inp-sub-regions').value
-    .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  // single → one region "lot"; multi_field → each field its own crop; cross_check → physical locations
+  let detection_mode = cropMode;
+  let sub_regions;
+  if (cropMode === 'single') { sub_regions = ['lot']; }
+  else if (cropMode === 'multi_field') { sub_regions = srFieldGroups(); }
+  else { sub_regions = srValues(); }   // cross_check
 
   if (!display_name || !key) { alert('กรุณากรอกชื่อและ key'); return; }
   if (!/^[a-z][a-z0-9_]*$/.test(key)) { alert('Key ต้องเป็น lowercase + _ เท่านั้น'); return; }
-  if (!sub_regions.length) { alert('กรุณากรอก sub-regions อย่างน้อย 1'); return; }
-  for (const r of sub_regions) {
-    if (!/^[a-z0-9_]+$/.test(r)) { alert(`Sub-region "${r}" ผิด — ใช้ a-z, 0-9, _ เท่านั้น`); return; }
+  if (cropMode === 'cross_check') {
+    if (sub_regions.length < 2) { alert('โหมดหลายตำแหน่งต้องมีอย่างน้อย 2 ตำแหน่ง — หรือกลับเป็นจุดเดียว'); return; }
+    for (const r of sub_regions) {
+      if (!/^[a-z0-9_]+$/.test(r)) { alert(`ชื่อตำแหน่ง "${r}" ผิด — ใช้ a-z, 0-9, _ เท่านั้น`); return; }
+    }
+    if (new Set(sub_regions).size !== sub_regions.length) { alert('มีตำแหน่งซ้ำกัน — แต่ละตำแหน่งต้องไม่ซ้ำ'); return; }
+  }
+  if (cropMode === 'multi_field') {
+    const union = sub_regions.join('_').split('_');
+    if (!sub_regions.length || !union.includes('lot')) {
+      alert('โหมดแยก field ต้องมี lot อย่างน้อย 1 กรอบ'); return;
+    }
   }
 
   btn.disabled = true; btn.textContent = '⏳ กำลังสร้าง...';
   try {
     const body = await api('POST', '/api/packagings',
-      { key, display_name, description, pipeline, sub_regions });
+      { key, display_name, description, pipeline, sub_regions, detection_mode });
     curDraftKey = body.key;
     goStep(2);
   } catch (err) {
@@ -2230,7 +2832,7 @@ const annot = {
   canvasSize:  {w:0, h:0},
   drag: null,       // {startX, startY, curX, curY} during drag
   saveTimer: null,  // debounce save
-  ANNOT_TARGET: 20,
+  ANNOT_TARGET: 30,
   subRegions: ['lot'],   // populated from draft meta
   currentLabel: 'lot',   // active label for new bbox
 };
@@ -2258,6 +2860,8 @@ async function loadAnnotator() {
     document.getElementById('annot-target').textContent = Math.min(annot.ANNOT_TARGET, annot.images.length);
     document.getElementById('annot-total').textContent = annot.images.length;
     renderThumbStrip();
+    const isEditDraft = curDraftKey && curDraftKey.endsWith('__edit');
+    document.getElementById('prelabel-bar').style.display = isEditDraft ? 'block' : 'none';
     updateProgressUI();
     if (annot.images.length === 0) {
       document.getElementById('annot-empty').style.display = 'flex';
@@ -2289,7 +2893,7 @@ function renderLabelBar() {
       return `<span class="annot-label-chip ${active?'active':''}"
         style="--c-stroke:${color};--c-bg:${color}22"
         onclick="annotSetLabel('${esc(r)}')">
-        <span class="annot-label-chip-dot"></span>${esc(r)}
+        <span class="annot-label-chip-dot"></span>${esc(r.split('_').join(' + '))}
         <span style="opacity:.5;font-size:9px;margin-left:3px">${i+1}</span>
       </span>`;
     }).join('');
@@ -2518,7 +3122,7 @@ function updateProgressUI() {
   const target = Math.min(annot.ANNOT_TARGET, annot.images.length);
   document.getElementById('annot-lc').textContent = labeled;
   document.getElementById('annot-pbar').style.width = Math.min(100, labeled / target * 100) + '%';
-  // Reveal "ready for seed training" once target met
+  // Reveal "ready → Config" once target met
   document.getElementById('ls-done').style.display = labeled >= target ? 'block' : 'none';
 }
 
@@ -2545,44 +3149,95 @@ document.addEventListener('keydown', (e) => {
 // Bind immediately (script is at end of body — DOM already parsed)
 bindCanvasEvents();
 
-async function openColab() {
-  if (!curDraftKey) { alert('ยังไม่ได้สร้าง draft'); return; }
-  const btn = document.getElementById('btn-open-colab');
-  btn.disabled = true;
-  btn.textContent = '⏳ กำลัง upload bundle ขึ้น Drive...';
-  try {
-    const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/seed/start`);
-    btn.textContent = '✓ เปิด Colab — รัน Run all (~15 นาที)';
-    // เปิด Colab tab
-    window.open(res.colab_url, '_blank');
-    // แสดง next-stage UI: "Training done?"
-    document.getElementById('colab-done').style.display = 'block';
-    document.getElementById('btn-step3-next').textContent = 'Training done — Pull model + pre-label →';
-    document.getElementById('btn-step3-next').onclick = () => trainingSeedDone();
-    document.getElementById('btn-step3-next').disabled = false;
-  } catch (err) {
-    btn.disabled = false;
-    btn.textContent = '🚀 ลองอีกครั้ง';
-    alert(`Start training ไม่สำเร็จ: ${err.message}`);
-  }
+// ─── Training upload progress (Drive) ─────────
+// Poll GET /training/progress ระหว่างรอ POST /training/{seed|full}/start
+// แล้ววาด % bar — backend รายงานทีละไฟล์ (full) หรือทีละ chunk (seed bundle)
+const TRAIN_PHASE_LABELS = {
+  starting:      'กำลังเตรียม Drive…',
+  bundle:        'กำลังรวมรูปเป็น bundle…',
+  upload_bundle: 'อัปโหลด bundle ขึ้น Drive',
+  upload_images: 'อัปโหลดรูปขึ้น Drive',
+  notebook:      'เตรียม notebook…',
+  done:          'เสร็จแล้ว',
+};
+const fmtMB = b => (b / 1048576).toFixed(1);
+
+function trainProgressStart(key, mountEl) {
+  mountEl.classList.add('on');
+  mountEl.innerHTML = `
+    <div class="train-prog-head">
+      <span class="train-prog-phase"><span class="tp-dot"></span><span class="tp-txt">กำลังเริ่ม…</span></span>
+      <span class="train-prog-pct">&nbsp;</span>
+    </div>
+    <div class="train-prog-bar"><div class="train-prog-fill indet"></div></div>
+    <div class="train-prog-file">&nbsp;</div>`;
+  const txt  = mountEl.querySelector('.tp-txt');
+  const pct  = mountEl.querySelector('.train-prog-pct');
+  const fill = mountEl.querySelector('.train-prog-fill');
+  const file = mountEl.querySelector('.train-prog-file');
+
+  let stopped = false;
+  const tick = async () => {
+    if (stopped) return;
+    try {
+      const p = await api('GET', `/api/packagings/${encodeURIComponent(key)}/training/progress`);
+      if (stopped || !p || p.phase === 'idle' || p.phase === 'error') return;
+      txt.textContent = TRAIN_PHASE_LABELS[p.phase] || p.phase;
+      if (p.percent != null) {
+        fill.classList.remove('indet');
+        fill.style.width = p.percent + '%';
+        pct.textContent = p.percent + '%';
+        if (p.phase === 'upload_images') {
+          file.textContent = `${p.done} / ${p.total} รูป${p.detail ? ' · ' + p.detail : ''}`;
+        } else if (p.phase === 'upload_bundle') {
+          file.textContent = `${fmtMB(p.done)} / ${fmtMB(p.total)} MB`;
+        }
+      } else {
+        fill.classList.add('indet');
+        fill.style.width = '';
+        pct.innerHTML = '&nbsp;';
+        file.innerHTML = '&nbsp;';
+      }
+    } catch { /* poll พลาดครั้งเดียวไม่เป็นไร — รอบหน้าลองใหม่ */ }
+  };
+  const timer = setInterval(tick, 600);
+  tick();
+
+  return {
+    finish(ok) {
+      stopped = true;
+      clearInterval(timer);
+      if (ok) {
+        fill.classList.remove('indet');
+        fill.classList.add('ok');
+        fill.style.width = '100%';
+        pct.textContent = '100%';
+        txt.textContent = 'อัปโหลดเสร็จแล้ว ✓';
+        setTimeout(() => mountEl.classList.remove('on'), 2200);
+      } else {
+        mountEl.classList.remove('on');
+      }
+    },
+  };
 }
 
-async function trainingSeedDone() {
-  const btn = document.getElementById('btn-step3-next');
+async function runPrelabel() {
+  if (!curDraftKey) { alert('ยังไม่ได้สร้าง draft'); return; }
+  const btn = document.getElementById('btn-prelabel');
+  const original = btn.textContent;
   btn.disabled = true;
-  btn.textContent = '⏳ ดึง model + pre-label รูปที่เหลือ...';
+  btn.setAttribute('aria-busy', 'true');
+  btn.textContent = '⏳ กำลัง prelabel…';
   try {
-    const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/seed/done`);
-    alert(`✓ เสร็จแล้ว!\n\nPre-labeled: ${res.prelabeled} รูป\nข้าม (label มืออยู่แล้ว): ${res.skipped_already_labeled}\nผิดพลาด: ${res.errors}\n\nกลับไป annotator เพื่อ verify pre-labels`);
-    // Reload annotator with pre-annotations
+    const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/prelabel`);
+    showToast(`✓ Prelabel แล้ว ${res.prelabeled} รูป · ข้าม ${res.skipped_already_labeled} · ผิดพลาด ${res.errors}`);
     await loadAnnotator();
-    btn.textContent = 'ถัดไป: ตั้งค่า Config →';
-    btn.onclick = () => goStep(4);
-    btn.disabled = false;
   } catch (err) {
+    alert(`Prelabel ไม่สำเร็จ: ${err.message}`);
+  } finally {
     btn.disabled = false;
-    btn.textContent = 'Training done — ลองอีกครั้ง';
-    alert(`Pull model ไม่สำเร็จ: ${err.message}`);
+    btn.removeAttribute('aria-busy');
+    btn.textContent = original;
   }
 }
 
@@ -2636,6 +3291,73 @@ updateRegex();
 function toggleCb(el) { if (!el.classList.contains('disabled')) el.classList.toggle('on'); }
 function pickTpl(el)  { document.querySelectorAll('.tpl-opt').forEach(t => t.classList.remove('on')); el.classList.add('on'); }
 
+function prefillFieldsFromSubRegions() {
+  if (cropMode !== 'multi_field') return;
+  const want = new Set(srFieldValues());
+  document.querySelectorAll('#sp4 [data-group="fields"] .cbitem[data-field]').forEach(el => {
+    if (el.dataset.field === 'lot') return;
+    el.classList.toggle('on', want.has(el.dataset.field));
+  });
+}
+
+// ─── Product aliases (shared by step 4 + drawer) ──────
+function isProductFieldOn() {
+  return !!document.querySelector('#sp4 [data-group="fields"] .cbitem.on[data-field="product"]');
+}
+function isSizeFieldOn() {
+  return !!document.querySelector('#sp4 [data-group="fields"] .cbitem.on[data-field="size"]');
+}
+// size-on is live-DOM in step 4 (#pa-rows has no data-size-on), static in the drawer
+function paSizeOn(row) {
+  const rows = row.closest('.pa-rows');
+  if (rows && rows.dataset.sizeOn != null) return rows.dataset.sizeOn === '1';
+  return isSizeFieldOn();
+}
+function addProdAliasTo(containerId, canonical = '', keywords = '') {
+  const c = String(canonical).replace(/"/g, '&quot;');
+  const k = String(keywords).replace(/"/g, '&quot;');
+  document.getElementById(containerId).insertAdjacentHTML('beforeend', `
+    <div class="pa-row">
+      <input type="text" class="pa-canonical" aria-label="ชื่อ Product (template)" placeholder="Medium {size}" value="${c}" oninput="updateProdPreview(this.closest('.pa-row'))">
+      <input type="text" class="pa-keywords" aria-label="คำที่พบบนซอง คั่นด้วยจุลภาค" placeholder="medium" value="${k}">
+      <button class="rm-btn" onclick="removeProdAlias(this)" aria-label="ลบ product นี้">×</button>
+      <div class="pa-preview"></div>
+    </div>`);
+  updateProdPreview(document.getElementById(containerId).lastElementChild);
+}
+function addProdAlias(canonical = '', keywords = '') { addProdAliasTo('pa-rows', canonical, keywords); }
+const PA_SAMPLE_SIZE = '40 g';
+function updateProdPreview(row) {
+  if (!row) return;
+  const out = row.querySelector('.pa-preview');
+  const tpl = row.querySelector('.pa-canonical').value.trim();
+  if (!out) return;
+  if (!tpl) { out.textContent = ''; out.className = 'pa-preview'; return; }
+  if (tpl.includes('{size}')) {
+    if (!paSizeOn(row)) {
+      out.innerHTML = '⚠ ใช้ <code>{size}</code> แต่ยังไม่เปิด field "ขนาด"';
+      out.className = 'pa-preview warn';
+      return;
+    }
+    const resolved = tpl.replace(/\{size\}/g, PA_SAMPLE_SIZE).replace(/\s+/g, ' ').trim();
+    out.textContent = `→ "${resolved}"  (ตัวอย่างขนาด ${PA_SAMPLE_SIZE})`;
+  } else {
+    out.textContent = `→ "${tpl}"`;
+  }
+  out.className = 'pa-preview';
+}
+function updateAllProdPreviews() {
+  document.querySelectorAll('#pa-rows .pa-row').forEach(updateProdPreview);
+}
+function removeProdAlias(btn) { btn.closest('.pa-row').remove(); }
+function syncProductAliasVisibility() {
+  const card = document.getElementById('pa-card');
+  if (!card) return;
+  const on = isProductFieldOn();
+  card.style.display = on ? '' : 'none';
+  if (on && !document.querySelector('#pa-rows .pa-row')) addProdAlias();
+}
+
 function collectConfig() {
   const fields = ['lot'];
   document.querySelectorAll('#sp4 [data-group="fields"] .cbitem.on[data-field]').forEach(el => {
@@ -2646,11 +3368,19 @@ function collectConfig() {
     sheet_checks.push(el.dataset.field);
   });
   const tpl = document.querySelector('#sp4 .tpl-opt.on');
+  const product_aliases = isProductFieldOn()
+    ? Array.from(document.querySelectorAll('#pa-rows .pa-row')).map(row => ({
+        canonical: row.querySelector('.pa-canonical').value.trim(),
+        keywords: row.querySelector('.pa-keywords').value
+          .split(',').map(s => s.trim()).filter(Boolean),
+      })).filter(a => a.canonical && a.keywords.length)  // ทิ้ง row ที่ไม่มี keyword (match ไม่ได้ + จะไป bypass hardcode fallback เงียบ ๆ)
+    : [];
   return {
     lot_patterns: [document.getElementById('rx-display').textContent.trim()],
     fields_extracted: fields,
     sheet_checks,
     message_template_key: tpl ? tpl.dataset.template : 'default_full',
+    product_aliases,
   };
 }
 
@@ -2708,9 +3438,10 @@ function renderStep5_preTraining(pkg) {
       </div>
       <div style="text-align:center;margin-top:14px">
         <button class="btn btn-primary" id="btn-full-start" onclick="startFullTraining()">
-          🚀 เริ่ม Full Training (เปิด Colab)
+          🚀 Publish dataset + เปิด Training Notebook
         </button>
       </div>
+      <div id="full-prog" class="train-prog"></div>
     </div>`;
 }
 
@@ -2719,13 +3450,16 @@ function renderStep5_training(pkg) {
     <div class="wiz-card">
       <div class="wiz-card-title">Full Training — รอ Colab</div>
       <div class="info-box">
-        <strong>📒 Colab tab เปิดไว้แล้ว</strong> — กลับมาคลิกปุ่มข้างล่างหลัง Colab แสดง "TRAINING DONE"
+        <strong>📒 Training notebook เปิดแล้ว</strong> — กด <code>Runtime → Run all</code>
+        (detector ~60 นาที + classifier ~30 นาที). Model จะเซฟลง Drive
+        (<code>data check lot/</code> + <code>data classify check lot/models/</code>).
       </div>
       <div style="text-align:center;margin-top:14px">
-        <button class="btn btn-primary" id="btn-full-done" onclick="fullTrainingDone()">
-          Training done — Pull model + eval →
+        <button class="btn btn-primary" id="btn-sync-model" onclick="syncTrainedModel()">
+          ✅ Train เสร็จแล้ว — ดึง model จาก Drive
         </button>
       </div>
+      <div id="sync-msg" style="margin-top:10px;text-align:center;color:var(--t3);font-size:13px"></div>
     </div>`;
 }
 
@@ -2824,33 +3558,42 @@ function renderStep5_eval(pkg, evRes) {
     </div>`;
 }
 
+async function syncTrainedModel() {
+  if (!curDraftKey) return;
+  const btn = document.getElementById('btn-sync-model');
+  const msg = document.getElementById('sync-msg');
+  btn.disabled = true;
+  btn.textContent = '⏳ กำลังดึง model จาก Drive...';
+  msg.textContent = '';
+  try {
+    await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/full/sync`);
+    await loadStep5();   // status → trained → renders Eval + Deploy
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '✅ Train เสร็จแล้ว — ดึง model จาก Drive';
+    msg.style.color = 'var(--err)';
+    msg.textContent = err.message.includes('ยังเทรนไม่เสร็จ')
+      ? 'ยังเทรนไม่เสร็จ — รอ Colab รันให้จบแล้วลองใหม่'
+      : `ดึง model ไม่สำเร็จ: ${err.message}`;
+  }
+}
+
 async function startFullTraining() {
   if (!curDraftKey) return;
   const btn = document.getElementById('btn-full-start');
   btn.disabled = true;
-  btn.textContent = '⏳ Upload bundle ขึ้น Drive...';
+  btn.textContent = '⏳ กำลังเขียน dataset เข้า Drive...';
+  const prog = trainProgressStart(curDraftKey, document.getElementById('full-prog'));
   try {
     const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/full/start`);
+    prog.finish(true);
     window.open(res.colab_url, '_blank');
     await loadStep5();
   } catch (err) {
+    prog.finish(false);
     btn.disabled = false;
     btn.textContent = '🚀 ลองอีกครั้ง';
     alert(`Start full training ไม่สำเร็จ: ${err.message}`);
-  }
-}
-
-async function fullTrainingDone() {
-  const btn = document.getElementById('btn-full-done');
-  btn.disabled = true;
-  btn.textContent = '⏳ ดึง model + eval...';
-  try {
-    await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/full/done`);
-    await loadStep5();
-  } catch (err) {
-    btn.disabled = false;
-    btn.textContent = 'Training done — ลองอีกครั้ง';
-    alert(`Pull failed: ${err.message}`);
   }
 }
 
@@ -2893,6 +3636,8 @@ async function doDeploy() {
 }
 
 renderSteps();
+srSetMode('single');
+onPipelineChange();
 // Bootstrap: ถ้า URL มี draft+step → resume wizard, ไม่งั้นไป dashboard
 (async () => {
   const resumed = await restoreFromUrl();

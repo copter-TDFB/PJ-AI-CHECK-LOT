@@ -102,7 +102,9 @@ class SheetChecker:
 
         try:
             checks = config.sheet_checks
-            is_container = bool(config.sub_regions)
+            # Container = cross_check mode (box+sachet compare same value);
+            # single and multi_field both read lot_number at top level.
+            is_container = config.detection_mode == "cross_check"
 
             lot = kwargs.get("lot_box") if is_container else kwargs.get("lot_number")
             row = self._find_row_by_lot(lot, sheet_id, gid)

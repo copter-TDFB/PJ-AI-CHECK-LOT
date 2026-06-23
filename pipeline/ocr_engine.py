@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 from google.cloud import vision
 
-from utils.validators import find_expiry, find_lot, find_mfg, find_product_name, find_size
+from utils.validators import find_expiry, find_lot, find_mfg, find_product_name, find_size, resolve_product_template
 
 if TYPE_CHECKING:
     from pipeline.packaging_registry import PackagingConfig
@@ -63,9 +63,13 @@ class OcrEngine:
         extract_product = "product" in fields if config else cls_key in ("back_label", "grade_bag")
 
         size = find_size(full_text) if extract_size else None
-        product_name = find_product_name(full_text) if extract_product else None
-        if product_name and size:
-            product_name = f"{product_name} {size}"
+        aliases = config.product_aliases if config else None
+        product_name = find_product_name(full_text, aliases) if extract_product else None
+        if product_name:
+            if aliases:
+                product_name = resolve_product_template(product_name, size)
+            elif size:
+                product_name = f"{product_name} {size}"  # legacy fallback (back_label/grade_bag) — unchanged
 
         # Vision API TEXT_DETECTION มักไม่มี page confidence — ใช้ 1.0 เป็น default
         confidence: float | None = None
