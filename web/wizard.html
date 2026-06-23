@@ -2264,10 +2264,18 @@ function renderDrawerBody(pkg, samplesRes) {
     if (isActive) {
       html += `<div class="dsec"><div class="dsec-label">Config</div>
         <div style="font-size:12px;color:var(--t3);font-style:italic">Active config อยู่ใน config/packagings/${esc(pkg.key)}.yaml — ใช้งานจริงในระบบ</div></div>`;
-      if (pkg.product_aliases && pkg.product_aliases.length) {
+      if ((pkg.fields_extracted || []).includes('product')) {
         const sizeOn = (pkg.fields_extracted || []).includes('size') ? '1' : '0';
+        const onHardcoded = !(pkg.product_aliases && pkg.product_aliases.length);
+        const warn = onHardcoded
+          ? `<div class="info-box" style="border-color:var(--err);margin:6px 0 10px">
+               ⚠ class นี้ยังใช้รายการ product มาตรฐานในระบบ (hardcode) อยู่ — ถ้าบันทึก alias ที่นี่ จะ<strong>แทนที่ทั้งหมดทันที</strong>:
+               ต้องใส่ product ทุกตัวที่ต้องการให้อ่านเอง และใส่ <code>{size}</code> ถ้าต้องการให้ต่อขนาดท้ายชื่อ มิฉะนั้นของเดิมจะหาย
+             </div>`
+          : '';
         html += `<div class="dsec">
           <div class="dsec-label">ชื่อ Product ที่อ่าน (แก้ได้ทันที — ไม่ต้อง retrain)</div>
+          ${warn}
           <div id="drawer-pa-rows" class="pa-rows" data-size-on="${sizeOn}"></div>
           <div style="display:flex;gap:8px;margin-top:8px">
             <button class="btn btn-sm" onclick="addProdAliasTo('drawer-pa-rows')">+ เพิ่ม product</button>

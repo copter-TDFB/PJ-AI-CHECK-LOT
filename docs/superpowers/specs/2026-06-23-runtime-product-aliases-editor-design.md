@@ -40,15 +40,27 @@ YAML as the "as-trained default". (Rejected: editing the GCS YAML via
 
 ## Scope
 
-The editor is exposed **only for classes that already have a non-empty
-`product_aliases`** (config-driven matching). Decided 2026-06-23.
+**Scope expanded 2026-06-23 (post-implementation, after local review).** The
+editor is exposed for **any active class that reads a product name** (`product`
+in `fields_extracted`), not only those that already have `product_aliases`.
+Rationale: the only shipped product-reading classes (`back_label`, `grade_bag`)
+are exactly the ones on the hardcoded path, so the original "must already have
+aliases" gate left zero usable classes.
 
-Explicitly excluded: `back_label` / `grade_bag`. They have no `product_aliases`
-and rely on the hardcoded 9-keyword tea list + auto-append `{size}`
-(`ocr_engine.py`). The moment such a class gets *any* `product_aliases`, the
-`if aliases:` branch in `ocr_engine` switches it off the hardcoded path and
-changes size-append behavior (warned about in the 2026-06-20 spec). Keeping them
-out of the editor sidesteps that footgun entirely.
+To contain the footgun, a class currently on the hardcoded path (reads `product`
+but has zero `product_aliases`) shows a **prominent red warning** in the drawer:
+saving aliases there *replaces the hardcoded tea-list immediately and live* — the
+operator must list every product themselves and use the `{size}` token for
+size-append, or previously-matched products stop matching. The `ocr_engine`
+`if aliases:` branch is unchanged; the warning makes the behavior switch
+explicit at the point of edit instead of hiding it.
+
+Backend already permits this (the `PUT` only requires `product` in
+`fields_extracted`); the expansion is purely the frontend gate
+(`fields_extracted.includes('product')`) plus the warning.
+
+> Original (superseded) scope: editor only for classes with a non-empty
+> `product_aliases`, excluding `back_label`/`grade_bag` outright.
 
 ## Backend design
 
