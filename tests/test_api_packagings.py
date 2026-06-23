@@ -564,6 +564,7 @@ def fake_active_product(client):
             p.unlink()
         except OSError:
             pass
+    main.registry = PackagingRegistry()
 
 
 def test_get_active_returns_product_aliases_and_fields(client, fake_active_product):

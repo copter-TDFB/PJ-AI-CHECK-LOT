@@ -52,7 +52,7 @@ class PackagingRegistry:
 
     def __init__(self, overrides: dict[str, dict] | None = None) -> None:
         """`overrides` — runtime tuning values merged over the YAML
-        (currently only `conf_threshold`), see ADR 0004."""
+        (`conf_threshold`, `product_aliases`), see ADR 0004."""
         self._configs: dict[str, PackagingConfig] = {}
         self._templates: dict[str, MessageTemplate] = {}
         self._load(overrides or {})
