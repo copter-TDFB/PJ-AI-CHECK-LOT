@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="th">
-<head>
-<script>
-  // backend runs locally on :8081.
-  window.API_BASE_OVERRIDE = 'http://localhost:8081';
+<head>
+<script>
+  // Test wizard harness - backend runs locally on :8081.
+  window.API_BASE_OVERRIDE = 'http://localhost:8081';
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -369,6 +369,10 @@ label{
 }
 .req{color:var(--acc);margin-left:2px}
 .hint{font-weight:400;color:var(--t3);font-size:11px;margin-left:6px}
+.pa-hint{background:var(--acc-bg);border-left:3px solid var(--acc-bd);border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12px;line-height:1.65;color:var(--t2)}
+.pa-hint strong{color:var(--t1);font-weight:600}
+.pa-hint code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--s2);padding:1px 5px;border-radius:4px;color:var(--t1)}
+.pa-hint .pa-hint-eg{margin-top:6px}
 input[type=text],input[type=email],textarea,select{
   width:100%;background:var(--s2);border:1px solid var(--bd);
   border-radius:7px;padding:10px 12px;color:var(--t1);
@@ -641,6 +645,9 @@ select option,select optgroup{
 .pa-rows{display:flex;flex-direction:column;gap:8px}
 .pa-row{display:grid;grid-template-columns:1fr 1.3fr 28px;gap:8px;align-items:center}
 .pa-row input{width:100%;min-width:0;font-size:13px}
+.pa-row .pa-preview{grid-column:1 / -1;font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-top:-2px;min-height:14px}
+.pa-row .pa-preview.warn{color:var(--warn);font-family:inherit}
+.pa-row .pa-preview code{background:var(--s2);padding:0 4px;border-radius:3px;color:var(--t1)}
 .pa-row .pa-keywords{font-family:'JetBrains Mono',monospace;letter-spacing:.03em}
 @media(max-width:560px){
   .pa-head{display:none}
@@ -1573,7 +1580,7 @@ select option,select optgroup{
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Product Name</div><div class="cb-desc">เช่น Houjicha Powder, Classic Rich 95%</div></div>
                   </div>
-                  <div class="cbitem" data-field="size" onclick="toggleCb(this)">
+                  <div class="cbitem" data-field="size" onclick="toggleCb(this); updateAllProdPreviews()">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Size / Weight</div><div class="cb-desc">เช่น 40 g, 200 g, 1 kg</div></div>
                   </div>
@@ -1600,6 +1607,12 @@ select option,select optgroup{
                 OCR อ่านข้อความบนบรรจุภัณฑ์แล้วระบบจะมองหา "คำที่พบบนซอง" เพื่อแปลงเป็น
                 "ชื่อ Product" ที่ต้องตรงกับคอลัมน์ Product Name ใน Google Sheet —
                 ใส่ product ใหม่ได้เองโดยไม่ต้องแก้โค้ด
+              </div>
+              <div class="pa-hint">
+                💡 ช่อง <strong>"ชื่อ Product"</strong> เป็น <strong>template</strong> — พิมพ์ข้อความได้อิสระ และใส่ <code>{size}</code> ตรงไหนก็ได้เพื่อให้ระบบแทนด้วยขนาดที่ OCR อ่านเจอ · ต้องตรงกับคอลัมน์ Product Name ใน Sheet แบบทุกตัวอักษร
+                <div class="pa-hint-eg">▸ <code>Medium {size}</code> → ถ้า OCR เจอ 40 g จะได้ <code>Medium 40 g</code> (แถวเดียวคุมได้ทุกขนาด)</div>
+                <div class="pa-hint-eg">▸ <code>Houjicha Powder</code> → ได้ <code>Houjicha Powder</code> (ไม่ใส่ <code>{size}</code> = ไม่ต่ออะไร)</div>
+                <div class="pa-hint-eg">▸ ถ้าใส่ <code>{size}</code> แต่ OCR อ่านขนาดไม่เจอ → product จะถือว่าไม่ผ่าน (เปิด field "ขนาด" ด้านบนด้วย)</div>
               </div>
               <div class="fgroup">
                 <div class="pa-head">
@@ -1988,7 +2001,7 @@ function renderCard(pkg) {
   let badgeClass, badgeText;
   if (isArchived) {
     badgeClass = 'archived';
-    badgeText = '⊘ Offline';
+    badgeText = '⊘ Archived';
   } else if (isActive) {
     const isLowData = pkg.image_count < 50;
     badgeClass = isLowData ? 'warn' : 'live';
@@ -2069,6 +2082,10 @@ async function openDrawer(key, pkgSummary) {
     ]);
     if (myReq !== drawerReqId) return; // stale response — ignore
     body.innerHTML = renderDrawerBody(pkg, samplesRes);
+    if (pkg.product_aliases && pkg.product_aliases.length) {
+      pkg.product_aliases.forEach(a =>
+        addProdAliasTo('drawer-pa-rows', a.canonical, (a.keywords || []).join(', ')));
+    }
     renderDrawerActions(pkg);
     setTimeout(() => { if (myReq === drawerReqId) drawBboxOverlays(samplesRes.samples); }, 50);
   } catch (err) {
@@ -2155,6 +2172,56 @@ async function undoConfThreshold(key, previous) {
   }
 }
 
+function collectDrawerAliases() {
+  return Array.from(document.querySelectorAll('#drawer-pa-rows .pa-row')).map(row => ({
+    canonical: row.querySelector('.pa-canonical').value.trim(),
+    keywords: row.querySelector('.pa-keywords').value.split(',').map(s => s.trim()).filter(Boolean),
+  })).filter(a => a.canonical && a.keywords.length);
+}
+
+async function saveDrawerAliases(key) {
+  const aliases = collectDrawerAliases();
+  if (!aliases.length) {
+    showToast('ต้องมีอย่างน้อย 1 product ที่มี keyword');
+    return;
+  }
+  try {
+    const res = await api('PUT', `/api/packagings/${encodeURIComponent(key)}/product-aliases`,
+      { product_aliases: aliases });
+    loadDashboard();
+    showToast(`บันทึก ${res.product_aliases.length} product แล้ว`, 8000, {
+      label: 'Undo',
+      onClick: () => undoDrawerAliases(key, res.previous),
+    });
+  } catch (err) {
+    showToast('บันทึก product names ไม่สำเร็จ: ' + err.message);
+  }
+}
+
+async function undoDrawerAliases(key, previous) {
+  if (!previous || !previous.length) return;
+  try {
+    await api('PUT', `/api/packagings/${encodeURIComponent(key)}/product-aliases`,
+      { product_aliases: previous });
+    loadDashboard();
+    showToast('คืนค่า product names เดิมแล้ว');
+  } catch (err) {
+    showToast('Undo ไม่สำเร็จ: ' + err.message);
+  }
+}
+
+async function revertDrawerAliases(key) {
+  if (!confirm('ลบ alias ที่ตั้งไว้ แล้วกลับไปใช้รายการ product มาตรฐานของระบบ?')) return;
+  try {
+    await api('DELETE', `/api/packagings/${encodeURIComponent(key)}/product-aliases`);
+    closeDrawer();
+    loadDashboard();
+    showToast('กลับไปใช้รายการ product มาตรฐานแล้ว');
+  } catch (err) {
+    showToast('ล้างไม่สำเร็จ: ' + err.message);
+  }
+}
+
 function renderDrawerBody(pkg, samplesRes) {
   const isActive = pkg.status === 'active';
   const pipelineLabel = pkg.pipeline === 'qr_scanner' ? 'QR Scanner' : 'Detector + OCR';
@@ -2211,10 +2278,33 @@ function renderDrawerBody(pkg, samplesRes) {
     const tplKey = cfg.message_template_key;
 
     if (isActive) {
-      // For active, config comes from the YAML — we don't expose them via API yet.
-      // Show pipeline + sample count for now.
       html += `<div class="dsec"><div class="dsec-label">Config</div>
         <div style="font-size:12px;color:var(--t3);font-style:italic">Active config อยู่ใน config/packagings/${esc(pkg.key)}.yaml — ใช้งานจริงในระบบ</div></div>`;
+      if ((pkg.fields_extracted || []).includes('product')) {
+        const sizeOn = (pkg.fields_extracted || []).includes('size') ? '1' : '0';
+        const onHardcoded = !(pkg.product_aliases && pkg.product_aliases.length);
+        const sizeNote = sizeOn === '1'
+          ? ' และใส่ <code>{size}</code> ถ้าต้องการให้ต่อขนาดท้ายชื่อ'
+          : '';
+        const warn = onHardcoded
+          ? `<div class="info-box" style="border-color:var(--err);margin:6px 0 10px">
+               ⚠ class นี้ยังใช้รายการ product มาตรฐานในระบบ (hardcode) อยู่ — ถ้าบันทึก alias ที่นี่ จะ<strong>แทนที่ทั้งหมดทันที</strong>:
+               ต้องใส่ product ทุกตัวที่ต้องการให้อ่านเอง${sizeNote} มิฉะนั้นของเดิมจะหาย
+             </div>`
+          : '';
+        const revertBtn = onHardcoded ? '' :
+          `<button class="btn btn-sm" onclick="revertDrawerAliases('${esc(pkg.key)}')">↩ กลับไปใช้รายการมาตรฐาน</button>`;
+        html += `<div class="dsec">
+          <div class="dsec-label">ชื่อ Product ที่อ่าน (แก้ได้ทันที — ไม่ต้อง retrain)</div>
+          ${warn}
+          <div id="drawer-pa-rows" class="pa-rows" data-size-on="${sizeOn}"></div>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn btn-sm" onclick="addProdAliasTo('drawer-pa-rows')">+ เพิ่ม product</button>
+            <button class="btn btn-primary btn-sm" onclick="saveDrawerAliases('${esc(pkg.key)}')">บันทึก product names</button>
+            ${revertBtn}
+          </div>
+        </div>`;
+      }
     } else {
       html += `<div class="dsec"><div class="dsec-label">Config</div>`;
       if (lotPatterns.length) {
@@ -3214,19 +3304,54 @@ function prefillFieldsFromSubRegions() {
   });
 }
 
-// ─── Product aliases (step 4) ─────────────────────────
+// ─── Product aliases (shared by step 4 + drawer) ──────
 function isProductFieldOn() {
   return !!document.querySelector('#sp4 [data-group="fields"] .cbitem.on[data-field="product"]');
 }
-function addProdAlias(canonical = '', keywords = '') {
+function isSizeFieldOn() {
+  return !!document.querySelector('#sp4 [data-group="fields"] .cbitem.on[data-field="size"]');
+}
+// size-on is live-DOM in step 4 (#pa-rows has no data-size-on), static in the drawer
+function paSizeOn(row) {
+  const rows = row.closest('.pa-rows');
+  if (rows && rows.dataset.sizeOn != null) return rows.dataset.sizeOn === '1';
+  return isSizeFieldOn();
+}
+function addProdAliasTo(containerId, canonical = '', keywords = '') {
   const c = String(canonical).replace(/"/g, '&quot;');
   const k = String(keywords).replace(/"/g, '&quot;');
-  document.getElementById('pa-rows').insertAdjacentHTML('beforeend', `
+  document.getElementById(containerId).insertAdjacentHTML('beforeend', `
     <div class="pa-row">
-      <input type="text" class="pa-canonical" aria-label="ชื่อ Product" placeholder="Houjicha Powder" value="${c}">
-      <input type="text" class="pa-keywords" aria-label="คำที่พบบนซอง คั่นด้วยจุลภาค" placeholder="houjicha, houjicha tea" value="${k}">
+      <input type="text" class="pa-canonical" aria-label="ชื่อ Product (template)" placeholder="Medium {size}" value="${c}" oninput="updateProdPreview(this.closest('.pa-row'))">
+      <input type="text" class="pa-keywords" aria-label="คำที่พบบนซอง คั่นด้วยจุลภาค" placeholder="medium" value="${k}">
       <button class="rm-btn" onclick="removeProdAlias(this)" aria-label="ลบ product นี้">×</button>
+      <div class="pa-preview"></div>
     </div>`);
+  updateProdPreview(document.getElementById(containerId).lastElementChild);
+}
+function addProdAlias(canonical = '', keywords = '') { addProdAliasTo('pa-rows', canonical, keywords); }
+const PA_SAMPLE_SIZE = '40 g';
+function updateProdPreview(row) {
+  if (!row) return;
+  const out = row.querySelector('.pa-preview');
+  const tpl = row.querySelector('.pa-canonical').value.trim();
+  if (!out) return;
+  if (!tpl) { out.textContent = ''; out.className = 'pa-preview'; return; }
+  if (tpl.includes('{size}')) {
+    if (!paSizeOn(row)) {
+      out.innerHTML = '⚠ ใช้ <code>{size}</code> แต่ยังไม่เปิด field "ขนาด"';
+      out.className = 'pa-preview warn';
+      return;
+    }
+    const resolved = tpl.replace(/\{size\}/g, PA_SAMPLE_SIZE).replace(/\s+/g, ' ').trim();
+    out.textContent = `→ "${resolved}"  (ตัวอย่างขนาด ${PA_SAMPLE_SIZE})`;
+  } else {
+    out.textContent = `→ "${tpl}"`;
+  }
+  out.className = 'pa-preview';
+}
+function updateAllProdPreviews() {
+  document.querySelectorAll('#pa-rows .pa-row').forEach(updateProdPreview);
 }
 function removeProdAlias(btn) { btn.closest('.pa-row').remove(); }
 function syncProductAliasVisibility() {
@@ -3325,18 +3450,6 @@ function renderStep5_preTraining(pkg) {
 }
 
 function renderStep5_training(pkg) {
-  const testSim = IS_TEST_MODE ? `
-      <div style="margin-top:14px;padding:12px 14px;border-radius:8px;
-        background:rgba(232,160,32,.06);border:1px dashed var(--acc-bd);font-size:12px;line-height:1.7;color:var(--t2)">
-        <strong style="color:var(--acc)">🧪 โหมด Test</strong> — ข้าม Colab/sync จริงได้
-        กดปุ่มด้านล่างเพื่อ <strong>จำลองว่า train เสร็จ</strong> (สร้าง eval ปลอมที่ผ่าน hard floor)
-        แล้วไปหน้า Deploy
-        <div style="text-align:center;margin-top:10px">
-          <button class="btn btn-primary" id="btn-sim-done" onclick="simulateTrainingDone()">
-            🧪 จำลอง train เสร็จ → ไป Deploy
-          </button>
-        </div>
-      </div>` : '';
   document.getElementById('sp5-body').innerHTML = `
     <div class="wiz-card">
       <div class="wiz-card-title">Full Training — รอ Colab</div>
@@ -3344,25 +3457,14 @@ function renderStep5_training(pkg) {
         <strong>📒 Training notebook เปิดแล้ว</strong> — กด <code>Runtime → Run all</code>
         (detector ~60 นาที + classifier ~30 นาที). Model จะเซฟลง Drive
         (<code>data check lot/</code> + <code>data classify check lot/models/</code>).
-        จากนั้น <strong>sync model เข้าระบบเอง</strong> ผ่าน model registry/manifest
-        — wizard ไม่ดึงให้อัตโนมัติ
       </div>
-      ${testSim}
+      <div style="text-align:center;margin-top:14px">
+        <button class="btn btn-primary" id="btn-sync-model" onclick="syncTrainedModel()">
+          ✅ Train เสร็จแล้ว — ดึง model จาก Drive
+        </button>
+      </div>
+      <div id="sync-msg" style="margin-top:10px;text-align:center;color:var(--t3);font-size:13px"></div>
     </div>`;
-}
-
-async function simulateTrainingDone() {
-  if (!curDraftKey) return;
-  if (!confirm('จำลองว่า train เสร็จ (เฉพาะโหมด test) — จะสร้าง eval ปลอมที่ผ่าน hard floor แล้วไปหน้า Deploy?')) return;
-  const btn = document.getElementById('btn-sim-done');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ กำลังจำลอง...'; }
-  try {
-    await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/full/done`);
-    await loadStep5();
-  } catch (err) {
-    if (btn) { btn.disabled = false; btn.textContent = '🧪 จำลอง train เสร็จ → ไป Deploy'; }
-    alert(`จำลองไม่สำเร็จ: ${err.message}`);
-  }
 }
 
 function renderStep5_eval(pkg, evRes) {
@@ -3460,23 +3562,38 @@ function renderStep5_eval(pkg, evRes) {
     </div>`;
 }
 
+async function syncTrainedModel() {
+  if (!curDraftKey) return;
+  const btn = document.getElementById('btn-sync-model');
+  const msg = document.getElementById('sync-msg');
+  btn.disabled = true;
+  btn.textContent = '⏳ กำลังดึง model จาก Drive...';
+  msg.textContent = '';
+  try {
+    await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/full/sync`);
+    await loadStep5();   // status → trained → renders Eval + Deploy
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '✅ Train เสร็จแล้ว — ดึง model จาก Drive';
+    msg.style.color = 'var(--err)';
+    msg.textContent = err.message.includes('ยังเทรนไม่เสร็จ')
+      ? 'ยังเทรนไม่เสร็จ — รอ Colab รันให้จบแล้วลองใหม่'
+      : `ดึง model ไม่สำเร็จ: ${err.message}`;
+  }
+}
+
 async function startFullTraining() {
   if (!curDraftKey) return;
   const btn = document.getElementById('btn-full-start');
   btn.disabled = true;
   btn.textContent = '⏳ กำลังเขียน dataset เข้า Drive...';
-  // เปิดแท็บเปล่าทันทีภายใต้ user-gesture แล้วค่อย redirect ทีหลัง —
-  // ถ้ารอ await (อัปโหลด dataset 30-60 วิ) แล้วค่อย window.open จะโดน popup blocker
-  const tab = window.open('', '_blank');
   const prog = trainProgressStart(curDraftKey, document.getElementById('full-prog'));
   try {
     const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/training/full/start`);
     prog.finish(true);
-    if (tab) tab.location = res.colab_url;
-    else window.open(res.colab_url, '_blank');
+    window.open(res.colab_url, '_blank');
     await loadStep5();
   } catch (err) {
-    if (tab) tab.close();
     prog.finish(false);
     btn.disabled = false;
     btn.textContent = '🚀 ลองอีกครั้ง';
@@ -3525,17 +3642,8 @@ async function doDeploy() {
 renderSteps();
 srSetMode('single');
 onPipelineChange();
-// ตรวจว่า backend รันใน TEST_MODE หรือไม่ — ใช้โชว์ปุ่ม "จำลอง train เสร็จ"
-let IS_TEST_MODE = false;
-async function detectTestMode() {
-  try {
-    const h = await api('GET', '/health');
-    IS_TEST_MODE = !!(h && h.test_mode);
-  } catch { IS_TEST_MODE = false; }
-}
 // Bootstrap: ถ้า URL มี draft+step → resume wizard, ไม่งั้นไป dashboard
 (async () => {
-  await detectTestMode();
   const resumed = await restoreFromUrl();
   if (!resumed) loadDashboard();
 })();
