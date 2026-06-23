@@ -2078,6 +2078,10 @@ async function openDrawer(key, pkgSummary) {
     ]);
     if (myReq !== drawerReqId) return; // stale response — ignore
     body.innerHTML = renderDrawerBody(pkg, samplesRes);
+    if (pkg.product_aliases && pkg.product_aliases.length) {
+      pkg.product_aliases.forEach(a =>
+        addProdAliasTo('drawer-pa-rows', a.canonical, (a.keywords || []).join(', ')));
+    }
     renderDrawerActions(pkg);
     setTimeout(() => { if (myReq === drawerReqId) drawBboxOverlays(samplesRes.samples); }, 50);
   } catch (err) {
@@ -2164,6 +2168,44 @@ async function undoConfThreshold(key, previous) {
   }
 }
 
+function collectDrawerAliases() {
+  return Array.from(document.querySelectorAll('#drawer-pa-rows .pa-row')).map(row => ({
+    canonical: row.querySelector('.pa-canonical').value.trim(),
+    keywords: row.querySelector('.pa-keywords').value.split(',').map(s => s.trim()).filter(Boolean),
+  })).filter(a => a.canonical && a.keywords.length);
+}
+
+async function saveDrawerAliases(key) {
+  const aliases = collectDrawerAliases();
+  if (!aliases.length) {
+    showToast('ต้องมีอย่างน้อย 1 product ที่มี keyword');
+    return;
+  }
+  try {
+    const res = await api('PUT', `/api/packagings/${encodeURIComponent(key)}/product-aliases`,
+      { product_aliases: aliases });
+    loadDashboard();
+    showToast(`บันทึก ${res.product_aliases.length} product แล้ว`, 8000, {
+      label: 'Undo',
+      onClick: () => undoDrawerAliases(key, res.previous),
+    });
+  } catch (err) {
+    showToast('บันทึก product names ไม่สำเร็จ: ' + err.message);
+  }
+}
+
+async function undoDrawerAliases(key, previous) {
+  if (!previous || !previous.length) return;
+  try {
+    await api('PUT', `/api/packagings/${encodeURIComponent(key)}/product-aliases`,
+      { product_aliases: previous });
+    loadDashboard();
+    showToast('คืนค่า product names เดิมแล้ว');
+  } catch (err) {
+    showToast('Undo ไม่สำเร็จ: ' + err.message);
+  }
+}
+
 function renderDrawerBody(pkg, samplesRes) {
   const isActive = pkg.status === 'active';
   const pipelineLabel = pkg.pipeline === 'qr_scanner' ? 'QR Scanner' : 'Detector + OCR';
@@ -2220,10 +2262,19 @@ function renderDrawerBody(pkg, samplesRes) {
     const tplKey = cfg.message_template_key;
 
     if (isActive) {
-      // For active, config comes from the YAML — we don't expose them via API yet.
-      // Show pipeline + sample count for now.
       html += `<div class="dsec"><div class="dsec-label">Config</div>
         <div style="font-size:12px;color:var(--t3);font-style:italic">Active config อยู่ใน config/packagings/${esc(pkg.key)}.yaml — ใช้งานจริงในระบบ</div></div>`;
+      if (pkg.product_aliases && pkg.product_aliases.length) {
+        const sizeOn = (pkg.fields_extracted || []).includes('size') ? '1' : '0';
+        html += `<div class="dsec">
+          <div class="dsec-label">ชื่อ Product ที่อ่าน (แก้ได้ทันที — ไม่ต้อง retrain)</div>
+          <div id="drawer-pa-rows" class="pa-rows" data-size-on="${sizeOn}"></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn btn-sm" onclick="addProdAliasTo('drawer-pa-rows')">+ เพิ่ม product</button>
+            <button class="btn btn-primary btn-sm" onclick="saveDrawerAliases('${esc(pkg.key)}')">บันทึก product names</button>
+          </div>
+        </div>`;
+      }
     } else {
       html += `<div class="dsec"><div class="dsec-label">Config</div>`;
       if (lotPatterns.length) {
@@ -3223,26 +3274,33 @@ function prefillFieldsFromSubRegions() {
   });
 }
 
-// ─── Product aliases (step 4) ─────────────────────────
+// ─── Product aliases (shared by step 4 + drawer) ──────
 function isProductFieldOn() {
   return !!document.querySelector('#sp4 [data-group="fields"] .cbitem.on[data-field="product"]');
 }
-function addProdAlias(canonical = '', keywords = '') {
+function isSizeFieldOn() {
+  return !!document.querySelector('#sp4 [data-group="fields"] .cbitem.on[data-field="size"]');
+}
+// size-on is live-DOM in step 4 (#pa-rows has no data-size-on), static in the drawer
+function paSizeOn(row) {
+  const rows = row.closest('.pa-rows');
+  if (rows && rows.dataset.sizeOn != null) return rows.dataset.sizeOn === '1';
+  return isSizeFieldOn();
+}
+function addProdAliasTo(containerId, canonical = '', keywords = '') {
   const c = String(canonical).replace(/"/g, '&quot;');
   const k = String(keywords).replace(/"/g, '&quot;');
-  document.getElementById('pa-rows').insertAdjacentHTML('beforeend', `
+  document.getElementById(containerId).insertAdjacentHTML('beforeend', `
     <div class="pa-row">
       <input type="text" class="pa-canonical" aria-label="ชื่อ Product (template)" placeholder="Medium {size}" value="${c}" oninput="updateProdPreview(this.closest('.pa-row'))">
       <input type="text" class="pa-keywords" aria-label="คำที่พบบนซอง คั่นด้วยจุลภาค" placeholder="medium" value="${k}">
       <button class="rm-btn" onclick="removeProdAlias(this)" aria-label="ลบ product นี้">×</button>
       <div class="pa-preview"></div>
     </div>`);
-  updateProdPreview(document.getElementById('pa-rows').lastElementChild);
+  updateProdPreview(document.getElementById(containerId).lastElementChild);
 }
+function addProdAlias(canonical = '', keywords = '') { addProdAliasTo('pa-rows', canonical, keywords); }
 const PA_SAMPLE_SIZE = '40 g';
-function isSizeFieldOn() {
-  return !!document.querySelector('#sp4 [data-group="fields"] .cbitem.on[data-field="size"]');
-}
 function updateProdPreview(row) {
   if (!row) return;
   const out = row.querySelector('.pa-preview');
@@ -3250,8 +3308,8 @@ function updateProdPreview(row) {
   if (!out) return;
   if (!tpl) { out.textContent = ''; out.className = 'pa-preview'; return; }
   if (tpl.includes('{size}')) {
-    if (!isSizeFieldOn()) {
-      out.innerHTML = '⚠ ใช้ <code>{size}</code> แต่ยังไม่เปิด field "ขนาด" ด้านบน';
+    if (!paSizeOn(row)) {
+      out.innerHTML = '⚠ ใช้ <code>{size}</code> แต่ยังไม่เปิด field "ขนาด"';
       out.className = 'pa-preview warn';
       return;
     }
