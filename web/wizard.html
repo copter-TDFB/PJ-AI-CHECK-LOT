@@ -1612,7 +1612,7 @@ select option,select optgroup{
               </div>
               <div class="fgroup">
                 <div class="pa-head">
-                  <label>ชื่อ Product (ตรงกับ Sheet) <span class="req">*</span></label>
+                  <label>ชื่อสินค้าใน sheet (ใส่ {size} แทนขนาด) <span class="req">*</span></label>
                   <label>คำที่พบบนซอง (คั่นด้วย ,)</label>
                   <span></span>
                 </div>
@@ -2293,6 +2293,11 @@ function renderDrawerBody(pkg, samplesRes) {
         html += `<div class="dsec">
           <div class="dsec-label">ชื่อ Product ที่อ่าน (แก้ได้ทันที — ไม่ต้อง retrain)</div>
           ${warn}
+          <div class="pa-head">
+            <label>ชื่อสินค้าใน sheet (ใส่ {size} แทนขนาด) <span class="req">*</span></label>
+            <label>คำที่พบบนซอง (คั่นด้วย ,)</label>
+            <span></span>
+          </div>
           <div id="drawer-pa-rows" class="pa-rows" data-size-on="${sizeOn}"></div>
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <button class="btn btn-sm" onclick="addProdAliasTo('drawer-pa-rows')">+ เพิ่ม product</button>
