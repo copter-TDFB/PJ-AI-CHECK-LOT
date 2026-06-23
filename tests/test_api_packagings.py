@@ -1059,6 +1059,35 @@ def test_put_aliases_502_when_persist_fails(client, fake_active_product, conf_ov
     assert g.json()["product_aliases"] == [{"canonical": "Excellent", "keywords": ["excellent"]}]
 
 
+def test_delete_aliases_reverts_to_yaml(client, fake_active_product, conf_overrides_env):
+    # override with two entries, then revert
+    client.put(f"/api/packagings/{fake_active_product}/product-aliases", json={"product_aliases": [
+        {"canonical": "Houjicha Powder {size}", "keywords": ["houjicha"]},
+        {"canonical": "Medium {size}", "keywords": ["medium"]},
+    ]})
+    r = client.delete(f"/api/packagings/{fake_active_product}/product-aliases")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert len(body["previous"]) == 2                       # the override we set
+    # reverted to the fixture YAML value
+    assert body["product_aliases"] == [{"canonical": "Excellent", "keywords": ["excellent"]}]
+    g = client.get(f"/api/packagings/{fake_active_product}")
+    assert g.json()["product_aliases"] == [{"canonical": "Excellent", "keywords": ["excellent"]}]
+
+
+def test_delete_aliases_404_for_unknown_key(client, conf_overrides_env):
+    r = client.delete("/api/packagings/nonexistent_xyz/product-aliases")
+    assert r.status_code == 404
+
+
+def test_delete_aliases_502_when_persist_fails(client, fake_active_product, conf_overrides_env, monkeypatch):
+    from services import config_overrides
+    monkeypatch.setattr(config_overrides, "delete_product_aliases",
+                        MagicMock(side_effect=RuntimeError("drive down")))
+    r = client.delete(f"/api/packagings/{fake_active_product}/product-aliases")
+    assert r.status_code == 502
+
+
 # ─── training/prelabel — active detector, edit-drafts only ───────────
 
 def test_prelabel_rejects_non_edit_draft(client, monkeypatch):

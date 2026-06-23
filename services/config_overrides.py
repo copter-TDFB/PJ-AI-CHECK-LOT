@@ -122,3 +122,21 @@ def save_product_aliases(key: str, aliases: list[dict]) -> dict[str, dict]:
     _persist(merged)
     logger.info("Saved product_aliases override: %s (%d aliases)", key, len(aliases))
     return merged
+
+
+def delete_product_aliases(key: str) -> dict[str, dict]:
+    """Remove a product_aliases override → revert to the YAML/hardcoded default.
+
+    Idempotent (no-op if none stored). Raises on persist failure — caller must
+    NOT apply the change locally in that case.
+    """
+    current = load()
+    merged = {k: dict(v) for k, v in current.items()}
+    entry = merged.get(key)
+    if entry is not None:
+        entry.pop("product_aliases", None)
+        if not entry:
+            merged.pop(key, None)
+    _persist(merged)
+    logger.info("Deleted product_aliases override: %s", key)
+    return merged

@@ -105,6 +105,32 @@ def test_save_product_aliases_normalizes_shape(local_mode):
     assert merged["x"]["product_aliases"] == [{"canonical": "A", "keywords": ["a", "b"]}]
 
 
+# ─── delete_product_aliases() — revert to default ────────
+
+def test_delete_product_aliases_reverts(local_mode):
+    from services import config_overrides
+
+    config_overrides.save_product_aliases("x", [{"canonical": "A", "keywords": ["a"]}])
+    merged = config_overrides.delete_product_aliases("x")
+    assert merged == {}
+    assert json.loads(local_mode.read_text(encoding="utf-8")) == {}
+
+
+def test_delete_product_aliases_keeps_conf(local_mode):
+    from services import config_overrides
+
+    config_overrides.save_conf_threshold("x", 0.7)
+    config_overrides.save_product_aliases("x", [{"canonical": "A", "keywords": ["a"]}])
+    merged = config_overrides.delete_product_aliases("x")
+    assert merged == {"x": {"conf_threshold": 0.7}}
+
+
+def test_delete_product_aliases_noop_when_absent(local_mode):
+    from services import config_overrides
+
+    assert config_overrides.delete_product_aliases("x") == {}
+
+
 # ─── Drive mode ──────────────────────────────────────────
 
 def test_load_reads_from_drive(drive_mode):

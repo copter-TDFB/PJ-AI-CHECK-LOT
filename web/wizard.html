@@ -2206,6 +2206,18 @@ async function undoDrawerAliases(key, previous) {
   }
 }
 
+async function revertDrawerAliases(key) {
+  if (!confirm('ลบ alias ที่ตั้งไว้ แล้วกลับไปใช้รายการ product มาตรฐานของระบบ?')) return;
+  try {
+    await api('DELETE', `/api/packagings/${encodeURIComponent(key)}/product-aliases`);
+    closeDrawer();
+    loadDashboard();
+    showToast('กลับไปใช้รายการ product มาตรฐานแล้ว');
+  } catch (err) {
+    showToast('ล้างไม่สำเร็จ: ' + err.message);
+  }
+}
+
 function renderDrawerBody(pkg, samplesRes) {
   const isActive = pkg.status === 'active';
   const pipelineLabel = pkg.pipeline === 'qr_scanner' ? 'QR Scanner' : 'Detector + OCR';
@@ -2267,19 +2279,25 @@ function renderDrawerBody(pkg, samplesRes) {
       if ((pkg.fields_extracted || []).includes('product')) {
         const sizeOn = (pkg.fields_extracted || []).includes('size') ? '1' : '0';
         const onHardcoded = !(pkg.product_aliases && pkg.product_aliases.length);
+        const sizeNote = sizeOn === '1'
+          ? ' และใส่ <code>{size}</code> ถ้าต้องการให้ต่อขนาดท้ายชื่อ'
+          : '';
         const warn = onHardcoded
           ? `<div class="info-box" style="border-color:var(--err);margin:6px 0 10px">
                ⚠ class นี้ยังใช้รายการ product มาตรฐานในระบบ (hardcode) อยู่ — ถ้าบันทึก alias ที่นี่ จะ<strong>แทนที่ทั้งหมดทันที</strong>:
-               ต้องใส่ product ทุกตัวที่ต้องการให้อ่านเอง และใส่ <code>{size}</code> ถ้าต้องการให้ต่อขนาดท้ายชื่อ มิฉะนั้นของเดิมจะหาย
+               ต้องใส่ product ทุกตัวที่ต้องการให้อ่านเอง${sizeNote} มิฉะนั้นของเดิมจะหาย
              </div>`
           : '';
+        const revertBtn = onHardcoded ? '' :
+          `<button class="btn btn-sm" onclick="revertDrawerAliases('${esc(pkg.key)}')">↩ กลับไปใช้รายการมาตรฐาน</button>`;
         html += `<div class="dsec">
           <div class="dsec-label">ชื่อ Product ที่อ่าน (แก้ได้ทันที — ไม่ต้อง retrain)</div>
           ${warn}
           <div id="drawer-pa-rows" class="pa-rows" data-size-on="${sizeOn}"></div>
-          <div style="display:flex;gap:8px;margin-top:8px">
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <button class="btn btn-sm" onclick="addProdAliasTo('drawer-pa-rows')">+ เพิ่ม product</button>
             <button class="btn btn-primary btn-sm" onclick="saveDrawerAliases('${esc(pkg.key)}')">บันทึก product names</button>
+            ${revertBtn}
           </div>
         </div>`;
       }

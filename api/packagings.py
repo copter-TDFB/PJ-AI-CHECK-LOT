@@ -362,6 +362,40 @@ def update_product_aliases(key: str, body: ProductAliasesUpdate):
     return ProductAliasesResponse(key=key, product_aliases=aliases, previous=previous)
 
 
+@router.delete("/{key}/product-aliases", response_model=ProductAliasesResponse)
+def revert_product_aliases(key: str):
+    """Remove the product_aliases override → revert to the YAML/hardcoded default.
+
+    Persist-first (mirrors the PUT). Returns the now-effective aliases (the YAML
+    value, which may be empty → the class falls back to the hardcoded matcher).
+    """
+    import main
+
+    cfg = main.registry.get(key) if main.registry else None
+    if cfg is None:
+        raise HTTPException(404, f"active packaging '{key}' not found")
+
+    previous = cfg.product_aliases
+
+    from services import config_overrides
+
+    try:
+        config_overrides.delete_product_aliases(key)
+    except Exception as e:
+        logger.exception("product_aliases override delete failed for %s", key)
+        raise HTTPException(502, f"failed to persist override: {e}")
+
+    try:
+        main.reload_registry()
+    except Exception as e:
+        logger.exception("registry reload failed after product_aliases delete")
+        raise HTTPException(500, f"registry reload failed: {e}")
+
+    new_cfg = main.registry.get(key) if main.registry else None
+    effective = new_cfg.product_aliases if new_cfg else []
+    return ProductAliasesResponse(key=key, product_aliases=effective, previous=previous)
+
+
 @router.post("/{key}/images")
 async def upload_images(key: str, files: list[UploadFile] = File(...)):
     """อัพรูปขึ้น draft — step 2."""
