@@ -16,6 +16,8 @@ from api.schemas import (
     ConfThresholdUpdate,
     PackagingConfigUpdate,
     PackagingCreate,
+    ProductAliasesResponse,
+    ProductAliasesUpdate,
     PackagingResponse,
     PackagingUpdate,
     RegexPreviewRequest,
@@ -145,6 +147,8 @@ def get_packaging(key: str):
                 accuracy=cfg.accuracy,
                 sub_regions=cfg.sub_regions,
                 detection_mode=cfg.detection_mode,
+                product_aliases=cfg.product_aliases,
+                fields_extracted=cfg.fields_extracted,
             )
         if main.registry.is_archived(key):
             arch_yaml = _packaging_yaml_dir() / f"{key}.yaml.archived"
@@ -317,6 +321,45 @@ def update_conf_threshold(key: str, body: ConfThresholdUpdate):
     return ConfThresholdResponse(
         key=key, conf_threshold=body.conf_threshold, previous=previous,
     )
+
+
+@router.put("/{key}/product-aliases", response_model=ProductAliasesResponse)
+def update_product_aliases(key: str, body: ProductAliasesUpdate):
+    """Edit the product names an active class reads — no retrain (mirrors /conf).
+
+    Persist-first: a storage failure returns 502 and changes nothing, so the
+    instance never diverges from the stored overrides.
+    """
+    import main
+
+    cfg = main.registry.get(key) if main.registry else None
+    if cfg is None:
+        raise HTTPException(404, f"active packaging '{key}' not found")
+    if "product" not in cfg.fields_extracted:
+        raise HTTPException(400, f"packaging '{key}' does not read a product name")
+
+    aliases = [a.model_dump() for a in body.product_aliases]
+    for a in aliases:
+        if not a["canonical"].strip() or not [k for k in a["keywords"] if k.strip()]:
+            raise HTTPException(400, "each alias needs a canonical and at least one keyword")
+
+    previous = cfg.product_aliases
+
+    from services import config_overrides
+
+    try:
+        config_overrides.save_product_aliases(key, aliases)
+    except Exception as e:
+        logger.exception("product_aliases override persist failed for %s", key)
+        raise HTTPException(502, f"failed to persist override: {e}")
+
+    try:
+        main.reload_registry()
+    except Exception as e:
+        logger.exception("registry reload failed after product_aliases update")
+        raise HTTPException(500, f"registry reload failed: {e}")
+
+    return ProductAliasesResponse(key=key, product_aliases=aliases, previous=previous)
 
 
 @router.post("/{key}/images")

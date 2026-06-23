@@ -96,6 +96,8 @@ class PackagingResponse(BaseModel):
     accuracy: float | None = None
     sub_regions: list[str] | None = None
     detection_mode: str | None = None
+    product_aliases: list[ProductAlias] | None = None
+    fields_extracted: list[str] | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
     config: dict | None = None
@@ -114,6 +116,17 @@ class ConfThresholdResponse(BaseModel):
     key: str
     conf_threshold: float
     previous: float
+
+
+class ProductAliasesUpdate(BaseModel):
+    """Runtime edit of the product names an active class reads (no retrain)."""
+    product_aliases: list[ProductAlias] = Field(..., min_length=1)
+
+
+class ProductAliasesResponse(BaseModel):
+    key: str
+    product_aliases: list[ProductAlias]
+    previous: list[ProductAlias]
 
 
 class RegexPreviewRequest(BaseModel):

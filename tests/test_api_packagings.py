@@ -537,6 +537,43 @@ def fake_active(client):
     main.registry = PackagingRegistry()
 
 
+@pytest.fixture
+def fake_active_product(client):
+    """Temporary active YAML that reads a product name via product_aliases."""
+    import yaml as _yaml
+    from pathlib import Path
+    key = "prod_fixture_pkg"
+    yaml_path = Path(f"config/packagings/{key}.yaml")
+    data = {
+        "key": key, "display_name": "Prod Fixture", "pipeline": "detector_ocr",
+        "conf_threshold": 0.6, "accuracy": 0.9, "gate_on_lot": True,
+        "lot_short_fallback": False, "sub_regions": [],
+        "lot_patterns": [r"(?i)LOT\s*([A-Z0-9]+)"],
+        "fields_extracted": ["lot", "product"], "sheet_checks": ["lot", "product"],
+        "post_ocr_fixes": [], "message_template_key": "default_full",
+        "model_classifier_label": key, "detector_yolo_prefixes": [f"{key}_lot"],
+        "product_aliases": [{"canonical": "Excellent", "keywords": ["excellent"]}],
+    }
+    yaml_path.write_text(_yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    from pipeline.packaging_registry import PackagingRegistry
+    import main
+    main.registry = PackagingRegistry()
+    yield key
+    for p in Path("config/packagings").glob(f"{key}.yaml*"):
+        try:
+            p.unlink()
+        except OSError:
+            pass
+
+
+def test_get_active_returns_product_aliases_and_fields(client, fake_active_product):
+    g = client.get(f"/api/packagings/{fake_active_product}")
+    assert g.status_code == 200, g.text
+    body = g.json()
+    assert body["fields_extracted"] == ["lot", "product"]
+    assert body["product_aliases"] == [{"canonical": "Excellent", "keywords": ["excellent"]}]
+
+
 def test_clone_active_creates_edit_draft(client, fake_active):
     r = client.post(f"/api/packagings/{fake_active}/clone")
     assert r.status_code == 201, r.text
@@ -960,6 +997,65 @@ def test_put_conf_502_when_persist_fails(client, fake_active, conf_overrides_env
     # Nothing changed locally — registry still serves the YAML value
     g = client.get(f"/api/packagings/{fake_active}")
     assert g.json()["conf_threshold"] == 0.7
+
+
+# ─── PUT /{key}/product-aliases — runtime alias edit ─────
+
+def test_put_aliases_updates_active(client, fake_active_product, conf_overrides_env):
+    new = [
+        {"canonical": "Excellent", "keywords": ["excellent"]},
+        {"canonical": "Medium {size}", "keywords": ["medium", "med"]},
+    ]
+    r = client.put(f"/api/packagings/{fake_active_product}/product-aliases",
+                   json={"product_aliases": new})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["key"] == fake_active_product
+    assert body["product_aliases"] == new
+    assert body["previous"] == [{"canonical": "Excellent", "keywords": ["excellent"]}]
+    # GET reflects the merged override immediately
+    g = client.get(f"/api/packagings/{fake_active_product}")
+    assert g.json()["product_aliases"] == new
+
+
+def test_put_aliases_400_when_class_has_no_product(client, fake_active, conf_overrides_env):
+    # fake_active has fields_extracted == ["lot"] (no product)
+    r = client.put(f"/api/packagings/{fake_active}/product-aliases",
+                   json={"product_aliases": [{"canonical": "A", "keywords": ["a"]}]})
+    assert r.status_code == 400
+
+
+def test_put_aliases_422_when_empty_list(client, fake_active_product, conf_overrides_env):
+    r = client.put(f"/api/packagings/{fake_active_product}/product-aliases",
+                   json={"product_aliases": []})
+    assert r.status_code == 422
+
+
+def test_put_aliases_400_when_row_empty(client, fake_active_product, conf_overrides_env):
+    for bad in ([{"canonical": "  ", "keywords": ["a"]}],
+                [{"canonical": "A", "keywords": []}],
+                [{"canonical": "A", "keywords": ["  "]}]):
+        r = client.put(f"/api/packagings/{fake_active_product}/product-aliases",
+                       json={"product_aliases": bad})
+        assert r.status_code == 400, f"{bad} should be rejected"
+
+
+def test_put_aliases_404_for_unknown_key(client, conf_overrides_env):
+    r = client.put("/api/packagings/nonexistent_xyz/product-aliases",
+                   json={"product_aliases": [{"canonical": "A", "keywords": ["a"]}]})
+    assert r.status_code == 404
+
+
+def test_put_aliases_502_when_persist_fails(client, fake_active_product, conf_overrides_env, monkeypatch):
+    from services import config_overrides
+    monkeypatch.setattr(config_overrides, "save_product_aliases",
+                        MagicMock(side_effect=RuntimeError("drive down")))
+    r = client.put(f"/api/packagings/{fake_active_product}/product-aliases",
+                   json={"product_aliases": [{"canonical": "Z", "keywords": ["z"]}]})
+    assert r.status_code == 502
+    # nothing changed — GET still serves the YAML value
+    g = client.get(f"/api/packagings/{fake_active_product}")
+    assert g.json()["product_aliases"] == [{"canonical": "Excellent", "keywords": ["excellent"]}]
 
 
 # ─── training/prelabel — active detector, edit-drafts only ───────────
