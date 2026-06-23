@@ -75,6 +75,24 @@ def load() -> dict[str, dict]:
         return {}
 
 
+def _persist(merged: dict[str, dict]) -> None:
+    """Write the merged overrides to GCS (or Drive / local fallback). Raises on failure."""
+    from services import gcs_store
+
+    store = gcs_store.get_store()
+    if store is not None:
+        store.write_json(_GCS_OBJECT, merged)
+        return
+    content = json.dumps(merged, ensure_ascii=False, indent=2).encode("utf-8")
+    file_id = _drive_file_id()
+    if file_id:
+        DriveClient().update_file_content(file_id, content, mime_type="application/json")
+    else:
+        path = _local_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content.decode("utf-8"), encoding="utf-8")
+
+
 def save_conf_threshold(key: str, value: float) -> dict[str, dict]:
     """Persist a conf_threshold override and return the merged overrides.
 
@@ -83,22 +101,24 @@ def save_conf_threshold(key: str, value: float) -> dict[str, dict]:
     """
     current = load()
     merged = {k: dict(v) for k, v in current.items()}
-    entry = merged.setdefault(key, {})
-    entry["conf_threshold"] = float(value)
-
-    from services import gcs_store
-
-    store = gcs_store.get_store()
-    if store is not None:
-        store.write_json(_GCS_OBJECT, merged)
-    else:
-        content = json.dumps(merged, ensure_ascii=False, indent=2).encode("utf-8")
-        file_id = _drive_file_id()
-        if file_id:
-            DriveClient().update_file_content(file_id, content, mime_type="application/json")
-        else:
-            path = _local_path()
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(content.decode("utf-8"), encoding="utf-8")
+    merged.setdefault(key, {})["conf_threshold"] = float(value)
+    _persist(merged)
     logger.info("Saved conf_threshold override: %s=%.2f", key, value)
+    return merged
+
+
+def save_product_aliases(key: str, aliases: list[dict]) -> dict[str, dict]:
+    """Persist a product_aliases override and return the merged overrides.
+
+    Raises on persist failure — caller must NOT apply the change locally
+    in that case, so instances never diverge from the stored overrides.
+    """
+    current = load()
+    merged = {k: dict(v) for k, v in current.items()}
+    merged.setdefault(key, {})["product_aliases"] = [
+        {"canonical": a["canonical"], "keywords": list(a["keywords"])}
+        for a in aliases
+    ]
+    _persist(merged)
+    logger.info("Saved product_aliases override: %s (%d aliases)", key, len(aliases))
     return merged
