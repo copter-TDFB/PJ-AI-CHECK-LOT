@@ -17,3 +17,5 @@ post_ocr_fixes: []
 message_template_key: lot_only
 model_classifier_label: import_sticker
 detector_yolo_prefixes: []
+
+image_count: 300

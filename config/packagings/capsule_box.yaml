@@ -18,3 +18,5 @@ post_ocr_fixes: []
 message_template_key: lot_exp
 model_classifier_label: capsule_box
 detector_yolo_prefixes: [capsule_box]
+
+image_count: 45

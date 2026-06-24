@@ -19,3 +19,5 @@ post_ocr_fixes: [lot_alpha_prefix]
 message_template_key: default_full
 model_classifier_label: back_label
 detector_yolo_prefixes: [back_label_lot, back_label_name, back_label_size]
+
+image_count: 161

@@ -37,6 +37,8 @@ class PackagingConfig:
     detection_mode: str = "single"   # 'single' | 'cross_check' | 'multi_field'
     product_aliases: list[dict] = field(default_factory=list)
     # [{'canonical': str, 'keywords': [str]}] — config-driven product matching
+    image_count: int | None = None   # dataset image count snapshot — avoids a per-request
+    # Drive lookup on the dashboard list/detail; None → endpoints fall back to a live count
 
 
 @dataclass
@@ -105,6 +107,7 @@ class PackagingRegistry:
             sub_regions=data.get("sub_regions", []),
             detection_mode=data.get("detection_mode", "single"),
             product_aliases=self._merged_product_aliases(data, override),
+            image_count=int(data["image_count"]) if data.get("image_count") is not None else None,
         )
 
     def _overlay_from_gcs(self, overrides: dict[str, dict]) -> None:

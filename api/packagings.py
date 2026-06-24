@@ -73,7 +73,7 @@ def list_packagings():
                 display_name=cfg.display_name,
                 pipeline=cfg.pipeline,
                 status="active",
-                image_count=_count_active_images(key),
+                image_count=cfg.image_count if cfg.image_count is not None else _count_active_images(key),
                 conf_threshold=cfg.conf_threshold,
                 accuracy=cfg.accuracy,
                 sub_regions=cfg.sub_regions,
@@ -94,7 +94,8 @@ def list_packagings():
                 display_name=data.get("display_name", arch_key),
                 pipeline=data.get("pipeline", "detector_ocr"),
                 status="archived",
-                image_count=_count_active_images(arch_key),
+                image_count=int(data["image_count"]) if data.get("image_count") is not None
+                    else _count_active_images(arch_key),
                 conf_threshold=float(data.get("conf_threshold", 0.6)),
                 accuracy=float(data["accuracy"]) if data.get("accuracy") is not None else None,
             ))
@@ -146,7 +147,7 @@ def get_packaging(key: str):
                 display_name=cfg.display_name,
                 pipeline=cfg.pipeline,
                 status="active",
-                image_count=_count_active_images(key),
+                image_count=cfg.image_count if cfg.image_count is not None else _count_active_images(key),
                 conf_threshold=cfg.conf_threshold,
                 accuracy=cfg.accuracy,
                 sub_regions=cfg.sub_regions,
@@ -165,7 +166,8 @@ def get_packaging(key: str):
                 display_name=data.get("display_name", key),
                 pipeline=data.get("pipeline", "detector_ocr"),
                 status="archived",
-                image_count=_count_active_images(key),
+                image_count=int(data["image_count"]) if data.get("image_count") is not None
+                    else _count_active_images(key),
                 conf_threshold=float(data.get("conf_threshold", 0.6)),
                 accuracy=float(data["accuracy"]) if data.get("accuracy") is not None else None,
             )
@@ -849,6 +851,13 @@ def deploy_packaging(key: str):
         cloudrun_deployer.backup_artifacts(target_key)
         if (parent_key is not None or has_synced) else None
     )
+
+    # Snapshot the dataset image count into the YAML so the dashboard reads it
+    # from config instead of counting via Drive on every request (PackagingConfig.image_count).
+    img_count = len(packaging_store.list_images(key))
+    if parent_key is not None:
+        img_count += _count_active_images(parent_key)  # edit-draft = existing refs + new uploads
+    draft["image_count"] = img_count
 
     try:
         # 4. Write packaging YAML under target_key (parent_key on overwrite)

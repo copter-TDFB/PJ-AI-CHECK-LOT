@@ -89,6 +89,9 @@ def write_packaging_yaml(key: str, draft_meta: dict[str, Any]) -> Path:
         "accuracy": existing.get("accuracy"),  # cleared by /eval if retrained
         "gate_on_lot": existing.get("gate_on_lot", True),
         "lot_short_fallback": existing.get("lot_short_fallback", False),
+        "image_count": draft_meta.get("image_count")
+            if draft_meta.get("image_count") is not None
+            else existing.get("image_count"),  # dataset-count snapshot (dashboard reads this, not Drive)
         "sub_regions": sub_regions_final,
         "detection_mode": detection_mode,
         "lot_patterns": edited["lot_patterns"] if edited["lot_patterns"] is not None

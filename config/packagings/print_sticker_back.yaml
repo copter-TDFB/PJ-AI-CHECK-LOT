@@ -41,3 +41,5 @@ model_classifier_label: print_sticker_back
 detector_yolo_prefixes:
 - print_sticker_back_lot_exp
 - print_sticker_back_product_size
+
+image_count: 200

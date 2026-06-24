@@ -22,3 +22,5 @@ post_ocr_fixes: []
 message_template_key: lot_exp
 model_classifier_label: retail_sachet
 detector_yolo_prefixes: [retail_sachet_lot]
+
+image_count: 149
