@@ -2,7 +2,7 @@ key: print_sticker_back
 display_name: print_sticker_back
 pipeline: detector_ocr
 conf_threshold: 0.6
-accuracy: null
+accuracy: 1.0
 gate_on_lot: true
 lot_short_fallback: false
 sub_regions:
