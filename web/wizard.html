@@ -17,7 +17,7 @@
   --bd2:  #363B4C;
   --t1:   #EDEEF1;
   --t2:   #8A8FA5;
-  --t3:   #525769;
+  --t3:   #7C8196;
   --acc:  #E8A020;
   --acc2: #F0C040;
   --acc-bg: rgba(232,160,32,.10);
@@ -365,7 +365,7 @@ label{
 }
 .req{color:var(--acc);margin-left:2px}
 .hint{font-weight:400;color:var(--t3);font-size:11px;margin-left:6px}
-.pa-hint{background:var(--acc-bg);border-left:3px solid var(--acc-bd);border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12px;line-height:1.65;color:var(--t2)}
+.pa-hint{background:var(--acc-bg);border:1px solid var(--acc-bd);border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12px;line-height:1.65;color:var(--t2)}
 .pa-hint strong{color:var(--t1);font-weight:600}
 .pa-hint code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--s2);padding:1px 5px;border-radius:4px;color:var(--t1)}
 .pa-hint .pa-hint-eg{margin-top:6px}
@@ -447,8 +447,8 @@ select option,select optgroup{
 /* Single (default) crop region */
 .sr-single-card{
   display:flex;align-items:flex-start;gap:11px;
-  background:var(--s2);border:1px solid var(--bd);
-  border-left:3px solid var(--acc);border-radius:7px;
+  background:var(--s2);border:1px solid var(--acc-bd);
+  border-radius:7px;
   padding:11px 13px;
 }
 .sr-single-card .sr-dot{margin-top:5px}
@@ -472,18 +472,17 @@ select option,select optgroup{
   cursor:pointer;transition:background .15s,color .15s,border-color .15s;text-align:center;
 }
 .sr-mode-tab:hover{color:var(--acc);border-color:var(--acc)}
-.sr-mode-tab.on{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:600}
+.sr-mode-tab.on{background:var(--acc);color:#0B0C10;border-color:var(--acc);font-weight:600}
 
 /* Info box */
 .info-box{
-  background:var(--s2);border:1px solid var(--bd);
-  border-left:3px solid var(--acc);
-  border-radius:0 7px 7px 0;
+  background:var(--s2);border:1px solid var(--acc-bd);
+  border-radius:7px;
   padding:12px 14px;font-size:12px;color:var(--t2);
   line-height:1.65;margin-bottom:16px;
 }
 .info-box strong{color:var(--t1)}
-.info-box.ok{border-left-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
+.info-box.ok{border-color:rgba(52,211,153,.25);background:var(--ok-bg);color:var(--ok)}
 .info-box.ok strong{color:var(--ok)}
 
 /* ── UPLOAD ──────────────────────────────────────── */
@@ -578,8 +577,9 @@ select option,select optgroup{
 .ls-desc{font-size:12px;color:var(--t2);max-width:290px;line-height:1.65}
 .ls-counts{display:flex;gap:22px;margin-top:4px}
 .ls-cnt-n{
-  font-family:'Playfair Display',serif;
-  font-size:28px;font-weight:500;color:var(--t1);
+  font-family:'JetBrains Mono',monospace;
+  font-size:26px;font-weight:600;color:var(--t1);
+  font-variant-numeric:tabular-nums;
 }
 .ls-cnt-n.done{color:var(--ok)}
 .ls-cnt-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;margin-top:2px;letter-spacing:.05em}
@@ -696,8 +696,9 @@ select option,select optgroup{
   flex-shrink:0;
 }
 .eval-val{
-  font-family:'Playfair Display',serif;
-  font-size:36px;font-weight:500;line-height:1;
+  font-family:'JetBrains Mono',monospace;
+  font-size:34px;font-weight:600;line-height:1;
+  font-variant-numeric:tabular-nums;
   margin-bottom:6px;
 }
 .eval-val.g{color:var(--ok)}
@@ -1145,12 +1146,60 @@ select option,select optgroup{
 .confirm-title{font-family:'Playfair Display',serif;font-size:18px;font-weight:500;margin-bottom:10px}
 .confirm-body{font-size:13px;color:var(--t2);line-height:1.7;margin-bottom:20px}
 .confirm-actions{display:flex;gap:10px;justify-content:flex-end}
+
+/* ── HAMBURGER + MOBILE SIDEBAR ───────────────────── */
+.sb-toggle{
+  display:none;flex-shrink:0;
+  width:34px;height:34px;border-radius:7px;
+  background:transparent;border:1px solid var(--bd);color:var(--t1);
+  align-items:center;justify-content:center;cursor:pointer;
+}
+.sb-toggle:hover{background:var(--s1);border-color:var(--bd2)}
+.sb-backdrop{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);
+  opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:80;
+}
+.sb-backdrop.open{opacity:1;pointer-events:auto}
+
+@media (max-width:860px){
+  .sb-toggle{display:flex}
+  .sidebar{
+    position:fixed;top:0;left:0;bottom:0;z-index:81;
+    transform:translateX(-100%);
+    transition:transform .25s cubic-bezier(.4,0,.2,1);
+  }
+  .sidebar.open{transform:translateX(0)}
+  .content{padding:20px 16px}
+  .wiz-layout{flex-direction:column;gap:18px;max-width:none}
+  .wiz-steps{width:100%;min-width:0}
+  .eval-grid,.tpl-grid{grid-template-columns:1fr}
+}
+@media (max-width:520px){
+  .topbar{padding:0 14px;gap:10px}
+}
+
+/* ── REDUCED MOTION ───────────────────────────────── */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms!important;animation-iteration-count:1!important;
+    transition-duration:.001ms!important;scroll-behavior:auto!important;
+  }
+}
+
+/* ── KEYBOARD-OPERABLE NON-NATIVE CONTROLS ────────── */
+[role=button],[role=checkbox],[role=radio]{cursor:pointer}
+[role=button][aria-disabled=true],[role=checkbox][aria-disabled=true]{cursor:not-allowed}
+[role=button]:focus-visible,[role=checkbox]:focus-visible,[role=radio]:focus-visible{
+  outline:2px solid var(--acc);outline-offset:2px;
+}
 </style>
 </head>
 <body>
 
+<div class="sb-backdrop" id="sb-backdrop" onclick="toggleSidebar(false)"></div>
+
 <!-- SIDEBAR -->
-<aside class="sidebar">
+<aside class="sidebar" id="sidebar">
   <div class="sb-logo">
     <div class="sb-icon">L</div>
     <div>
@@ -1160,7 +1209,7 @@ select option,select optgroup{
   </div>
   <nav class="sb-nav">
     <div class="sb-label">Workspace</div>
-    <div class="nav-item active" id="nav-dash" onclick="showView('dashboard')">
+    <div class="nav-item active" id="nav-dash" role="button" tabindex="0" onclick="showView('dashboard');toggleSidebar(false)">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
         <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
@@ -1168,7 +1217,7 @@ select option,select optgroup{
       Packaging
       <span class="nav-badge">6</span>
     </div>
-    <div class="nav-item soon">
+    <div class="nav-item soon" role="button" aria-disabled="true">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
       </svg>
@@ -1176,7 +1225,7 @@ select option,select optgroup{
       <span class="nav-badge soon-tag">soon</span>
     </div>
     <div class="sb-label">ระบบ</div>
-    <div class="nav-item soon">
+    <div class="nav-item soon" role="button" aria-disabled="true">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="3"/>
         <path d="M19.07 4.93a10 10 0 0 0-14.14 0M4.93 19.07a10 10 0 0 0 14.14 0"/>
@@ -1184,7 +1233,7 @@ select option,select optgroup{
       การตั้งค่า
       <span class="nav-badge soon-tag">soon</span>
     </div>
-    <div class="nav-item soon">
+    <div class="nav-item soon" role="button" aria-disabled="true">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
       </svg>
@@ -1204,6 +1253,9 @@ select option,select optgroup{
 <!-- MAIN -->
 <main class="main">
   <header class="topbar" id="topbar">
+    <button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()" aria-label="เปิด/ปิด เมนู" aria-expanded="false" aria-controls="sidebar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
     <button class="btn btn-ghost btn-sm" id="topbar-back" style="display:none" onclick="showView('dashboard')">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
@@ -1237,7 +1289,7 @@ select option,select optgroup{
           กำลังโหลดจาก API...
         </div>
 
-        <div class="pkg-card-add" onclick="startWizard()">
+        <div class="pkg-card-add" role="button" tabindex="0" onclick="startWizard()">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="8" x2="12" y2="16"/>
@@ -1411,7 +1463,7 @@ select option,select optgroup{
                 <strong>เคล็ดลับ:</strong> ถ่ายจากหลายมุม (ตรง/เฉียง), หลายระยะ, แสงต่างกัน, มีและไม่มีบรรจุภัณฑ์อื่นในเฟรม
               </div>
               <input type="file" id="file-input" multiple accept="image/*" style="display:none" onchange="handleFileSelect(this.files)">
-              <div class="upload-zone" id="uz" onclick="document.getElementById('file-input').click()">
+              <div class="upload-zone" id="uz" role="button" tabindex="0" aria-label="เลือกหรือวางรูปเพื่ออัพโหลด" onclick="document.getElementById('file-input').click()">
                 <div class="upload-icon">
                   <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -1554,19 +1606,19 @@ select option,select optgroup{
               <div class="fgroup">
                 <label>Extract fields</label>
                 <div class="cbgroup" data-group="fields">
-                  <div class="cbitem on disabled" data-field="lot">
+                  <div class="cbitem on disabled" data-field="lot" role="checkbox" aria-checked="true" aria-disabled="true">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Lot Number</div><div class="cb-desc">บังคับ — ทุก packaging</div></div>
                   </div>
-                  <div class="cbitem on" data-field="exp" onclick="toggleCb(this)">
+                  <div class="cbitem on" data-field="exp" role="checkbox" aria-checked="true" tabindex="0" onclick="toggleCb(this)">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Expiry Date</div><div class="cb-desc">ค้นหาจาก BBD / EXP / หมดอายุ</div></div>
                   </div>
-                  <div class="cbitem" data-field="product" onclick="toggleCb(this); syncProductAliasVisibility()">
+                  <div class="cbitem" data-field="product" role="checkbox" aria-checked="false" tabindex="0" onclick="toggleCb(this); syncProductAliasVisibility()">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Product Name</div><div class="cb-desc">เช่น Houjicha Powder, Classic Rich 95%</div></div>
                   </div>
-                  <div class="cbitem" data-field="size" onclick="toggleCb(this); updateAllProdPreviews()">
+                  <div class="cbitem" data-field="size" role="checkbox" aria-checked="false" tabindex="0" onclick="toggleCb(this); updateAllProdPreviews()">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Size / Weight</div><div class="cb-desc">เช่น 40 g, 200 g, 1 kg</div></div>
                   </div>
@@ -1575,11 +1627,11 @@ select option,select optgroup{
               <div class="fgroup" style="margin-top:18px">
                 <label>Sheet Checks</label>
                 <div class="cbgroup" data-group="sheet">
-                  <div class="cbitem on" data-field="lot" onclick="toggleCb(this)">
+                  <div class="cbitem on" data-field="lot" role="checkbox" aria-checked="true" tabindex="0" onclick="toggleCb(this)">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Lot match</div><div class="cb-desc">ตรวจว่า lot อยู่ใน Google Sheet</div></div>
                   </div>
-                  <div class="cbitem on" data-field="exp" onclick="toggleCb(this)">
+                  <div class="cbitem on" data-field="exp" role="checkbox" aria-checked="true" tabindex="0" onclick="toggleCb(this)">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Exp match</div><div class="cb-desc">ตรวจวันหมดอายุตรงกับ sheet</div></div>
                   </div>
@@ -1614,20 +1666,20 @@ select option,select optgroup{
             <div class="wiz-card">
               <div class="wiz-card-title" style="font-size:18px">Message Template</div>
               <div class="wiz-card-desc" style="margin-bottom:14px">รูปแบบข้อความที่จะส่งไป Slack</div>
-              <div class="tpl-grid">
-                <div class="tpl-opt" data-template="lot_only" onclick="pickTpl(this)">
+              <div class="tpl-grid" role="radiogroup" aria-label="Message Template">
+                <div class="tpl-opt" data-template="lot_only" role="radio" aria-checked="false" tabindex="0" onclick="pickTpl(this)">
                   <div class="tpl-name">Lot Only</div>
                   <div class="tpl-prev">"...ตรวจ lot แล้ว ผ่าน | LOT: TB0005001014612426"</div>
                 </div>
-                <div class="tpl-opt on" data-template="default_full" onclick="pickTpl(this)">
+                <div class="tpl-opt on" data-template="default_full" role="radio" aria-checked="true" tabindex="0" onclick="pickTpl(this)">
                   <div class="tpl-name">Default Full ✓</div>
                   <div class="tpl-prev">"...ถูกต้อง ใช้งานต่อได้เลยค่า | Tea Bag Box 20s | LOT: TB0005..."</div>
                 </div>
-                <div class="tpl-opt" data-template="lot_exp" onclick="pickTpl(this)">
+                <div class="tpl-opt" data-template="lot_exp" role="radio" aria-checked="false" tabindex="0" onclick="pickTpl(this)">
                   <div class="tpl-name">Lot + Exp</div>
                   <div class="tpl-prev">"...ถูกต้อง | BBD 04/05/2027 | LOT: TB0005..."</div>
                 </div>
-                <div class="tpl-opt" data-template="container" onclick="pickTpl(this)">
+                <div class="tpl-opt" data-template="container" role="radio" aria-checked="false" tabindex="0" onclick="pickTpl(this)">
                   <div class="tpl-name">Container + Sachet</div>
                   <div class="tpl-prev">"...กล่อง+ซองตรง | LOT: TB0005..." (box+sachet)</div>
                 </div>
@@ -1660,7 +1712,7 @@ select option,select optgroup{
 
 <!-- DRAWER -->
 <div class="drawer-backdrop" id="drawer-backdrop"></div>
-<aside class="drawer" id="drawer">
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
   <header class="drawer-head">
     <div class="drawer-head-title" id="drawer-title">—</div>
     <button class="drawer-close" onclick="closeDrawer()" aria-label="ปิด">×</button>
@@ -1683,6 +1735,10 @@ select option,select optgroup{
 
 <script>
 // ─── API base ──────────────────────────────
+// Drawer "Sample images" baked offline (scripts/build_drawer_samples.py): originals +
+// detector crops + bbox, so opening a card on prod needs no Drive download and no model.
+// Re-run the script + redeploy after retraining the detector or changing dataset images.
+const BAKED_DRAWER_SAMPLES = {"back_label":[{"orig":"samples/back_label/0.jpg","regions":[{"src":"samples/back_label/0.crop0.jpg","label":null,"bbox":[132,157,263,207]},{"src":"samples/back_label/0.crop1.jpg","label":null,"bbox":[50,267,98,288]},{"src":"samples/back_label/0.crop2.jpg","label":null,"bbox":[105,297,164,319]}]},{"orig":"samples/back_label/1.jpg","regions":[{"src":"samples/back_label/1.crop0.jpg","label":null,"bbox":[142,28,256,65]},{"src":"samples/back_label/1.crop1.jpg","label":null,"bbox":[78,117,114,131]},{"src":"samples/back_label/1.crop2.jpg","label":null,"bbox":[116,143,152,157]}]},{"orig":"samples/back_label/2.jpg","regions":[{"src":"samples/back_label/2.crop0.jpg","label":null,"bbox":[133,16,247,56]},{"src":"samples/back_label/2.crop1.jpg","label":null,"bbox":[67,109,105,124]},{"src":"samples/back_label/2.crop2.jpg","label":null,"bbox":[114,134,168,153]}]}],"capsule_box":[{"orig":"samples/capsule_box/0.jpg","regions":[{"src":"samples/capsule_box/0.crop0.jpg","label":null,"bbox":[69,345,214,438]},{"src":"samples/capsule_box/0.crop1.jpg","label":null,"bbox":[70,347,211,396]}]},{"orig":"samples/capsule_box/1.jpg","regions":[{"src":"samples/capsule_box/1.crop0.jpg","label":null,"bbox":[64,361,157,409]}]},{"orig":"samples/capsule_box/2.jpg","regions":[{"src":"samples/capsule_box/2.crop0.jpg","label":null,"bbox":[39,455,110,491]}]}],"container_label":[{"orig":"samples/container_label/0.jpg","regions":[{"src":"samples/container_label/0.crop0.jpg","label":"box","bbox":[208,300,292,334]},{"src":"samples/container_label/0.crop1.jpg","label":"sachet","bbox":[207,379,262,410]}]},{"orig":"samples/container_label/1.jpg","regions":[{"src":"samples/container_label/1.crop0.jpg","label":"box","bbox":[202,291,300,330]},{"src":"samples/container_label/1.crop1.jpg","label":"sachet","bbox":[192,375,257,409]}]},{"orig":"samples/container_label/2.jpg","regions":[{"src":"samples/container_label/2.crop0.jpg","label":"box","bbox":[240,277,310,307]},{"src":"samples/container_label/2.crop1.jpg","label":"sachet","bbox":[222,350,270,378]}]}],"grade_bag":[{"orig":"samples/grade_bag/0.jpg","regions":[{"src":"samples/grade_bag/0.crop0.jpg","label":null,"bbox":[15,31,90,81]},{"src":"samples/grade_bag/0.crop1.jpg","label":null,"bbox":[215,134,252,150]}]},{"orig":"samples/grade_bag/1.jpg","regions":[{"src":"samples/grade_bag/1.crop0.jpg","label":null,"bbox":[4,31,62,82]},{"src":"samples/grade_bag/1.crop1.jpg","label":null,"bbox":[208,134,250,150]}]},{"orig":"samples/grade_bag/2.jpg","regions":[{"src":"samples/grade_bag/2.crop0.jpg","label":null,"bbox":[19,33,79,84]},{"src":"samples/grade_bag/2.crop1.jpg","label":null,"bbox":[209,134,253,150]}]}],"import_sticker":[{"orig":"samples/import_sticker/0.jpg","regions":[]},{"orig":"samples/import_sticker/1.jpg","regions":[]},{"orig":"samples/import_sticker/2.jpg","regions":[]}],"print_sticker_back":[{"orig":"samples/print_sticker_back/0.jpg","regions":[{"src":"samples/print_sticker_back/0.crop0.jpg","label":"lot_exp","bbox":[20,122,290,272]},{"src":"samples/print_sticker_back/0.crop1.jpg","label":"product_size","bbox":[128,436,249,481]}]},{"orig":"samples/print_sticker_back/1.jpg","regions":[{"src":"samples/print_sticker_back/1.crop0.jpg","label":"lot_exp","bbox":[13,64,308,225]},{"src":"samples/print_sticker_back/1.crop1.jpg","label":"product_size","bbox":[157,402,253,436]}]},{"orig":"samples/print_sticker_back/2.jpg","regions":[{"src":"samples/print_sticker_back/2.crop0.jpg","label":"lot_exp","bbox":[49,0,310,109]},{"src":"samples/print_sticker_back/2.crop1.jpg","label":"product_size","bbox":[44,2,306,153]}]}],"retail_sachet":[{"orig":"samples/retail_sachet/0.jpg","regions":[{"src":"samples/retail_sachet/0.crop0.jpg","label":null,"bbox":[217,330,239,368]}]},{"orig":"samples/retail_sachet/1.jpg","regions":[{"src":"samples/retail_sachet/1.crop0.jpg","label":null,"bbox":[160,195,182,235]}]},{"orig":"samples/retail_sachet/2.jpg","regions":[{"src":"samples/retail_sachet/2.crop0.jpg","label":null,"bbox":[99,270,126,322]}]}]};
 const BAKED_SAMPLES = {
   "back_label": [
     "samples/back_label/0.jpg",
@@ -1868,7 +1924,8 @@ function startWizard() {
   syncUrl();
 }
 function goStep(n) {
-  curStep = n;
+  const maxStep = document.querySelectorAll('.step-panel').length || 5;
+  curStep = Math.max(1, Math.min(maxStep, n));
   renderSteps();
   // Scroll .content (มี overflow ของตัวเอง) — window.scrollTo ไม่มีผลกับ container นี้
   const content = document.querySelector('.content');
@@ -1960,7 +2017,9 @@ async function restoreFromUrl() {
 
 function renderSteps() {
   document.querySelectorAll('.step-panel').forEach(p => p.style.display = 'none');
-  document.getElementById('sp' + curStep).style.display = 'block';
+  const panel = document.getElementById('sp' + curStep);
+  if (!panel) return;
+  panel.style.display = 'block';
   STEPS.forEach(s => {
     const ws = document.getElementById('ws' + s.id);
     const wd = document.getElementById('wd' + s.id);
@@ -2066,6 +2125,9 @@ function renderCard(pkg) {
   div.style.cursor = 'pointer';
   div.onclick = () => openDrawer(pkg.key, pkg);
   div.style.position = 'relative';
+  div.setAttribute('role', 'button');
+  div.tabIndex = 0;
+  div.setAttribute('aria-label', `เปิดรายละเอียด ${pkg.display_name}`);
 
   const editingCorner = hasEdit
     ? `<div class="pkg-card-corner"><span class="badge-pulse"></span>Editing</div>`
@@ -2095,6 +2157,7 @@ function renderCard(pkg) {
 // ─── DRAWER ────────────────────────────────
 let drawerReqId = 0;          // race-condition guard
 let currentDrawerKey = null;  // ป้องกัน re-fetch รูปเดิม
+let _drawerReturnFocus = null; // a11y — element to restore focus to on close
 
 async function openDrawer(key, pkgSummary) {
   if (key === currentDrawerKey && document.getElementById('drawer').classList.contains('open')) {
@@ -2112,11 +2175,17 @@ async function openDrawer(key, pkgSummary) {
   actions.style.display = 'none';
   drawer.classList.add('open');
   backdrop.classList.add('open');
+  // a11y — move focus into the dialog, remember where to return it
+  _drawerReturnFocus = document.activeElement;
+  drawer.querySelector('.drawer-close')?.focus();
 
   try {
+    // Prefer baked samples (no Drive download, no detector) — fall back to live for drafts.
+    const baked = bakedSamplesFor(key);
     const [pkg, samplesRes] = await Promise.all([
       api('GET', `/api/packagings/${encodeURIComponent(key)}`),
-      api('GET', `/api/packagings/${encodeURIComponent(key)}/samples?count=6`),
+      baked ? Promise.resolve(baked)
+            : api('GET', `/api/packagings/${encodeURIComponent(key)}/samples?count=6`),
     ]);
     if (myReq !== drawerReqId) return; // stale response — ignore
     body.innerHTML = renderDrawerBody(pkg, samplesRes);
@@ -2137,10 +2206,59 @@ function closeDrawer() {
   drawerReqId++; // invalidate any in-flight request
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawer-backdrop').classList.remove('open');
+  // a11y — restore focus to whatever opened the drawer
+  if (_drawerReturnFocus && typeof _drawerReturnFocus.focus === 'function') _drawerReturnFocus.focus();
+  _drawerReturnFocus = null;
 }
 
 // Esc to close
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+
+// ─── A11Y + MOBILE NAV ─────────────────────
+// Mobile sidebar toggle (hamburger). show omitted = flip.
+function toggleSidebar(show) {
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('sb-backdrop');
+  const btn = document.getElementById('sb-toggle');
+  if (!sb) return;
+  const open = (show === undefined) ? !sb.classList.contains('open') : show;
+  sb.classList.toggle('open', open);
+  if (bd) bd.classList.toggle('open', open);
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+// Keyboard activation for non-native controls (Enter / Space → click)
+document.addEventListener('keydown', (e) => {
+  const t = e.target;
+  if (!t || !t.matches || !t.matches('[role=button],[role=checkbox],[role=radio]')) return;
+  if (t.getAttribute('aria-disabled') === 'true') return;
+  if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+    e.preventDefault();
+    t.click();
+  }
+});
+
+// Focus trap — keep Tab inside the drawer while it is open
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Tab') return;
+  const drawer = document.getElementById('drawer');
+  if (!drawer || !drawer.classList.contains('open')) return;
+  const focusable = Array.from(
+    drawer.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+  ).filter(el => !el.disabled && el.offsetParent !== null);
+  if (!focusable.length) return;
+  const first = focusable[0], last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+
+// Expose card/drawer/step titles as headings for screen-reader outline
+// (styled <div>s — tagged here so JS-rendered cards are covered too)
+function tagHeadings() {
+  document.querySelectorAll('.wiz-card-title, .drawer-head-title, .confirm-title')
+    .forEach(el => { el.setAttribute('role', 'heading'); el.setAttribute('aria-level', '2'); });
+}
+document.addEventListener('DOMContentLoaded', tagHeadings);
 
 // Click outside drawer (but not on card) = close
 document.addEventListener('click', (e) => {
@@ -2186,7 +2304,7 @@ async function saveConfThreshold(key) {
     const res = await api('PUT', `/api/packagings/${encodeURIComponent(key)}/conf`,
       { conf_threshold: val });
     applyConfToDrawer(key, res.conf_threshold);
-    loadDashboard(); // refresh card stats
+    setCardConf(key, res.conf_threshold); // update just this card, no full re-list
     showToast(`Conf ${res.previous.toFixed(2)} → ${res.conf_threshold.toFixed(2)}`, 8000, {
       label: 'Undo',
       onClick: () => undoConfThreshold(key, res.previous),
@@ -2203,7 +2321,7 @@ async function undoConfThreshold(key, previous) {
     const res = await api('PUT', `/api/packagings/${encodeURIComponent(key)}/conf`,
       { conf_threshold: previous });
     applyConfToDrawer(key, res.conf_threshold);
-    loadDashboard();
+    setCardConf(key, res.conf_threshold);
     showToast(`คืนค่า Conf เป็น ${res.conf_threshold.toFixed(2)} แล้ว`);
   } catch (err) {
     showToast('Undo ไม่สำเร็จ: ' + err.message);
@@ -2226,7 +2344,6 @@ async function saveDrawerAliases(key) {
   try {
     const res = await api('PUT', `/api/packagings/${encodeURIComponent(key)}/product-aliases`,
       { product_aliases: aliases });
-    loadDashboard();
     showToast(`บันทึก ${res.product_aliases.length} product แล้ว`, 8000, {
       label: 'Undo',
       onClick: () => undoDrawerAliases(key, res.previous),
@@ -2241,7 +2358,6 @@ async function undoDrawerAliases(key, previous) {
   try {
     await api('PUT', `/api/packagings/${encodeURIComponent(key)}/product-aliases`,
       { product_aliases: previous });
-    loadDashboard();
     showToast('คืนค่า product names เดิมแล้ว');
   } catch (err) {
     showToast('Undo ไม่สำเร็จ: ' + err.message);
@@ -2253,7 +2369,6 @@ async function revertDrawerAliases(key) {
   try {
     await api('DELETE', `/api/packagings/${encodeURIComponent(key)}/product-aliases`);
     closeDrawer();
-    loadDashboard();
     showToast('กลับไปใช้รายการ product มาตรฐานแล้ว');
   } catch (err) {
     showToast('ล้างไม่สำเร็จ: ' + err.message);
@@ -2383,15 +2498,32 @@ function renderDrawerBody(pkg, samplesRes) {
   return html;
 }
 
+// Baked sample assets are frontend-relative (samples/...); live ones need API_BASE.
+function sampleSrc(url) { return url.startsWith('samples/') ? url : `${API_BASE}${url}`; }
+
+// Build a /samples-shaped response from baked data, or null if this key isn't baked.
+function bakedSamplesFor(key) {
+  const arr = (typeof BAKED_DRAWER_SAMPLES !== 'undefined') ? BAKED_DRAWER_SAMPLES[key] : null;
+  if (!arr || !arr.length) return null;
+  return {
+    pipeline: 'baked',
+    samples: arr.map((s, i) => ({
+      name: `sample ${i + 1}`,
+      original_url: s.orig,
+      regions: (s.regions || []).map(r => ({ bbox: r.bbox || null, label: r.label, crop_url: r.src })),
+    })),
+  };
+}
+
 function renderSampleRow(s, idx) {
-  const origSrc = `${API_BASE}${s.original_url}`;
+  const origSrc = sampleSrc(s.original_url);
   let cropsHtml;
   if (!s.regions.length) {
     cropsHtml = `<div class="no-crop">QR Scanner — ไม่มี crop</div>`;
   } else {
     cropsHtml = `<div class="sample-crops">` + s.regions.map(r => `
       <div class="sample-crop">
-        <img src="${API_BASE}${r.crop_url}" alt="crop" loading="lazy">
+        <img src="${sampleSrc(r.crop_url)}" alt="crop" loading="lazy">
         ${r.label ? `<span class="sample-crop-lbl">${esc(r.label)}</span>` : ''}
       </div>`).join('') + `</div>`;
   }
@@ -2595,6 +2727,13 @@ async function loadCardImages(key) {
       strip.appendChild(el);
     });
   } catch (e) { console.warn('loadCardImages', key, e); }
+}
+
+// Update a single card's Conf stat in place — avoids a full dashboard re-list.
+function setCardConf(key, val) {
+  const strip = document.querySelector(`.pkg-photo-strip[data-key="${CSS.escape(key)}"]`);
+  const cell = strip?.closest('.pkg-card')?.querySelector('.pkg-stats .pkg-stat-val'); // first stat = Conf
+  if (cell && val != null) cell.textContent = Number(val).toFixed(2);
 }
 
 // ─── STEP 1 — Create draft ─────────────────
@@ -3346,8 +3485,15 @@ function updateRegex() {
 }
 updateRegex();
 
-function toggleCb(el) { if (!el.classList.contains('disabled')) el.classList.toggle('on'); }
-function pickTpl(el)  { document.querySelectorAll('.tpl-opt').forEach(t => t.classList.remove('on')); el.classList.add('on'); }
+function toggleCb(el) {
+  if (el.classList.contains('disabled')) return;
+  el.classList.toggle('on');
+  el.setAttribute('aria-checked', el.classList.contains('on') ? 'true' : 'false');
+}
+function pickTpl(el)  {
+  document.querySelectorAll('.tpl-opt').forEach(t => { t.classList.remove('on'); t.setAttribute('aria-checked', 'false'); });
+  el.classList.add('on'); el.setAttribute('aria-checked', 'true');
+}
 
 function prefillFieldsFromSubRegions() {
   if (cropMode !== 'multi_field') return;
@@ -3529,7 +3675,7 @@ async function loadStep5() {
 function renderStep5_preTraining(pkg) {
   document.getElementById('sp5-body').innerHTML = `
     <div class="wiz-card">
-      <div class="wiz-card-title">Full Training</div>
+      <div class="wiz-card-title" role="heading" aria-level="2">Full Training</div>
       <div class="wiz-card-desc">รัน full training บน Colab — ใช้ทั้ง 50+ รูปที่ label แล้ว (รวมที่ verify จาก seed) — ใช้เวลา ~30-60 นาที</div>
       <div class="info-box">
         <strong>ต้องทำก่อน Deploy:</strong> full training จะคำนวณ mAP@0.5 + precision/recall ที่ใช้เช็ค hard floor
@@ -3546,7 +3692,7 @@ function renderStep5_preTraining(pkg) {
 function renderStep5_training(pkg) {
   document.getElementById('sp5-body').innerHTML = `
     <div class="wiz-card">
-      <div class="wiz-card-title">Full Training — รอ Colab</div>
+      <div class="wiz-card-title" role="heading" aria-level="2">Full Training — รอ Colab</div>
       <div class="info-box">
         <strong>📒 Training notebook เปิดแล้ว</strong> — กด <code>Runtime → Run all</code>
         (detector ~60 นาที + classifier ~30 นาที). Model จะเซฟลง Drive
@@ -3585,7 +3731,7 @@ function renderStep5_eval(pkg, evRes) {
   const deployedStatus = pkg.status === 'deployed';
   document.getElementById('sp5-body').innerHTML = `
     <div class="wiz-card">
-      <div class="wiz-card-title">ผลการประเมิน Model</div>
+      <div class="wiz-card-title" role="heading" aria-level="2">ผลการประเมิน Model</div>
       <div class="wiz-card-desc">ตัวเลขจาก val set (20% ของ labeled images)</div>
       <div class="eval-grid">
         <div class="eval-card">
