@@ -1765,10 +1765,10 @@ const BAKED_SAMPLES = {
 };
 
 const API_BASE = (() => {
+  // Always talk to production. window.API_BASE_OVERRIDE still wins so the
+  // TEST_MODE harness (:8081) and the portable bundle keep working — they
+  // inject it before this runs. Local dev against :8080 must set the override.
   if (window.API_BASE_OVERRIDE) return window.API_BASE_OVERRIDE;
-  if (location.protocol === 'file:') return 'http://localhost:8080';
-  const h = location.hostname;
-  if (h === 'localhost' || h === '127.0.0.1') return 'http://localhost:8080';
   return 'https://ocr-lot-checker-459907489982.asia-southeast1.run.app';
 })();
 
@@ -2020,7 +2020,13 @@ async function loadDashboard() {
     const liveCount = items.filter(p => p.status === 'active').length;
     document.querySelector('#nav-dash .nav-badge').textContent = liveCount;
 
-    visible.forEach(pkg => { if (pkg.image_count > 0) loadCardImages(pkg.key); });
+    // Run for any card with baked thumbnails (show them regardless of the
+    // backend count, which is 0 on prod until the Drive-count deploy) OR with a
+    // positive count (fetches baked first, else the Drive-backed endpoint).
+    visible.forEach(pkg => {
+      const hasBaked = typeof BAKED_SAMPLES !== 'undefined' && BAKED_SAMPLES[pkg.key];
+      if (hasBaked || pkg.image_count > 0) loadCardImages(pkg.key);
+    });
   } catch (err) {
     if (loadingEl) {
       loadingEl.innerHTML = `<div style="color:var(--err);font-size:13px">❌ โหลด API ไม่ได้: ${esc(err.message)}</div>
