@@ -98,6 +98,18 @@ checks.push(['dead views + promoProd removed', async (page) => {
   if (r.promoProd !== 'undefined') throw new Error('promoProd still defined/referenced');
 }]);
 
+checks.push(['no demo hardcode in step1/step4 inputs', async (page) => {
+  const r = await page.evaluate(() => ({
+    name: document.getElementById('inp-display-name').value,
+    key: document.getElementById('inp-key').value,
+    desc: document.getElementById('inp-desc').value,
+    lotRows: document.querySelectorAll('#lot-rows .lot-row').length,
+    firstLot: document.querySelector('#lot-rows input')?.value || '',
+  }));
+  if (r.name || r.key || r.desc) throw new Error('step1 inputs still prefilled');
+  if (r.lotRows !== 1 || r.firstLot) throw new Error('step4 lot examples still hardcoded');
+}]);
+
 // ── runner ──
 async function main() {
   const server = spawn('python', ['-m', 'http.server', String(PORT), '--directory', WEB_DIR],

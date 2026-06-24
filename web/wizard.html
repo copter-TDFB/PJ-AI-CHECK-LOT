@@ -1316,15 +1316,15 @@ select option,select optgroup{
               <div class="wiz-card-desc">กำหนดชื่อและรายละเอียดของประเภทบรรจุภัณฑ์ใหม่ที่ต้องการให้ AI รู้จัก</div>
               <div class="fgroup">
                 <label>ชื่อแสดง <span class="req">*</span></label>
-                <input type="text" id="inp-display-name" value="New Tea Bag Box" placeholder="เช่น Capsule Box Premium">
+                <input type="text" id="inp-display-name" value="" placeholder="เช่น Capsule Box Premium">
               </div>
               <div class="fgroup">
                 <label>Key (code) <span class="req">*</span><span class="hint">ตัวพิมพ์เล็ก + _ เท่านั้น</span></label>
-                <input type="text" id="inp-key" value="new_tea_bag_box" style="font-family:'JetBrains Mono',monospace">
+                <input type="text" id="inp-key" value="" placeholder="เช่น capsule_box_premium" style="font-family:'JetBrains Mono',monospace">
               </div>
               <div class="fgroup">
                 <label>คำอธิบาย <span class="hint">optional</span></label>
-                <textarea id="inp-desc" placeholder="อธิบายลักษณะ เช่น สีสัน, รูปร่าง, ตำแหน่งของ lot">กล่องชาถุง 20 ซอง — มีฉลากด้านหน้าแสดง lot และวันหมดอายุ</textarea>
+                <textarea id="inp-desc" placeholder="อธิบายลักษณะ เช่น สีสัน, รูปร่าง, ตำแหน่งของ lot"></textarea>
               </div>
               <div class="fgroup">
                 <label>ประเภท Pipeline <span class="req">*</span></label>
@@ -1553,15 +1553,7 @@ select option,select optgroup{
                 <label>ตัวอย่าง Lot Number <span class="req">*</span></label>
                 <div class="lot-rows" id="lot-rows">
                   <div class="lot-row">
-                    <input type="text" value="TB0005001014612426" oninput="updateRegex()">
-                    <button class="rm-btn" onclick="removeLot(this)">×</button>
-                  </div>
-                  <div class="lot-row">
-                    <input type="text" value="TB0006001014789012" oninput="updateRegex()">
-                    <button class="rm-btn" onclick="removeLot(this)">×</button>
-                  </div>
-                  <div class="lot-row">
-                    <input type="text" value="TB0007001014999876" oninput="updateRegex()">
+                    <input type="text" value="" placeholder="เลข lot ตัวอย่าง" oninput="updateRegex()">
                     <button class="rm-btn" onclick="removeLot(this)">×</button>
                   </div>
                 </div>
@@ -1569,7 +1561,7 @@ select option,select optgroup{
               </div>
               <div class="regex-preview">
                 <div class="rp-label">Pattern ที่สร้างขึ้น — ทดสอบกับตัวอย่าง</div>
-                <div class="regex-display" id="rx-display">(?i)LOT\s*[:\.\-]?\s*([A-Z]{2}\d{4,}[A-Z0-9]*)</div>
+                <div class="regex-display" id="rx-display"></div>
                 <div class="regex-matches" id="rx-matches"></div>
               </div>
             </div>
