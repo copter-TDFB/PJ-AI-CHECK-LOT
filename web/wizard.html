@@ -459,25 +459,11 @@ select option,select optgroup{
   background:var(--acc-bg);border-radius:6px;padding:8px 11px;margin-top:9px;
 }
 .sr-hint-step4 b{color:var(--acc2);font-weight:600}
-.sr-adv-toggle{
-  display:block;width:100%;text-align:left;margin-top:9px;
-  background:transparent;border:none;cursor:pointer;
-  font-family:inherit;font-size:11px;color:var(--t3);
-  padding:2px 0;transition:color .15s;
-}
-.sr-adv-toggle:hover{color:var(--acc)}
-.sr-adv-toggle b{color:var(--t2);font-weight:600}
-.sr-adv-toggle:hover b{color:var(--acc)}
 #sr-multi{display:flex;flex-direction:column;gap:9px}
 .sr-multi-head{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
   font-size:11px;color:var(--t3);line-height:1.5;
 }
-.sr-adv-collapse{
-  flex:0 0 auto;background:transparent;border:none;cursor:pointer;
-  font-family:inherit;font-size:11px;color:var(--t3);padding:2px 4px;transition:color .15s;
-}
-.sr-adv-collapse:hover{color:var(--acc)}
 /* Mode tabs — 3-way crop mode selector */
 .sr-mode-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .sr-mode-tab{
@@ -1889,7 +1875,7 @@ function goStep(n) {
   if (content) content.scrollTo({top: 0, behavior: 'smooth'});
   if (n === 2) initStep2();
   if (n === 3) loadAnnotator();
-  if (n === 4) { prefillFieldsFromSubRegions(); prefillStep4FromDraft(); syncProductAliasVisibility(); }
+  if (n === 4) { prefillFieldsFromSubRegions(); prefillStep4FromDraft().then(syncProductAliasVisibility); }
   if (n === 5) loadStep5();
   syncUrl();
 }
