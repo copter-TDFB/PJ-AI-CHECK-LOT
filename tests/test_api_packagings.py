@@ -1437,3 +1437,28 @@ def test_get_image_active_drive_missing_returns_404(client, monkeypatch, tmp_pat
 
     r = client.get("/api/packagings/back_label/images/nope.jpg")
     assert r.status_code == 404
+
+
+def test_drive_sample_path_cleans_partial_on_failure(monkeypatch, tmp_path):
+    """A mid-download failure must delete the truncated file so a later request
+    retries instead of serving a corrupt thumbnail from the cache-hit branch."""
+    from api import packagings
+
+    monkeypatch.setattr(packagings, "_DRIVE_SAMPLE_CACHE", tmp_path / "cache")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSROOT")
+    monkeypatch.setattr(
+        "services.drive_samples.class_images",
+        lambda key: [{"id": "FID", "name": "a.jpg"}],
+    )
+
+    class _Drive:
+        def download_file(self, file_id, dest):
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(b"partial")  # truncated write before the error
+            raise RuntimeError("network drop mid-download")
+
+    monkeypatch.setattr("services.drive_client.DriveClient", lambda: _Drive())
+
+    result = packagings._drive_sample_path("back_label", "a.jpg")
+    assert result is None
+    assert not (tmp_path / "cache" / "back_label" / "a.jpg").exists()

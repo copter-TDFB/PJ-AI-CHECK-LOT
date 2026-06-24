@@ -1106,4 +1106,10 @@ def _drive_sample_path(key: str, safe: str) -> Path | None:
         return dest
     except Exception as e:  # noqa: BLE001 -- a broken thumbnail must not 500
         logger.warning("drive sample download failed %s/%s: %s", key, safe, e)
+        # Drop any partially-written file so a later request retries instead of
+        # serving a truncated image forever (the cache-hit at line 1093).
+        try:
+            dest.unlink(missing_ok=True)
+        except OSError:
+            pass
         return None
