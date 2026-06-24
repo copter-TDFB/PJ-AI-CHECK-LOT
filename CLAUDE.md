@@ -51,9 +51,25 @@ gcloud run deploy ocr-lot-checker --image <that-image> --region asia-southeast1 
 # verify candidate URL (candidate---ocr-lot-checker-...run.app), then go live:
 gcloud run services update-traffic ocr-lot-checker --region asia-southeast1 --to-revisions <rev>=100
 # rollback: --to-revisions <previous-rev>=100
+#
+# CODE-ONLY redeploy (no config change): bare `gcloud run deploy --image <new> --no-traffic --tag candidate`
+# INHERITS the live env/secrets/SA — you do NOT need to re-pass --set-env-vars/--set-secrets (which risks
+# dropping a var). Read the live env first to confirm, verify the candidate /health, then update-traffic.
+#
+# Prod is GCS-first for models: with GCS_CONFIG_BUCKET set, the app downloads models from
+# gs://.../models per manifest.json and IGNORES models baked into the image. To ship new
+# models to prod you MUST publish to GCS (cloudrun_deployer.publish_packaging_to_gcs) — a
+# rebuilt image alone won't change prod's models.
+# Model sync runs ONLY at lifespan startup. A running revision won't pick up new GCS models
+# until it restarts. Redeploying the SAME image+config does NOT create a new revision (Cloud
+# Run dedupes) -> no restart -> no sync. Force one with `--revision-suffix <x>`, then
+# `update-traffic --to-revisions <rev>=100` (traffic is pinned by name; a triggered/new
+# revision gets 0% until you route to it). deploy_packaging's trigger now sets traffic=LATEST.
 ```
 
 Python 3.11. CPU-only torch is installed explicitly in the Dockerfile to keep the image small (~1.3 GB vs ~3.5 GB).
+
+Frontend (`web/`) deploys to Netlify from `origin/main` (`netlify.toml` publish=web, no build command). Shipping wizard HTML / baked assets = push to `origin/main`; the Cloud Run image bakes `web/` too but serves only the API. Run scripts against PROD GCS locally with `GCS_CONFIG_BUCKET=ocr-lot-checker-config GOOGLE_APPLICATION_CREDENTIALS=gcp-key.json python <script>` (the SA key has GCS access; this is how `backfill_image_count.py gcs` writes prod config).
 
 ## Architecture
 
@@ -71,7 +87,7 @@ The request flow through `main.py` `POST /predict`:
 7. **SheetChecker** (`utils/sheet_checker.py`) — reads the row matching the OCR'd lot in the user-supplied Google Sheet and returns `lot_match`/`exp_match`/`product_match`/`sachet_match`.
 8. **build_verify_message** (`pipeline/message_builder.py`) — fills the message template (`config/message_templates/*.yaml`) keyed by `config.message_template_key`.
 
-Models are loaded once in the FastAPI `lifespan` startup. `services/model_registry.sync()` is **GCS-first** (as of 2026-06-22): if `GCS_CONFIG_BUCKET` is set it downloads sha256-verified models from `gs://ocr-lot-checker-config/models/` per `manifest.json`; else Drive (`DRIVE_MANIFEST_FILE_ID`); else local `models/*.pt`. `PackagingRegistry` overlays per-key YAMLs from the same bucket (`packagings/<key>.yaml`, plus `archived` tombstones) on top of the baked-in image config, and `config_overrides` (conf_threshold) also lives in GCS now. Empty `GCS_CONFIG_BUCKET` → image/local fallback, so zero-env-var prod still works. Wizard Deploy publishes to GCS via `cloudrun_deployer.publish_packaging_to_gcs` (manifest written last = commit point) so changes survive Cloud Run revisions. See `services/gcs_store.py`.
+Models are loaded once in the FastAPI `lifespan` startup. `services/model_registry.sync()` is **GCS-first** (as of 2026-06-22): if `GCS_CONFIG_BUCKET` is set it downloads sha256-verified models from `gs://ocr-lot-checker-config/models/` per `manifest.json`; else Drive (`DRIVE_MANIFEST_FILE_ID`); else local `models/*.pt`. `PackagingRegistry` overlays per-key YAMLs from the same bucket (`packagings/<key>.yaml`, plus `archived` tombstones) on top of the baked-in image config, and `config_overrides` (conf_threshold) also lives in GCS now. Empty `GCS_CONFIG_BUCKET` → image/local fallback, so zero-env-var prod still works. Wizard Deploy publishes to GCS via `cloudrun_deployer.publish_packaging_to_gcs` (manifest written last = commit point) so changes survive Cloud Run revisions. See `services/gcs_store.py`. GOTCHA: GCS `packagings/` holds ONLY wizard-created/edited classes (e.g. `print_sticker_back`); the original shipped classes live solely in the image's `config/packagings/*.yaml`. So the GCS overlay only overrides keys that EXIST in GCS — editing a shipped class's prod config requires an image redeploy, not a GCS write.
 
 ## Wizard API (`api/packagings.py`)
 
@@ -87,7 +103,15 @@ Draft `status` is the wizard's resume point (`continueDraft` stepMap in `web/wiz
 
 Prefer editing the YAML in `config/packagings/<key>.yaml` over hardcoding. Required keys: `key`, `pipeline`, `lot_patterns`, `fields_extracted`, `sheet_checks`, `model_classifier_label`, `detector_yolo_prefixes`. Set `sub_regions: [box, sachet]` for multi-crop. Use `conf_threshold` (per-class override of the 0.6 default) to gate low-confidence classifier predictions. Set `gate_on_lot: false` if the packaging legitimately has no lot number (then `lot_short_fallback` may help).
 
+The wizard card's `accuracy` is the classifier's per-class value — a MANUAL field in the YAML, no auto-pipeline from training. Fresh deploys get `accuracy: null` → card shows "—". The real held-out figure lives in Drive `data classify check lot/confusion_matrix.png` (an image, not machine-readable); the `eval.json` synced by `/training/full/sync` is the DETECTOR's (mAP/precision/recall), not classifier accuracy.
+
+`image_count` is a YAML snapshot field (like `accuracy`), read by `GET /api/packagings` + `GET /{key}`; it falls back to `_count_active_images` (Drive on prod) only when absent. `/deploy` snapshots the dataset count into the YAML. Backfill with `scripts/backfill_image_count.py` (default = append to local YAMLs from `images/<key>/`; `gcs` mode writes into the GCS YAMLs). This removed a per-request Drive lookup (3 calls/key × N classes) that stalled the dashboard on cold Cloud Run instances — do NOT reintroduce a live count on the list/detail path.
+
 `conf_threshold` is also user-tunable at runtime (no retrain): `PUT /api/packagings/{key}/conf` (0.50–0.95) persists an override to Drive/`data/config_overrides.json` which `PackagingRegistry(overrides=...)` merges over the YAML — the YAML value is only a default once an override exists. See ADR 0004. Registry reloads must go through `main.reload_registry()` (never `PackagingRegistry()` directly) or overrides are silently dropped.
+
+Like `conf_threshold`, `product_aliases` is runtime-editable (no retrain): `PUT`/`DELETE /api/packagings/{key}/product-aliases` → `config_overrides.save_product_aliases`/`delete_product_aliases`, merged by `PackagingRegistry._merged_product_aliases`. DELETE reverts to the YAML/hardcoded default. Wizard drawer editor in `web/wizard.html` (shows for any active class with `product` in `fields_extracted`).
+
+`config_overrides` storage splits by env: prod (`GCS_CONFIG_BUCKET` set) → GCS `config_overrides.json`; local (unset) → `DRIVE_CONFIG_OVERRIDES_FILE_ID` Drive file, else `data/config_overrides.json`. So a local `PUT /conf` or `/product-aliases` writes the Drive dev file — it does NOT affect prod (prod reads GCS).
 
 When adding a brand-new class you also need: classifier label in the training dataset, YOLO class name with one of the `detector_yolo_prefixes`, retrained `.pt` files, updated message template if the existing four don't fit.
 
@@ -97,7 +121,7 @@ Product-name OCR matching is config-driven: set `product_aliases` (list of `{can
 
 Local dev reads `.env` (see `.env.example`). Key vars:
 
-- `DRIVE_MANIFEST_FILE_ID` — empty locally (uses `models/*.pt`). NOTE: as of 2026-06 production Cloud Run has NO env vars set at all — it runs entirely on image defaults (models baked into the image). Verify with `gcloud run services describe ocr-lot-checker --region asia-southeast1`.
+- `DRIVE_MANIFEST_FILE_ID` — empty locally (uses `models/*.pt`). NOTE: prod Cloud Run DOES set env vars (verify with `gcloud run services describe ocr-lot-checker --region asia-southeast1`): `GCS_CONFIG_BUCKET=ocr-lot-checker-config`, `DRIVE_DETECTOR_DATASET_FOLDER_ID`, `DRIVE_CLASSIFIER_DATASET_FOLDER_ID`, `DRIVE_OAUTH_CLIENT_ID`, + secrets `DRIVE_OAUTH_CLIENT_SECRET`/`DRIVE_OAUTH_REFRESH_TOKEN`; SA `ocr-lot-checker-sa`, 2Gi/2cpu, scale 0–10. A candidate deploy MUST replicate these (read the live service first; don't trust this list blindly).
 - `MODEL_CLASSIFIER_PATH` / `MODEL_DETECTOR_PATH` — local model paths.
 - `GOOGLE_APPLICATION_CREDENTIALS` — path to GCP service account JSON locally; Cloud Run uses the runtime service account (`ocr-lot-checker-sa`) via ADC, no JSON key.
 - Local Drive access: ADC is a user account with only `drive.file` scope — it can read/write files *created by this app* but gets 404 on files created manually in Drive web UI. Full `drive` scope is blocked by Google for user OAuth. To act as the production identity, use the SA key `gcp-key.json` (gitignored) via `GOOGLE_APPLICATION_CREDENTIALS`.
@@ -111,6 +135,9 @@ Local dev reads `.env` (see `.env.example`). Key vars:
 
 `web/wizard.html` is the ONLY wizard file. The TEST_MODE harness (`run_test_wizard.ps1`) and the portable bundle (`build_portable_bundle.ps1`, `dist/portable-bundle/`) were **retired 2026-06-24** — there are no longer any generated copies (`test wizzard/`, `dist/`) to keep in sync.
 - **Targets production by default**: `API_BASE` returns the prod Cloud Run URL unless `window.API_BASE_OVERRIDE` is set (it wins if injected before the script runs). Opening the file anywhere (double-click / Netlify) hits prod; for local dev against `:8080` set `window.API_BASE_OVERRIDE` manually.
+- Card images (added 2026-06-24): count comes from Drive when local `images/<key>/` is empty (prod ships no `images/`) — `services/drive_samples.class_images` resolves `<DRIVE_CLASSIFIER_DATASET_FOLDER_ID>/images/<key>/` (folder named by `key`), TTL-cached 600s, never raises; `_count_active_images` is local-FS-first. Thumbnails are baked `web/samples/<key>/*.jpg` (regen `scripts/build_card_samples.py` → paste `BAKED_SAMPLES` into wizard.html) with a Drive-download fallback for unbaked keys. GOTCHA: `loadCardImages` fires when the key is baked OR `image_count > 0` — NOT count-only, so baked thumbnails show even when prod count is 0.
+- Drawer "Sample images" are baked too (separate from card thumbs): `BAKED_DRAWER_SAMPLES` const + `web/samples/<key>/*.crop*.jpg`, built by `scripts/build_drawer_samples.py` (runs the real detector offline; mirrors `get_samples` — qr_scanner → no crops, labels from `sub_regions`, bbox scaled to the downscaled original). `openDrawer` skips the `/samples` fetch (Drive download + detector inference) when a key is baked. Re-run the script + redeploy `web/` after retraining the detector or changing dataset images.
+- Active-class images are read from local FS in FOUR paths — ALL fall back to Drive when local is empty + `DRIVE_CLASSIFIER_DATASET_FOLDER_ID` is set (prod): `_count_active_images` (count), `GET /{key}/images` (list), `GET /{key}/images/{f}` (serve, via `_drive_sample_path` temp-cache download), and drawer `GET /{key}/samples` + crop overlays (`_list_sample_files` + `_resolve_image_path` → `_drive_sample_path` → detector). Add the same fallback to any NEW active-class image read or it returns 0/empty on prod.
 - In-app `TEST_MODE` flags still exist but are **dormant** (nothing drives them now): `/health` returns `test_mode`; `/training/full/done` is a TEST_MODE-only sim (stays 400 in prod).
 - `OCR_CONFIG_DIR` / `DRAFT_DIR`: don't hardcode `Path("config/packagings")` or the drafts dir in `api/` — use `api/packagings._packaging_yaml_dir()` / registry `_config_dir()` so the configurable dirs are honoured.
 - PowerShell 5.1 gotcha: `Get-Content -Raw` reads UTF-8 as ANSI → double-encodes Thai/symbols on rewrite. Always `Get-Content … -Raw -Encoding UTF8` when reading any Thai file (e.g. `web/wizard.html`) in a `.ps1`.
@@ -121,10 +148,13 @@ Local dev reads `.env` (see `.env.example`). Key vars:
 - `print()` is forbidden — use the module `logger`. Hooks may warn on `print` in edits.
 - `pytest` is NOT on PATH — run `python -m pytest`.
 - Source files contain Thai; read them with `encoding='utf-8'` (Windows default cp1252 raises `UnicodeDecodeError` on Thai bytes). Standalone scripts under `scripts/` need `sys.path.insert(0, repo_root)` to import `services`, and must run from the repo root.
+- `load_dotenv()` (no arg) in a standalone script resolves `.env` from the SCRIPT'S directory, not cwd — a script outside the repo root (e.g. scratchpad) silently skips `.env`, so `DriveClient` falls back to ADC `drive.file` scope and `list_folder`/Drive reads return 0 with the SAME email (no error). Use `load_dotenv(os.path.join(repo, ".env"))` explicitly.
+- `gsutil` is broken in this env (`python3.13: command not found`). Use `gcloud storage cat|cp|ls` instead.
 - Printing Thai/Unicode from `python -c` to the PowerShell console raises `UnicodeEncodeError` (cp1252 charmap) — write output to a file with `encoding='utf-8'`, or set `$env:PYTHONIOENCODING='utf-8'` before the call.
 - PowerShell `Out-File`/`>` adds a UTF-8 BOM that Python's `json.loads` rejects (`Unexpected UTF-8 BOM`). When a `.ps1`/`python -c` step produces JSON another tool reads, write it from Python with `Path(...).write_text(..., encoding='utf-8')` rather than piping through `Out-File`.
 - Known pre-existing failure: `tests/test_classifier.py` has 3 setup errors — its fixture builds `efficientnet_b0` but `pipeline/classifier.py` now uses `efficientnet_v2_s`. Not caused by your changes; fix the fixture if touching classifier tests.
 - Wizard E2E: Playwright blocks `file://` — serve with `python -m http.server 8090 --directory web` (hostname localhost makes API_BASE resolve to `http://localhost:8080`). Port 8080 is usually already taken by the dev server running with `--reload` (which auto-picks up code edits — check `/openapi.json` before assuming stale code).
+- For manual wizard use you only need the backend on :8080 — `wizard.html` API_BASE resolves both `file://` and localhost to `http://localhost:8080`, so double-clicking `web/wizard.html` works. The `http.server :8090` is only needed for Playwright (which blocks `file://`).
 - Preview a wizard step with NO backend: serve `web/` and `page.evaluate('startWizard()')` (or `goStep(n)`) via Playwright. `loadDashboard()` fetch errors but the step-1 form/builder render standalone — enough for visual/logic checks.
 - Wizard step 4 does NOT prefill config from a saved/edit draft (only `prefillFieldsFromSubRegions` sets field checkboxes for `multi_field`). Re-entering step 4 + clicking Next re-POSTs form state, overwriting saved `lot_patterns`/`fields_extracted`/`sheet_checks`/`message_template_key`/`product_aliases` with defaults/empties — editing config via step-4 resume is lossy.
 - `utils/validators.py` (find_lot / find_expiry / find_product_name / find_size) is tested in `tests/test_ocr.py` — there is no `test_validators.py`.
