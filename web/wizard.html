@@ -1241,7 +1241,7 @@ select option,select optgroup{
       <div class="dash-head">
         <div>
           <h1>Packaging<br><i>Classes</i></h1>
-          <p>AI model รู้จัก 6 ประเภทบรรจุภัณฑ์ — คลิกการ์ดเพื่อดูรายละเอียด</p>
+          <p id="dash-sub">AI model รู้จัก 6 ประเภทบรรจุภัณฑ์ — คลิกการ์ดเพื่อดูรายละเอียด</p>
         </div>
       </div>
 
@@ -2024,6 +2024,8 @@ async function loadDashboard() {
     // Sidebar counter shows live actives + drafts (not archived noise)
     const liveCount = items.filter(p => p.status === 'active').length;
     document.querySelector('#nav-dash .nav-badge').textContent = liveCount;
+    const sub = document.getElementById('dash-sub');
+    if (sub) sub.textContent = `AI model รู้จัก ${liveCount} ประเภทบรรจุภัณฑ์ — คลิกการ์ดเพื่อดูรายละเอียด`;
 
     // Run for any card with baked thumbnails (show them regardless of the
     // backend count, which is 0 on prod until the Drive-count deploy) OR with a

@@ -162,6 +162,19 @@ checks.push(['legacy crop-mode advanced toggle removed', async (page) => {
   if (tabs !== 3) throw new Error(`expected 3 mode tabs, got ${tabs}`);
 }]);
 
+checks.push(['dashboard subtitle count is dynamic', async (page) => {
+  await page.route('**/api/packagings', route => route.fulfill({ status: 200,
+    contentType: 'application/json', body: JSON.stringify([
+      { key: 'a', display_name: 'A', status: 'active', pipeline: 'detector_ocr', image_count: 60, accuracy: null, conf_threshold: 0.6 },
+      { key: 'b', display_name: 'B', status: 'active', pipeline: 'detector_ocr', image_count: 60, accuracy: null, conf_threshold: 0.6 },
+    ]) }), { times: 1 });
+  const txt = await page.evaluate(async () => {
+    await loadDashboard();
+    return document.getElementById('dash-sub').textContent;
+  });
+  if (!txt.includes('2')) throw new Error(`subtitle did not reflect count: "${txt}"`);
+}]);
+
 // ── runner ──
 async function main() {
   const server = spawn('python', ['-m', 'http.server', String(PORT), '--directory', WEB_DIR],
