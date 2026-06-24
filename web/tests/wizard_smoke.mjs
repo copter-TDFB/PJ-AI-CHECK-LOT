@@ -175,6 +175,12 @@ checks.push(['dashboard subtitle count is dynamic', async (page) => {
   if (!txt.includes('2')) throw new Error(`subtitle did not reflect count: "${txt}"`);
 }]);
 
+checks.push(['HEIC removed from upload label', async (page) => {
+  const t = await page.evaluate(() => document.querySelector('.upload-desc')?.textContent || '');
+  if (/HEIC/i.test(t)) throw new Error('HEIC still in upload label');
+  if (!/JPG/i.test(t)) throw new Error('upload label lost JPG');
+}]);
+
 // ── runner ──
 async function main() {
   const server = spawn('python', ['-m', 'http.server', String(PORT), '--directory', WEB_DIR],
