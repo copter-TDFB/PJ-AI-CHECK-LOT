@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -32,6 +33,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/packagings", tags=["packagings"])
 
 _ACTIVE_IMAGES_DIR = Path("images")
+_DRIVE_SAMPLE_CACHE = Path(
+    os.getenv("DRIVE_SAMPLE_CACHE_DIR", str(Path(tempfile.gettempdir()) / "drive_samples"))
+)
 _CROP_CACHE_DIR = Path(os.getenv("CROP_CACHE_DIR", "data/crops"))
 _DETECTOR_MODEL_PATH = Path(os.getenv("MODEL_DETECTOR_PATH", "models/detector.pt"))
 _IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
@@ -433,13 +437,24 @@ def list_images(key: str):
 
     if main.registry is not None and main.registry.get(key) is not None:
         img_dir = _ACTIVE_IMAGES_DIR / key
-        if not img_dir.exists():
-            return {"images": []}
-        return {"images": [
-            {"name": p.name, "size": p.stat().st_size, "read_only": False}
-            for p in sorted(img_dir.iterdir())
-            if p.is_file() and p.suffix.lower() in _IMG_EXTS
-        ]}
+        local = (
+            [
+                {"name": p.name, "size": p.stat().st_size, "read_only": False}
+                for p in sorted(img_dir.iterdir())
+                if p.is_file() and p.suffix.lower() in _IMG_EXTS
+            ]
+            if img_dir.exists()
+            else []
+        )
+        if local:
+            return {"images": local}
+        if os.getenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "").strip():
+            from services import drive_samples
+            return {"images": [
+                {"name": f["name"], "size": None, "read_only": True}
+                for f in drive_samples.class_images(key)
+            ]}
+        return {"images": []}
 
     draft = packaging_store.get_draft(key)
     if draft is None:
@@ -480,6 +495,10 @@ def get_image(key: str, filename: str):
         candidate = _ACTIVE_IMAGES_DIR / key / safe
         if candidate.exists() and candidate.is_file():
             return FileResponse(candidate)
+        if os.getenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "").strip():
+            cached = _drive_sample_path(key, safe)
+            if cached is not None:
+                return FileResponse(cached)
         raise HTTPException(404, "image not found")
 
     p = packaging_store.image_path(key, safe)
@@ -1050,9 +1069,41 @@ def _ensure_crops(
 
 def _count_active_images(key: str) -> int:
     img_dir = _ACTIVE_IMAGES_DIR / key
-    if not img_dir.exists():
-        return 0
-    return sum(
-        1 for p in img_dir.iterdir()
-        if p.is_file() and p.suffix.lower() in _IMG_EXTS
+    if img_dir.exists():
+        local = sum(
+            1 for p in img_dir.iterdir()
+            if p.is_file() and p.suffix.lower() in _IMG_EXTS
+        )
+        if local > 0:
+            return local
+    if os.getenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "").strip():
+        from services import drive_samples
+        return len(drive_samples.class_images(key))
+    return 0
+
+
+def _drive_sample_path(key: str, safe: str) -> Path | None:
+    """Return a locally-cached copy of a Drive classifier-dataset image, or None.
+
+    Downloads on first miss into _DRIVE_SAMPLE_CACHE/<key>/<safe>; serves the cached
+    file thereafter. Returns None when the name is not in the class's Drive folder or
+    the download fails (caller turns this into a 404).
+    """
+    dest = _DRIVE_SAMPLE_CACHE / key / safe
+    if dest.exists() and dest.is_file():
+        return dest
+
+    from services import drive_samples
+    from services.drive_client import DriveClient as _DriveClient
+
+    file_id = next(
+        (f["id"] for f in drive_samples.class_images(key) if f["name"] == safe), None
     )
+    if file_id is None:
+        return None
+    try:
+        _DriveClient().download_file(file_id, dest)
+        return dest
+    except Exception as e:  # noqa: BLE001 -- a broken thumbnail must not 500
+        logger.warning("drive sample download failed %s/%s: %s", key, safe, e)
+        return None

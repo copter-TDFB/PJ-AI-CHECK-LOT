@@ -1329,3 +1329,111 @@ def test_sync_download_failure_cleans_partial_files(client, monkeypatch):
     models = packaging_store._DRAFT_DIR / key / "models"
     assert updates == {}
     assert not models.exists() or list(models.iterdir()) == []
+
+
+def test_count_active_images_prefers_local(monkeypatch, tmp_path):
+    from api import packagings
+
+    d = tmp_path / "back_label"
+    d.mkdir()
+    (d / "a.jpg").write_bytes(b"x")
+    (d / "b.jpg").write_bytes(b"y")
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path)
+
+    def _no_drive(key):
+        raise AssertionError("Drive must not be hit when local dir is populated")
+
+    monkeypatch.setattr("services.drive_samples.class_images", _no_drive)
+    assert packagings._count_active_images("back_label") == 2
+
+
+def test_count_active_images_falls_back_to_drive(monkeypatch, tmp_path):
+    from api import packagings
+
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path)  # empty
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSROOT")
+    monkeypatch.setattr(
+        "services.drive_samples.class_images",
+        lambda key: [{"id": "1", "name": "a.jpg"}, {"id": "2", "name": "b.jpg"},
+                     {"id": "3", "name": "c.jpg"}],
+    )
+    assert packagings._count_active_images("x") == 3
+
+
+def test_count_active_images_zero_without_local_or_env(monkeypatch, tmp_path):
+    from api import packagings
+
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path)  # empty
+    monkeypatch.delenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", raising=False)
+    assert packagings._count_active_images("x") == 0
+
+
+def test_list_images_active_drive_fallback(client, monkeypatch, tmp_path):
+    import main
+    from api import packagings
+
+    class _Reg:
+        def get(self, k):
+            return object()  # truthy cfg -> active branch
+
+    monkeypatch.setattr(main, "registry", _Reg())
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path)  # empty
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSROOT")
+    monkeypatch.setattr(
+        "services.drive_samples.class_images",
+        lambda key: [{"id": "1", "name": "a.jpg"}, {"id": "2", "name": "b.jpg"}],
+    )
+
+    r = client.get("/api/packagings/back_label/images")
+    assert r.status_code == 200
+    body = r.json()
+    assert [i["name"] for i in body["images"]] == ["a.jpg", "b.jpg"]
+    assert all(i["read_only"] for i in body["images"])
+
+
+def test_get_image_active_drive_download(client, monkeypatch, tmp_path):
+    import main
+    from api import packagings
+
+    class _Reg:
+        def get(self, k):
+            return object()
+
+    monkeypatch.setattr(main, "registry", _Reg())
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path / "empty")
+    monkeypatch.setattr(packagings, "_DRIVE_SAMPLE_CACHE", tmp_path / "cache")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSROOT")
+    monkeypatch.setattr(
+        "services.drive_samples.class_images",
+        lambda key: [{"id": "FID", "name": "a.jpg"}],
+    )
+
+    class _Drive:
+        def download_file(self, file_id, dest):
+            assert file_id == "FID"
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(b"\xff\xd8\xffDATA")
+
+    monkeypatch.setattr("services.drive_client.DriveClient", lambda: _Drive())
+
+    r = client.get("/api/packagings/back_label/images/a.jpg")
+    assert r.status_code == 200
+    assert r.content == b"\xff\xd8\xffDATA"
+
+
+def test_get_image_active_drive_missing_returns_404(client, monkeypatch, tmp_path):
+    import main
+    from api import packagings
+
+    class _Reg:
+        def get(self, k):
+            return object()
+
+    monkeypatch.setattr(main, "registry", _Reg())
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path / "empty")
+    monkeypatch.setattr(packagings, "_DRIVE_SAMPLE_CACHE", tmp_path / "cache")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSROOT")
+    monkeypatch.setattr("services.drive_samples.class_images", lambda key: [])
+
+    r = client.get("/api/packagings/back_label/images/nope.jpg")
+    assert r.status_code == 404
