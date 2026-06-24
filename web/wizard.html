@@ -2313,7 +2313,7 @@ async function undoDrawerAliases(key, previous) {
 }
 
 async function revertDrawerAliases(key) {
-  if (!confirm('ลบ alias ที่ตั้งไว้ แล้วกลับไปใช้รายการ product มาตรฐานของระบบ?')) return;
+  if (!(await showConfirm({ title: 'กลับไปใช้รายการมาตรฐาน?', body: 'ลบ alias ที่ตั้งไว้ แล้วกลับไปใช้รายการ product มาตรฐานของระบบ', danger: true }))) return;
   try {
     await api('DELETE', `/api/packagings/${encodeURIComponent(key)}/product-aliases`);
     closeDrawer();
@@ -2566,7 +2566,7 @@ async function cloneActive(key) {
 }
 
 async function archivePackaging(key) {
-  if (!confirm(`ปิดใช้งาน "${key}"?\n\nModel ยังจำ class นี้อยู่ แต่ pipeline จะส่งกลับ status="archived_class" จนกว่าจะกดเปิดใช้งานอีกครั้ง`)) return;
+  if (!(await showConfirm({ title: `ปิดใช้งาน "${esc(key)}"?`, body: 'Model ยังจำ class นี้อยู่ แต่ pipeline จะส่งกลับ status="archived_class" จนกว่าจะกดเปิดใช้งานอีกครั้ง', danger: true }))) return;
   try {
     await api('POST', `/api/packagings/${encodeURIComponent(key)}/archive`);
     showToast(`Archived ${key}`);
@@ -2589,7 +2589,7 @@ async function unarchivePackaging(key) {
 }
 
 async function discardEditDraft(editKey) {
-  if (!confirm(`ทิ้ง edit draft "${editKey}"?\n\nProgress การแก้ไขทั้งหมด (รูปใหม่ + annotations) จะหาย — packaging เดิมไม่กระทบ`)) return;
+  if (!(await showConfirm({ title: `ทิ้ง edit draft "${esc(editKey)}"?`, body: 'Progress การแก้ไขทั้งหมด (รูปใหม่ + annotations) จะหาย — packaging เดิมไม่กระทบ', danger: true }))) return;
   try {
     await api('DELETE', `/api/packagings/${encodeURIComponent(editKey)}`);
     showToast(`Discarded ${editKey}`);
@@ -2601,7 +2601,7 @@ async function discardEditDraft(editKey) {
 }
 
 async function deleteDraft(key) {
-  if (!confirm(`ลบ draft "${key}" — ดำเนินการต่อ?`)) return;
+  if (!(await showConfirm({ title: `ลบ draft "${esc(key)}"?`, body: 'ดำเนินการต่อ?', danger: true }))) return;
   try {
     await api('DELETE', `/api/packagings/${encodeURIComponent(key)}`);
     closeDrawer();
@@ -2661,11 +2661,11 @@ async function loadCardImages(key) {
 }
 
 // ─── STEP 1 — Create draft ─────────────────
-function cancelWizardStep1() {
+async function cancelWizardStep1() {
   // Step 1 ยังไม่ได้สร้าง draft (curDraftKey ว่าง) → ออกไป dashboard ได้เลย ไม่มีอะไรเสีย
   // ถ้าสร้างแล้ว → ถาม confirm
   if (curDraftKey) {
-    if (!confirm('ลบ draft ที่กำลังสร้าง? Progress ทั้งหมดจะหาย')) return;
+    if (!(await showConfirm({ title: 'ลบ draft ที่กำลังสร้าง?', body: 'Progress ทั้งหมดจะหาย', danger: true }))) return;
     api('DELETE', `/api/packagings/${encodeURIComponent(curDraftKey)}`).catch(() => {});
     curDraftKey = null;
   }
@@ -3724,10 +3724,10 @@ async function startFullTraining() {
 async function doDeploy() {
   const isEdit = curDraftKey && curDraftKey.endsWith('__edit');
   const parentKey = isEdit ? curDraftKey.slice(0, -'__edit'.length) : null;
-  const prompt = isEdit
-    ? `Deploy ทับ active "${parentKey}"? ตัวเก่าจะถูก backup ก่อน — Cloud Run restart ~30s`
+  const body = isEdit
+    ? `Deploy ทับ active "${esc(parentKey)}"? ตัวเก่าจะถูก backup ก่อน — Cloud Run restart ~30s`
     : 'Deploy packaging นี้ขึ้น production? Cloud Run จะ restart ~30s';
-  if (!confirm(prompt)) return;
+  if (!(await showConfirm({ title: 'ยืนยัน Deploy', body }))) return;
   const btn = document.getElementById('btn-deploy');
   btn.disabled = true;
   btn.textContent = '⏳ Deploying...';

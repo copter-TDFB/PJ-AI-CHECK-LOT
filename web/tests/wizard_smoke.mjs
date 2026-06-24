@@ -49,6 +49,12 @@ checks.push(['showConfirm resolves false on Cancel', async (page) => {
   if (v !== false) throw new Error(`expected false, got ${v}`);
 }]);
 
+checks.push(['no native confirm() left in source', async (page) => {
+  const src = await page.evaluate(() => document.documentElement.outerHTML);
+  const bare = (src.match(/[^w]confirm\(/g) || []);   // showConfirm( allowed
+  if (bare.length) throw new Error(`found ${bare.length} native confirm( call(s)`);
+}]);
+
 // ── runner ──
 async function main() {
   const server = spawn('python', ['-m', 'http.server', String(PORT), '--directory', WEB_DIR],
