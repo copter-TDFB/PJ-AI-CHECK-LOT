@@ -55,6 +55,26 @@ checks.push(['no native confirm() left in source', async (page) => {
   if (bare.length) throw new Error(`found ${bare.length} native confirm( call(s)`);
 }]);
 
+checks.push(['saveAnnotation failure toasts and does not mark labeled', async (page) => {
+  await page.evaluate(() => {
+    curDraftKey = 'demo';
+    annot.images = [{ name: 'a.jpg', labeled: false, bbox_count: 0 }];
+    annot.curIdx = 0;
+    annot.bboxes = [{ x1: 1, y1: 1, x2: 9, y2: 9, label: 'lot' }];
+    annot.saveTimer = null;
+  });
+  await page.route('**/annotations/**', route => route.fulfill({ status: 500, body: '{"detail":"x"}' }));
+  const r = await page.evaluate(async () => {
+    saveAnnotation();
+    await new Promise(res => setTimeout(res, 500));   // wait out 250ms debounce + fetch
+    const toast = document.getElementById('toast');
+    return { labeled: annot.images[0].labeled, toastShown: toast && toast.classList.contains('show') };
+  });
+  await page.unroute('**/annotations/**');
+  if (r.labeled !== false) throw new Error('image marked labeled despite save failure');
+  if (!r.toastShown) throw new Error('no toast on save failure');
+}]);
+
 // ── runner ──
 async function main() {
   const server = spawn('python', ['-m', 'http.server', String(PORT), '--directory', WEB_DIR],

@@ -3236,7 +3236,7 @@ async function saveAnnotation() {
       renderThumbStrip();
       updateProgressUI();
     } catch (err) {
-      console.warn('save annotation failed', err);
+      showToast('เซฟ annotation ไม่สำเร็จ — ลองวาดใหม่อีกครั้ง');
     }
   }, 250);
 }
@@ -3406,7 +3406,7 @@ function updateRegex() {
         matchesEl.appendChild(row);
       });
     } catch (err) {
-      console.warn('regex preview', err);
+      showToast('สร้าง regex preview ไม่สำเร็จ');
     }
   }, 350);
 }
