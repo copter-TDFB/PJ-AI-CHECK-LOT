@@ -131,6 +131,18 @@ checks.push(['prefillStep4FromDraft restores saved config', async (page) => {
   if (r.aliasRows !== 1) throw new Error(`alias rows: ${r.aliasRows}`);
 }]);
 
+checks.push(['drawer step-map covers trained/training_full', async (page) => {
+  const r = await page.evaluate(() => {
+    const mk = (status) => renderDrawerBody(
+      { key: 'd', display_name: 'D', status, pipeline: 'detector_ocr', image_count: 60,
+        conf_threshold: null, accuracy: null },
+      { samples: [] });
+    return { trained: mk('trained'), training: mk('training_full') };
+  });
+  if (!r.trained.includes('Step 5 / 5')) throw new Error('trained not step 5');
+  if (!r.training.includes('Step 5 / 5')) throw new Error('training_full not step 5');
+}]);
+
 // ── runner ──
 async function main() {
   const server = spawn('python', ['-m', 'http.server', String(PORT), '--directory', WEB_DIR],

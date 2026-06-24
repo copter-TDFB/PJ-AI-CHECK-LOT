@@ -2314,7 +2314,7 @@ function renderDrawerBody(pkg, samplesRes) {
 
   // Draft progress
   if (!isActive) {
-    const stepMap = {draft:1, uploading:2, configured:4};
+    const stepMap = {draft:1, uploading:2, labeled_full:3, configured:4, training_full:5, trained:5};
     const step = stepMap[pkg.status] ?? 1;
     html += `
       <div class="dsec">
