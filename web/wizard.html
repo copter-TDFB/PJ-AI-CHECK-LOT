@@ -1681,46 +1681,6 @@ select option,select optgroup{
       </div><!-- /wiz-layout -->
     </div><!-- /view-wizard -->
 
-    <!-- ══ STAGING ════════════════════════════════════ -->
-    <div class="view" id="view-staging">
-      <div class="success-wrap">
-        <div style="width:70px;height:70px;background:var(--ok-bg);border:1px solid rgba(52,211,153,.3);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:30px">🚀</div>
-        <h2 style="font-family:'Playfair Display',serif;font-size:26px;font-weight:500;margin-bottom:8px">Deploy to Staging สำเร็จ!</h2>
-        <p style="color:var(--t2);font-size:13px;line-height:1.75;margin-bottom:26px">
-          Model ใหม่ถูก deploy ไปที่ staging environment แล้ว<br>
-          ทดสอบกับรูปจริงก่อน promote ขึ้น production
-        </p>
-        <div class="staging-url">
-          <div class="staging-url-lbl">Staging URL</div>
-          <div class="staging-url-val">https://ocr-lot-checker-staging-459907489982.asia-southeast1.run.app</div>
-          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
-            <button class="btn btn-primary btn-sm">🔗 เปิด Staging</button>
-            <button class="btn btn-secondary btn-sm" onclick="promoProd()">⬆ Promote to Production</button>
-          </div>
-        </div>
-        <div style="font-size:12px;color:var(--t3)">ทดสอบ New Tea Bag Box อย่างน้อย 5 รูปก่อน promote</div>
-      </div>
-    </div>
-
-    <!-- ══ SUCCESS ════════════════════════════════════ -->
-    <div class="view" id="view-success">
-      <div class="success-wrap">
-        <div style="font-size:56px;margin-bottom:20px">🎉</div>
-        <h2 style="font-family:'Playfair Display',serif;font-size:28px;font-weight:500;margin-bottom:8px">
-          <em style="font-style:italic;color:var(--acc)">New Tea Bag Box</em>
-        </h2>
-        <p style="font-size:15px;font-weight:600;margin-bottom:6px">Live ใน Production แล้ว!</p>
-        <p style="color:var(--t2);font-size:13px;line-height:1.75;margin-bottom:28px">
-          AI รู้จัก <strong>7 class</strong> แล้ว ✓<br>
-          Packaging ใหม่พร้อมใช้งานผ่าน n8n workflow
-        </p>
-        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-          <button class="btn btn-primary" onclick="showView('dashboard')">← กลับ Dashboard</button>
-          <button class="btn btn-secondary" onclick="startWizard()">+ เพิ่ม Packaging อื่น</button>
-        </div>
-      </div>
-    </div>
-
   </div><!-- /content -->
 </main>
 

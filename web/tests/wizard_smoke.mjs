@@ -87,6 +87,17 @@ checks.push(['no async-flow alert() left (validation alerts allowed)', async (pa
   if (hit.length) throw new Error(`async alert() still present: ${hit.join(', ')}`);
 }]);
 
+checks.push(['dead views + promoProd removed', async (page) => {
+  const r = await page.evaluate(() => ({
+    staging: !!document.getElementById('view-staging'),
+    success: !!document.getElementById('view-success'),
+    promoProd: typeof promoProd,
+  }));
+  if (r.staging) throw new Error('#view-staging still present');
+  if (r.success) throw new Error('#view-success still present');
+  if (r.promoProd !== 'undefined') throw new Error('promoProd still defined/referenced');
+}]);
+
 // ── runner ──
 async function main() {
   const server = spawn('python', ['-m', 'http.server', String(PORT), '--directory', WEB_DIR],
