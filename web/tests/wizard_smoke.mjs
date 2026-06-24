@@ -1,14 +1,46 @@
 // Self-contained Playwright no-backend smoke test for web/wizard.html.
 // Run: node web/tests/wizard_smoke.mjs
 import { chromium } from 'playwright';
-import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { dirname, extname, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_DIR = resolve(__dirname, '..');         // web/
 const PORT = 8090;
 const ORIGIN = `http://localhost:${PORT}`;
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+};
+
+async function startServer() {
+  const server = createServer(async (req, res) => {
+    try {
+      const u = new URL(req.url || '/', ORIGIN);
+      const rel = u.pathname === '/' ? '/wizard.html' : decodeURIComponent(u.pathname);
+      const file = resolve(WEB_DIR, '.' + rel);
+      if (!file.startsWith(WEB_DIR)) {
+        res.writeHead(403).end('Forbidden');
+        return;
+      }
+      const data = await readFile(file);
+      res.writeHead(200, { 'Content-Type': MIME[extname(file).toLowerCase()] || 'application/octet-stream' });
+      res.end(data);
+    } catch (_) {
+      res.writeHead(404).end('Not found');
+    }
+  });
+  await new Promise((resolveListen) => server.listen(PORT, 'localhost', resolveListen));
+  return server;
+}
 
 // ── stub responses keyed by path suffix ──
 function stubFor(pathname) {
@@ -28,8 +60,137 @@ function stubFor(pathname) {
   return {};
 }
 
+// Open the wizard in a fresh isolated context (own localStorage).
+// seed = a session object to pre-write under 'wizardAuth', or null.
+async function openWizard(page, { seed = null, waitUntil = 'domcontentloaded' } = {}) {
+  const ctx = await page.context().browser().newContext();
+  const p = await ctx.newPage();
+  await p.addInitScript((o) => { window.API_BASE_OVERRIDE = o; }, ORIGIN);
+  if (seed) await p.addInitScript((s) => {
+    if (sessionStorage.getItem('__wizardSeeded')) return;
+    localStorage.setItem('wizardAuth', s);
+    sessionStorage.setItem('__wizardSeeded', '1');
+  }, JSON.stringify(seed));
+  await p.route('https://accounts.google.com/**', (r) => r.abort());
+  await p.route('**/api/**', (route) => {
+    const u = new URL(route.request().url());
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(stubFor(u.pathname)) });
+  });
+  await p.goto(`${ORIGIN}/wizard.html`, { waitUntil });
+  return { ctx, p };
+}
+
 // ── checks registry — tasks push [name, async (page)=>{}] ──
 export const checks = [];
+
+checks.push(['login gate blocks without a session', async (page) => {
+  const { ctx, p } = await openWizard(page, { seed: null });
+  const visible = await p.evaluate(() => {
+    const g = document.getElementById('login-gate');
+    return !!g && !g.classList.contains('hidden');
+  });
+  await ctx.close();
+  if (!visible) throw new Error('gate not visible without a session');
+}]);
+
+checks.push(['login gate reveals dashboard with a valid session', async (page) => {
+  const seed = { email: 'tester@tdfb.co', name: 'Tester', picture: '', exp: Date.now() + 3600000 };
+  const { ctx, p } = await openWizard(page, { seed });
+  let hidden = false;
+  try {
+    await p.waitForFunction(() => {
+      const g = document.getElementById('login-gate');
+      return g && g.classList.contains('hidden');
+    }, { timeout: 5000 });
+    hidden = true;
+  } catch (_) {}
+  await ctx.close();
+  if (!hidden) throw new Error('gate still visible with a valid session');
+}]);
+
+checks.push(['auth claim validation accepts @tdfb.co, rejects others/expired', async (page) => {
+  const res = await page.evaluate(() => {
+    const mk = (o) => 'x.' + btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_') + '.y';
+    const future = Math.floor(Date.now() / 1000) + 3600;
+    const good = isAllowedClaims(decodeJwtPayload(mk({ hd: 'tdfb.co', email: 'a@tdfb.co', email_verified: true, exp: future })));
+    const badDomain = isAllowedClaims(decodeJwtPayload(mk({ hd: 'gmail.com', email: 'a@gmail.com', email_verified: true, exp: future })));
+    const unverified = isAllowedClaims(decodeJwtPayload(mk({ hd: 'tdfb.co', email: 'a@tdfb.co', email_verified: false, exp: future })));
+    const expired = isAllowedClaims(decodeJwtPayload(mk({ hd: 'tdfb.co', email: 'a@tdfb.co', email_verified: true, exp: 1 })));
+    return { good, badDomain, unverified, expired };
+  });
+  if (res.good !== true) throw new Error('valid @tdfb.co claims rejected');
+  if (res.badDomain !== false) throw new Error('non-tdfb.co domain accepted');
+  if (res.unverified !== false) throw new Error('unverified email accepted');
+  if (res.expired !== false) throw new Error('expired token accepted');
+}]);
+
+checks.push(['decodeJwtPayload handles unpadded base64url (real Google tokens)', async (page) => {
+  const r = await page.evaluate(() => {
+    // Real Google JWTs strip '=' padding (the original synthetic tests kept it,
+    // hiding this path). Vary payload length over the achievable residues
+    // (base64 length is never %4==1) to guard the unpadding+decode logic.
+    const mkRaw = (o) => 'x.' + btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') + '.y';
+    for (let i = 0; i < 4; i++) {
+      const payload = { hd: 'tdfb.co', email: 'a@tdfb.co', email_verified: true, exp: 9999999999, pad: 'x'.repeat(i) };
+      let decoded;
+      try { decoded = decodeJwtPayload(mkRaw(payload)); }
+      catch (e) { return 'threw at i=' + i + ': ' + e.message; }
+      if (decoded.email !== 'a@tdfb.co' || decoded.hd !== 'tdfb.co') return 'bad decode at i=' + i;
+    }
+    return 'ok';
+  });
+  if (r !== 'ok') throw new Error(r);
+}]);
+
+checks.push(['onGoogleCredential gates out non-tdfb.co and admits @tdfb.co', async (page) => {
+  const { ctx, p } = await openWizard(page, { seed: null });
+  const r = await p.evaluate(() => {
+    const mk = (o) => 'x.' + btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_') + '.y';
+    const future = Math.floor(Date.now() / 1000) + 3600;
+    onGoogleCredential({ credential: mk({ hd: 'gmail.com', email: 'a@gmail.com', email_verified: true, exp: future }) });
+    const blockedAfterBad = !document.getElementById('login-gate').classList.contains('hidden');
+    const storedAfterBad = !!localStorage.getItem('wizardAuth');
+    onGoogleCredential({ credential: mk({ hd: 'tdfb.co', email: 'ok@tdfb.co', email_verified: true, exp: future }) });
+    const openedAfterGood = document.getElementById('login-gate').classList.contains('hidden');
+    const storedAfterGood = !!localStorage.getItem('wizardAuth');
+    return { blockedAfterBad, storedAfterBad, openedAfterGood, storedAfterGood };
+  });
+  await ctx.close();
+  if (!r.blockedAfterBad) throw new Error('gate opened for non-tdfb.co account');
+  if (r.storedAfterBad) throw new Error('session stored for non-tdfb.co account');
+  if (!r.openedAfterGood) throw new Error('gate did not open for @tdfb.co account');
+  if (!r.storedAfterGood) throw new Error('session not stored for @tdfb.co account');
+}]);
+
+checks.push(['GIS client script is present', async (page) => {
+  const has = await page.evaluate(() =>
+    !!document.querySelector('script[src="https://accounts.google.com/gsi/client"]'));
+  if (!has) throw new Error('GIS client script tag missing');
+}]);
+
+checks.push(['topbar shows signed-in email; sign-out returns to gate', async (page) => {
+  const seed = { email: 'tester@tdfb.co', name: 'Tester', picture: '', exp: Date.now() + 3600000 };
+  const { ctx, p } = await openWizard(page, { seed });
+  await p.waitForFunction(() => {
+    const g = document.getElementById('login-gate');
+    return g && g.classList.contains('hidden');
+  }, { timeout: 5000 });
+  const email = await p.evaluate(() => document.getElementById('tu-email')?.textContent || '');
+  if (email !== 'tester@tdfb.co') { await ctx.close(); throw new Error(`chip email wrong: "${email}"`); }
+  await p.click('#tu-signout');
+  let backToGate = false;
+  try {
+    await p.waitForFunction(() => {
+      const g = document.getElementById('login-gate');
+      return g && !g.classList.contains('hidden');
+    }, { timeout: 5000 });
+    backToGate = true;
+  } catch (_) {}
+  const cleared = await p.evaluate(() => !localStorage.getItem('wizardAuth'));
+  await ctx.close();
+  if (!backToGate) throw new Error('gate did not return after sign-out');
+  if (!cleared) throw new Error('session not cleared after sign-out');
+}]);
 
 checks.push(['showConfirm resolves true on OK', async (page) => {
   const ok = await page.evaluate(async () => {
@@ -183,12 +344,16 @@ checks.push(['HEIC removed from upload label', async (page) => {
 
 // ── runner ──
 async function main() {
-  const server = spawn('python', ['-m', 'http.server', String(PORT), '--directory', WEB_DIR],
-    { stdio: 'ignore' });
-  await new Promise(r => setTimeout(r, 1000));
+  const server = await startServer();
   const browser = await chromium.launch();
   const page = await browser.newPage();
   await page.addInitScript((origin) => { window.API_BASE_OVERRIDE = origin; }, ORIGIN);
+  await page.addInitScript(() => {
+    localStorage.setItem('wizardAuth', JSON.stringify({
+      email: 'tester@tdfb.co', name: 'Tester', picture: '', exp: Date.now() + 3600000,
+    }));
+  });
+  await page.route('https://accounts.google.com/**', (r) => r.abort());
   await page.route('**/api/**', (route) => {
     const u = new URL(route.request().url());
     route.fulfill({ status: 200, contentType: 'application/json',
@@ -202,7 +367,7 @@ async function main() {
     catch (e) { failed++; console.log(`FAIL  ${name}\n      ${e.message}`); }
   }
   await browser.close();
-  server.kill();
+  server.close();
   console.log(`\n${checks.length - failed}/${checks.length} passed`);
   process.exit(failed ? 1 : 0);
 }

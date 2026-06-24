@@ -1192,9 +1192,30 @@ select option,select optgroup{
 [role=button]:focus-visible,[role=checkbox]:focus-visible,[role=radio]:focus-visible{
   outline:2px solid var(--acc);outline-offset:2px;
 }
+.login-gate{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:24px}
+.login-gate.hidden{display:none}
+.login-card{max-width:360px;width:100%;text-align:center;background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:32px 28px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.login-brand{font-size:13px;letter-spacing:.04em;color:var(--t3);margin-bottom:18px}
+.login-h{font-size:22px;margin:0 0 6px;color:var(--t1)}
+.login-sub{font-size:13px;color:var(--t3);margin:0 0 22px}
+.g-signin{display:flex;justify-content:center;min-height:44px}
+.login-status{margin-top:16px;font-size:13px;color:var(--err);min-height:18px}
+.topbar-user{display:flex;align-items:center;gap:10px;margin-left:8px}
+.tu-email{font-size:12px;color:var(--t2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+
+<div id="login-gate" class="login-gate" role="dialog" aria-modal="true" aria-labelledby="login-title">
+  <div class="login-card">
+    <div class="login-brand">🔒 OCR Lot Checker</div>
+    <h1 id="login-title" class="login-h">เข้าสู่ระบบ</h1>
+    <p class="login-sub">ใช้บัญชี Google ของ @tdfb.co เท่านั้น</p>
+    <div id="g-signin" class="g-signin"></div>
+    <div id="login-status" class="login-status" role="status" aria-live="polite"></div>
+  </div>
+</div>
 
 <div class="sb-backdrop" id="sb-backdrop" onclick="toggleSidebar(false)"></div>
 
@@ -1264,6 +1285,10 @@ select option,select optgroup{
     </button>
     <div class="topbar-title" id="topbar-title">Packaging <i>Wizard</i></div>
     <div class="topbar-spacer"></div>
+    <div class="topbar-user" id="topbar-user" style="display:none">
+      <span class="tu-email" id="tu-email"></span>
+      <button class="btn btn-ghost btn-sm" id="tu-signout" onclick="signOut()">ออกจากระบบ</button>
+    </div>
     <button class="btn btn-primary btn-sm" id="topbar-add" onclick="startWizard()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -1789,6 +1814,116 @@ const API_BASE = (() => {
   if (window.API_BASE_OVERRIDE) return window.API_BASE_OVERRIDE;
   return 'https://ocr-lot-checker-459907489982.asia-southeast1.run.app';
 })();
+
+// ── Auth gate config ──
+// GOOGLE_CLIENT_ID reuses the Drive OAuth client. Paste the value of
+// DRIVE_OAUTH_CLIENT_ID from .env here (a public *.apps.googleusercontent.com id).
+const GOOGLE_CLIENT_ID = '459907489982-bv6duqif6fmgn6oanvi7ja7l0iiouctc.apps.googleusercontent.com';
+const ALLOWED_HD = 'tdfb.co';
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+const AUTH_STORAGE_KEY = 'wizardAuth';
+
+function decodeJwtPayload(jwt) {
+  const seg = String(jwt).split('.')[1];
+  const url = seg.replace(/-/g, '+').replace(/_/g, '/');
+  const b64 = url + '==='.slice((url.length + 3) % 4);  // restore base64url padding for atob
+  const json = decodeURIComponent(
+    atob(b64).split('').map((c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join('')
+  );
+  return JSON.parse(json);
+}
+
+function isAllowedClaims(p) {
+  return !!p
+    && p.hd === ALLOWED_HD
+    && p.email_verified === true
+    && typeof p.email === 'string'
+    && p.email.toLowerCase().endsWith('@' + ALLOWED_HD)
+    && typeof p.exp === 'number'
+    && p.exp * 1000 > Date.now();
+}
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (!s || typeof s.exp !== 'number' || Date.now() >= s.exp) return null;
+    if (typeof s.email !== 'string' || !s.email.toLowerCase().endsWith('@' + ALLOWED_HD)) return null;
+    return s;
+  } catch (_) { return null; }
+}
+
+function saveSession(claims) {
+  const s = { email: claims.email, name: claims.name || '', picture: claims.picture || '', exp: Date.now() + SESSION_TTL_MS };
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(s));
+  return s;
+}
+
+function clearSession() { localStorage.removeItem(AUTH_STORAGE_KEY); }
+
+function hideGate() { document.getElementById('login-gate').classList.add('hidden'); }
+
+function renderUserChip(u) {
+  const wrap = document.getElementById('topbar-user');
+  const em = document.getElementById('tu-email');
+  if (!wrap || !em || !u) return;
+  em.textContent = u.email || '';
+  wrap.style.display = 'flex';
+}
+
+function signOut() {
+  clearSession();
+  try { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); } catch (_) {}
+  location.reload();
+}
+
+function onGoogleCredential(resp) {
+  const status = document.getElementById('login-status');
+  let claims;
+  try { claims = decodeJwtPayload(resp.credential); }
+  catch (_) { status.textContent = 'เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง'; return; }
+  if (!isAllowedClaims(claims)) {
+    status.textContent = 'เฉพาะบัญชี @tdfb.co เท่านั้น';
+    try { google.accounts.id.disableAutoSelect(); } catch (_) {}
+    return;
+  }
+  saveSession(claims);
+  renderUserChip(claims);
+  hideGate();
+  bootWizard();
+}
+
+function renderGoogleButton(status) {
+  const ready = () => window.google && google.accounts && google.accounts.id;
+  const doRender = () => {
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: onGoogleCredential,
+      hosted_domain: ALLOWED_HD,
+      auto_select: false,
+    });
+    google.accounts.id.renderButton(document.getElementById('g-signin'),
+      { type: 'standard', theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'pill' });
+  };
+  if (ready()) { doRender(); return; }
+  let tries = 0;
+  const iv = setInterval(() => {
+    if (ready()) { clearInterval(iv); doRender(); }
+    else if (++tries > 40) { clearInterval(iv); status.textContent = 'โหลด Google Sign-In ไม่สำเร็จ — รีเฟรชหน้าเพื่อลองใหม่'; }
+  }, 100);
+}
+
+function initAuth() {
+  const status = document.getElementById('login-status');
+  const session = loadSession();
+  if (session) { renderUserChip(session); hideGate(); bootWizard(); return; }
+  if (location.protocol === 'file:') {
+    status.textContent = 'เปิดผ่าน URL (https) เพื่อเข้าสู่ระบบ';
+    return;
+  }
+  renderGoogleButton(status);
+}
 
 async function api(method, path, body) {
   const opts = { method, headers: {} };
@@ -3870,16 +4005,23 @@ async function doDeploy() {
   }
 }
 
-renderSteps();
-srSetMode('single');
-onPipelineChange();
-// Bootstrap: ถ้า URL มี draft+step → resume wizard, ไม่งั้นไป dashboard
-(async () => {
-  const resumed = await restoreFromUrl();
-  if (!resumed) loadDashboard();
-})();
-// Browser back/forward → sync state
-window.addEventListener('popstate', () => { restoreFromUrl(); });
+let _booted = false;
+function bootWizard() {
+  if (_booted) return;   // guard against double-init if both auth paths fire
+  _booted = true;
+  renderSteps();
+  srSetMode('single');
+  onPipelineChange();
+  // Bootstrap: ถ้า URL มี draft+step → resume wizard, ไม่งั้นไป dashboard
+  (async () => {
+    const resumed = await restoreFromUrl();
+    if (!resumed) loadDashboard();
+  })();
+}
+// Browser back/forward → sync state (only meaningful once authed)
+window.addEventListener('popstate', () => { if (loadSession()) restoreFromUrl(); });
+// Auth gate is the entry point; bootWizard runs only after a valid session.
+initAuth();
 </script>
 </body>
 </html>
