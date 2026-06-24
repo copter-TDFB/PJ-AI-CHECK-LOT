@@ -1444,7 +1444,7 @@ select option,select optgroup{
               <div id="upload-prog" style="display:none">
                 <div class="upload-meta" style="margin-top:14px">
                   <span style="color:var(--t2)">อัพโหลดแล้ว</span>
-                  <span class="cnt" id="up-cnt">0 / 63 รูป</span>
+                  <span class="cnt" id="up-cnt">0 รูป</span>
                 </div>
                 <div class="pbar-wrap"><div class="pbar green" id="up-bar" style="width:0%"></div></div>
                 <div class="thumb-grid" id="up-thumbs"></div>
@@ -1930,8 +1930,8 @@ async function initStep2() {
     // Hide "back to step 1" — name/key/pipeline are fixed in edit mode
     if (backBtn) backBtn.style.display = 'none';
 
-    // If user already uploaded some images, mark step 2 as continueable
-    if (newCount > 0) {
+    // If user already uploaded enough NEW images, mark step 2 as continueable
+    if (newCount >= imageGate()) {
       const nextBtn = document.getElementById('btn-step2-next');
       if (nextBtn) nextBtn.disabled = false;
     }
@@ -2836,6 +2836,10 @@ async function step1Next() {
 }
 
 // ─── STEP 2 — Upload ───────────────────────
+// Min images to unlock step 2 → step 3. Edit-drafts (__edit) reuse the parent's
+// reference images at train time, so they need fewer NEW images than a fresh class.
+function imageGate() { return (curDraftKey && curDraftKey.endsWith('__edit')) ? 30 : 50; }
+
 async function handleFileSelect(files) {
   if (!curDraftKey) { alert('ยังไม่ได้สร้าง draft — กลับ step 1'); return; }
   if (!files || files.length === 0) return;
@@ -2885,7 +2889,7 @@ async function handleFileSelect(files) {
       <div style="color:var(--ok);font-weight:600">อัพแล้ว ${result.total_images} รูป</div>
       <div style="font-size:11px;color:var(--t3);margin-top:6px">คลิกเพื่อเพิ่มอีก</div>`;
 
-    if (result.total_images >= 10) document.getElementById('btn-step2-next').disabled = false;
+    if (result.total_images >= imageGate()) document.getElementById('btn-step2-next').disabled = false;
   } catch (err) {
     showToast(`อัพโหลดล้มเหลว: ${err.message}`);
   } finally {

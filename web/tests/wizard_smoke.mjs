@@ -143,6 +143,18 @@ checks.push(['drawer step-map covers trained/training_full', async (page) => {
   if (!r.training.includes('Step 5 / 5')) throw new Error('training_full not step 5');
 }]);
 
+checks.push(['imageGate is 50 fresh / 30 edit', async (page) => {
+  const r = await page.evaluate(() => {
+    curDraftKey = 'freshkey';
+    const fresh = imageGate();
+    curDraftKey = 'freshkey__edit';
+    const edit = imageGate();
+    return { fresh, edit };
+  });
+  if (r.fresh !== 50) throw new Error(`fresh gate ${r.fresh}`);
+  if (r.edit !== 30) throw new Error(`edit gate ${r.edit}`);
+}]);
+
 // ── runner ──
 async function main() {
   const server = spawn('python', ['-m', 'http.server', String(PORT), '--directory', WEB_DIR],
