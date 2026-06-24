@@ -2561,7 +2561,7 @@ async function cloneActive(key) {
     showToast(`Cloned to ${draft.key} — เริ่มแก้ไข`);
     continueDraft(draft.key, draft.status);  // 'draft' → step 2 (ยังไม่มีรูปใหม่)
   } catch (err) {
-    alert(`Clone ไม่สำเร็จ: ${err.message}`);
+    showToast(`Clone ไม่สำเร็จ: ${err.message}`);
   }
 }
 
@@ -2573,7 +2573,7 @@ async function archivePackaging(key) {
     closeDrawer();
     loadDashboard();
   } catch (err) {
-    alert(`Archive ไม่สำเร็จ: ${err.message}`);
+    showToast(`Archive ไม่สำเร็จ: ${err.message}`);
   }
 }
 
@@ -2584,7 +2584,7 @@ async function unarchivePackaging(key) {
     closeDrawer();
     loadDashboard();
   } catch (err) {
-    alert(`Unarchive ไม่สำเร็จ: ${err.message}`);
+    showToast(`Unarchive ไม่สำเร็จ: ${err.message}`);
   }
 }
 
@@ -2596,7 +2596,7 @@ async function discardEditDraft(editKey) {
     closeDrawer();
     loadDashboard();
   } catch (err) {
-    alert(`ลบไม่สำเร็จ: ${err.message}`);
+    showToast(`ลบไม่สำเร็จ: ${err.message}`);
   }
 }
 
@@ -2606,8 +2606,9 @@ async function deleteDraft(key) {
     await api('DELETE', `/api/packagings/${encodeURIComponent(key)}`);
     closeDrawer();
     loadDashboard();
+    showToast('ลบ draft แล้ว');
   } catch (err) {
-    alert(`ลบไม่สำเร็จ: ${err.message}`);
+    showToast(`ลบไม่สำเร็จ: ${err.message}`);
   }
 }
 
@@ -2876,7 +2877,7 @@ async function step1Next() {
     curDraftKey = body.key;
     goStep(2);
   } catch (err) {
-    alert(`สร้าง packaging ไม่สำเร็จ: ${err.message}`);
+    showToast(`สร้าง packaging ไม่สำเร็จ: ${err.message}`);
   } finally {
     btn.disabled = false; btn.textContent = 'ถัดไป: อัพรูป →';
   }
@@ -2934,7 +2935,7 @@ async function handleFileSelect(files) {
 
     if (result.total_images >= 10) document.getElementById('btn-step2-next').disabled = false;
   } catch (err) {
-    alert(`อัพโหลดล้มเหลว: ${err.message}`);
+    showToast(`อัพโหลดล้มเหลว: ${err.message}`);
   } finally {
     // Reset file input value — กันคลิกอัพไฟล์เดิม change event ไม่ fire
     const fi = document.getElementById('file-input');
@@ -3357,7 +3358,7 @@ async function runPrelabel() {
     showToast(`✓ Prelabel แล้ว ${res.prelabeled} รูป · ข้าม ${res.skipped_already_labeled} · ผิดพลาด ${res.errors}`);
     await loadAnnotator();
   } catch (err) {
-    alert(`Prelabel ไม่สำเร็จ: ${err.message}`);
+    showToast(`Prelabel ไม่สำเร็จ: ${err.message}`);
   } finally {
     btn.disabled = false;
     btn.removeAttribute('aria-busy');
@@ -3514,9 +3515,10 @@ async function step4Next() {
   btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
   try {
     await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/config`, collectConfig());
+    showToast('บันทึก config แล้ว');
     goStep(5);
   } catch (err) {
-    alert(`บันทึก config ไม่สำเร็จ: ${err.message}`);
+    showToast(`บันทึก config ไม่สำเร็จ: ${err.message}`);
   } finally {
     btn.disabled = false; btn.textContent = 'ถัดไป: Full Training & Eval →';
   }
@@ -3717,7 +3719,7 @@ async function startFullTraining() {
     prog.finish(false);
     btn.disabled = false;
     btn.textContent = '🚀 ลองอีกครั้ง';
-    alert(`Start full training ไม่สำเร็จ: ${err.message}`);
+    showToast(`Start full training ไม่สำเร็จ: ${err.message}`);
   }
 }
 
@@ -3734,17 +3736,8 @@ async function doDeploy() {
   try {
     const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/deploy`);
     const cr = res.cloud_run || {};
-    let msg = '✅ Deploy สำเร็จ!\n\n';
-    msg += `Target: ${res.target_key || curDraftKey}\n`;
-    msg += `YAML: ${res.yaml_path}\n`;
-    if (res.model_promoted) msg += `Model: ${res.model_promoted}\n`;
-    if (res.backup && res.backup.files && res.backup.files.length) {
-      msg += `Backup: ${res.backup.files.length} files @ ${res.backup.timestamp}\n`;
-    }
-    msg += '\n' + (cr.triggered
-      ? `Cloud Run revision: triggered (~30s downtime)`
-      : `⚠ Cloud Run restart skipped: ${cr.reason || 'permission missing'}`);
-    alert(msg);
+    const crNote = cr.triggered ? 'Cloud Run: triggered (~30s)' : `Cloud Run ข้าม: ${cr.reason || 'permission missing'}`;
+    showToast(`✅ Deploy สำเร็จ — ${res.target_key || curDraftKey} · ${crNote}`, 8000);
     // Edit-draft is consumed on success — return to dashboard
     if (isEdit) {
       curDraftKey = null;
@@ -3755,7 +3748,7 @@ async function doDeploy() {
   } catch (err) {
     btn.disabled = false;
     btn.textContent = isEdit ? `Deploy & Overwrite ${parentKey}` : 'Deploy to Production';
-    alert(`Deploy failed: ${err.message}`);
+    showToast(`Deploy failed: ${err.message}`);
   }
 }
 

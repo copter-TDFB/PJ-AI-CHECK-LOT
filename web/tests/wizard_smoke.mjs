@@ -75,6 +75,18 @@ checks.push(['saveAnnotation failure toasts and does not mark labeled', async (p
   if (!r.toastShown) throw new Error('no toast on save failure');
 }]);
 
+checks.push(['no async-flow alert() left (validation alerts allowed)', async (page) => {
+  const src = await page.evaluate(() => document.documentElement.outerHTML);
+  const banned = [
+    'alert(`Clone', 'alert(`Archive', 'alert(`Unarchive',
+    'alert(`ลบไม่สำเร็จ', 'alert(`Prelabel', 'alert(`สร้าง packaging',
+    'alert(`อัพโหลดล้มเหลว', 'alert(`บันทึก config', 'alert(`Start full training',
+    'alert(`Deploy failed', 'alert(msg)',
+  ];
+  const hit = banned.filter(b => src.includes(b));
+  if (hit.length) throw new Error(`async alert() still present: ${hit.join(', ')}`);
+}]);
+
 // ── runner ──
 async function main() {
   const server = spawn('python', ['-m', 'http.server', String(PORT), '--directory', WEB_DIR],
