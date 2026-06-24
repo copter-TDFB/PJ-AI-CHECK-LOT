@@ -1354,16 +1354,12 @@ select option,select optgroup{
                   <div class="sr-hint-step4">
                     เลือก field ที่จะดึง (<b>วันหมดอายุ / ชื่อสินค้า / ขนาด</b>) ได้ใน <b>Step 4 (Config)</b> — แต่ค่าจะดึงจาก<b>ข้อความในกรอบที่คุณลาก</b> ฉะนั้นถ้าข้อความอยู่คนละมุม ลากกรอบครอบให้คลุมด้วย (ยังนับเป็นจุด lot จุดเดียว ไม่ต้องใช้โหมดขั้นสูง)
                   </div>
-                  <button type="button" class="sr-adv-toggle" onclick="srToggleAdvanced(true)">
-                    ⚙ ขั้นสูง: lot พิมพ์ทั้งบน<b>กล่องนอก</b> + <b>ซองใน</b>? (เช่น container_label)
-                  </button>
                 </div>
 
                 <!-- MULTI (advanced) — physically-separate locations, cross-checked -->
                 <div id="sr-multi" style="display:none">
                   <div class="sr-multi-head">
                     <span>lot/วันที่ ปรากฏหลายตำแหน่ง — ครอบแยกเพื่อเทียบว่าตรงกัน</span>
-                    <button type="button" class="sr-adv-collapse" onclick="srToggleAdvanced(false)">↩ กลับเป็นจุดเดียว</button>
                   </div>
                   <div class="sr-list" id="sr-list"></div>
                   <button type="button" class="sr-add" id="sr-add" onclick="srAdd()">
@@ -2708,13 +2704,6 @@ function srSetMode(mode) {
   show('sr-multi', mode === 'cross_check');
   if (mode === 'cross_check') srRender();
   if (mode === 'multi_field') srGroupChanged();
-}
-
-function srToggleAdvanced(on) {
-  if (on && cropRegions.length < 2) {
-    cropRegions = [{ value: 'box', custom: false }, { value: 'sachet', custom: false }];
-  }
-  srSetMode(on ? 'cross_check' : 'single');
 }
 
 function srRender() {

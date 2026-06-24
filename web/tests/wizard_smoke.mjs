@@ -155,6 +155,13 @@ checks.push(['imageGate is 50 fresh / 30 edit', async (page) => {
   if (r.edit !== 30) throw new Error(`edit gate ${r.edit}`);
 }]);
 
+checks.push(['legacy crop-mode advanced toggle removed', async (page) => {
+  const src = await page.evaluate(() => document.documentElement.outerHTML);
+  if (src.includes('srToggleAdvanced')) throw new Error('srToggleAdvanced still present');
+  const tabs = await page.evaluate(() => document.querySelectorAll('.sr-mode-tab').length);
+  if (tabs !== 3) throw new Error(`expected 3 mode tabs, got ${tabs}`);
+}]);
+
 // ── runner ──
 async function main() {
   const server = spawn('python', ['-m', 'http.server', String(PORT), '--directory', WEB_DIR],
