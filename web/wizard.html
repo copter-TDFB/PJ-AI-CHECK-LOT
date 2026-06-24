@@ -1893,7 +1893,7 @@ function goStep(n) {
   if (content) content.scrollTo({top: 0, behavior: 'smooth'});
   if (n === 2) initStep2();
   if (n === 3) loadAnnotator();
-  if (n === 4) { prefillFieldsFromSubRegions(); syncProductAliasVisibility(); }
+  if (n === 4) { prefillFieldsFromSubRegions(); prefillStep4FromDraft(); syncProductAliasVisibility(); }
   if (n === 5) loadStep5();
   syncUrl();
 }
@@ -3375,6 +3375,45 @@ function prefillFieldsFromSubRegions() {
     if (el.dataset.field === 'lot') return;
     el.classList.toggle('on', want.has(el.dataset.field));
   });
+}
+
+async function prefillStep4FromDraft() {
+  if (!curDraftKey) return;
+  let pkg;
+  try { pkg = await api('GET', `/api/packagings/${encodeURIComponent(curDraftKey)}`); }
+  catch { return; }
+  const cfg = pkg.config;
+  if (!cfg) return;   // fresh draft with no saved config → keep defaults
+
+  // Restore lot pattern directly; reset example rows to one empty (the regex
+  // source can't be reconstructed, and empty rows won't let updateRegex overwrite it).
+  if (cfg.lot_patterns && cfg.lot_patterns.length) {
+    document.getElementById('rx-display').textContent = cfg.lot_patterns[0];
+  }
+  document.getElementById('lot-rows').innerHTML =
+    `<div class="lot-row"><input type="text" value="" placeholder="เลข lot ตัวอย่าง" oninput="updateRegex()"><button class="rm-btn" onclick="removeLot(this)">×</button></div>`;
+
+  // Fields
+  const wantFields = new Set(cfg.fields_extracted || ['lot']);
+  document.querySelectorAll('#sp4 [data-group="fields"] .cbitem[data-field]').forEach(el => {
+    if (el.dataset.field === 'lot') return;
+    el.classList.toggle('on', wantFields.has(el.dataset.field));
+  });
+  // Sheet checks
+  const wantSheet = new Set(cfg.sheet_checks || []);
+  document.querySelectorAll('#sp4 [data-group="sheet"] .cbitem[data-field]').forEach(el => {
+    el.classList.toggle('on', wantSheet.has(el.dataset.field));
+  });
+  // Template
+  const tplKey = cfg.message_template_key;
+  if (tplKey) {
+    const tile = document.querySelector(`#sp4 .tpl-opt[data-template="${tplKey}"]`);
+    if (tile) pickTpl(tile);
+  }
+  // Product aliases
+  document.getElementById('pa-rows').innerHTML = '';
+  (cfg.product_aliases || []).forEach(a => addProdAlias(a.canonical, (a.keywords || []).join(', ')));
+  syncProductAliasVisibility();
 }
 
 // ─── Product aliases (shared by step 4 + drawer) ──────

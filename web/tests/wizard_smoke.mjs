@@ -110,6 +110,27 @@ checks.push(['no demo hardcode in step1/step4 inputs', async (page) => {
   if (r.lotRows !== 1 || r.firstLot) throw new Error('step4 lot examples still hardcoded');
 }]);
 
+checks.push(['prefillStep4FromDraft restores saved config', async (page) => {
+  const r = await page.evaluate(async () => {
+    curDraftKey = 'cfgdraft';
+    cropMode = 'single';
+    await prefillStep4FromDraft();
+    const on = (sel) => !!document.querySelector(sel);
+    return {
+      pattern: document.getElementById('rx-display').textContent,
+      lotRows: document.querySelectorAll('#lot-rows .lot-row').length,
+      product: on('#sp4 [data-group="fields"] .cbitem.on[data-field="product"]'),
+      tpl: document.querySelector('#sp4 .tpl-opt.on')?.dataset.template,
+      aliasRows: document.querySelectorAll('#pa-rows .pa-row').length,
+    };
+  });
+  if (r.pattern !== '(?i)XX\\d+') throw new Error(`pattern not restored: ${r.pattern}`);
+  if (r.lotRows !== 1) throw new Error('example rows not reset to 1');
+  if (!r.product) throw new Error('product field not toggled on');
+  if (r.tpl !== 'lot_exp') throw new Error(`template not selected: ${r.tpl}`);
+  if (r.aliasRows !== 1) throw new Error(`alias rows: ${r.aliasRows}`);
+}]);
+
 // ── runner ──
 async function main() {
   const server = spawn('python', ['-m', 'http.server', String(PORT), '--directory', WEB_DIR],
