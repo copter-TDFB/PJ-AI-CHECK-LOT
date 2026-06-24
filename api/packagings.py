@@ -983,13 +983,18 @@ def _list_sample_files(key: str, count: int) -> list[str]:
     import main
     if main.registry is not None and main.registry.get(key) is not None:
         img_dir = _ACTIVE_IMAGES_DIR / key
-        if not img_dir.exists():
-            return []
-        files = sorted(
-            p.name for p in img_dir.iterdir()
-            if p.is_file() and p.suffix.lower() in _IMG_EXTS
-        )
-        return files[:count]
+        if img_dir.exists():
+            files = sorted(
+                p.name for p in img_dir.iterdir()
+                if p.is_file() and p.suffix.lower() in _IMG_EXTS
+            )
+            if files:
+                return files[:count]
+        # Prod ships no local images/ — fall back to the Drive dataset.
+        if os.getenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "").strip():
+            from services import drive_samples
+            return [f["name"] for f in drive_samples.class_images(key)[:count]]
+        return []
     # Draft
     return [img["name"] for img in packaging_store.list_images(key)[:count]]
 
@@ -1000,7 +1005,12 @@ def _resolve_image_path(key: str, filename: str) -> Path | None:
     safe = Path(filename).name
     if main.registry is not None and main.registry.get(key) is not None:
         p = _ACTIVE_IMAGES_DIR / key / safe
-        return p if p.exists() else None
+        if p.exists():
+            return p
+        # Prod has no local file — download the Drive dataset image on demand.
+        if os.getenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "").strip():
+            return _drive_sample_path(key, safe)
+        return None
     return packaging_store.image_path(key, safe)
 
 

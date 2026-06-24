@@ -1462,3 +1462,59 @@ def test_drive_sample_path_cleans_partial_on_failure(monkeypatch, tmp_path):
     result = packagings._drive_sample_path("back_label", "a.jpg")
     assert result is None
     assert not (tmp_path / "cache" / "back_label" / "a.jpg").exists()
+
+
+def test_list_sample_files_local_first_no_drive(monkeypatch, tmp_path):
+    import main
+    from api import packagings
+
+    class _Reg:
+        def get(self, k):
+            return object()
+
+    monkeypatch.setattr(main, "registry", _Reg())
+    d = tmp_path / "back_label"
+    d.mkdir()
+    (d / "z.jpg").write_bytes(b"x")
+    (d / "a.jpg").write_bytes(b"y")
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path)
+
+    def _boom(k):
+        raise AssertionError("Drive must not be hit when local dir is populated")
+
+    monkeypatch.setattr("services.drive_samples.class_images", _boom)
+    assert packagings._list_sample_files("back_label", 6) == ["a.jpg", "z.jpg"]
+
+
+def test_list_sample_files_drive_fallback(monkeypatch, tmp_path):
+    import main
+    from api import packagings
+
+    class _Reg:
+        def get(self, k):
+            return object()
+
+    monkeypatch.setattr(main, "registry", _Reg())
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path)  # empty
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSROOT")
+    monkeypatch.setattr(
+        "services.drive_samples.class_images",
+        lambda k: [{"id": str(i), "name": f"{i}.jpg"} for i in range(10)],
+    )
+    assert packagings._list_sample_files("back_label", 6) == [f"{i}.jpg" for i in range(6)]
+
+
+def test_resolve_image_path_drive_fallback(monkeypatch, tmp_path):
+    import main
+    from api import packagings
+
+    class _Reg:
+        def get(self, k):
+            return object()
+
+    monkeypatch.setattr(main, "registry", _Reg())
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path / "empty")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSROOT")
+    sentinel = tmp_path / "dl" / "a.jpg"
+    monkeypatch.setattr(packagings, "_drive_sample_path", lambda k, s: sentinel)
+    assert packagings._resolve_image_path("back_label", "a.jpg") == sentinel
