@@ -1721,6 +1721,49 @@ select option,select optgroup{
 
 <script>
 // ─── API base ──────────────────────────────
+const BAKED_SAMPLES = {
+  "back_label": [
+    "samples/back_label/0.jpg",
+    "samples/back_label/1.jpg",
+    "samples/back_label/2.jpg"
+  ],
+  "capsule_box": [
+    "samples/capsule_box/0.jpg",
+    "samples/capsule_box/1.jpg",
+    "samples/capsule_box/2.jpg"
+  ],
+  "container_label": [
+    "samples/container_label/0.jpg",
+    "samples/container_label/1.jpg",
+    "samples/container_label/2.jpg"
+  ],
+  "grade_bag": [
+    "samples/grade_bag/0.jpg",
+    "samples/grade_bag/1.jpg",
+    "samples/grade_bag/2.jpg"
+  ],
+  "import_sticker": [
+    "samples/import_sticker/0.jpg",
+    "samples/import_sticker/1.jpg",
+    "samples/import_sticker/2.jpg"
+  ],
+  "print_sticker_back": [
+    "samples/print_sticker_back/0.jpg",
+    "samples/print_sticker_back/1.jpg",
+    "samples/print_sticker_back/2.jpg"
+  ],
+  "print_sticker_full": [
+    "samples/print_sticker_full/0.jpg",
+    "samples/print_sticker_full/1.jpg",
+    "samples/print_sticker_full/2.jpg"
+  ],
+  "retail_sachet": [
+    "samples/retail_sachet/0.jpg",
+    "samples/retail_sachet/1.jpg",
+    "samples/retail_sachet/2.jpg"
+  ]
+};
+
 const API_BASE = (() => {
   if (window.API_BASE_OVERRIDE) return window.API_BASE_OVERRIDE;
   if (location.protocol === 'file:') return 'http://localhost:8080';
@@ -2526,10 +2569,23 @@ function continueDraft(key, status) {
 }
 
 async function loadCardImages(key) {
+  const strip = document.querySelector(`.pkg-photo-strip[data-key="${CSS.escape(key)}"]`);
+  if (!strip) return;
+  const baked = (typeof BAKED_SAMPLES !== 'undefined') ? BAKED_SAMPLES[key] : null;
+  if (baked && baked.length) {
+    strip.innerHTML = '';
+    baked.slice(0, 3).forEach(src => {
+      const el = document.createElement('img');
+      el.src = src;            // relative to the frontend host (Netlify / http.server)
+      el.alt = `${key} sample`;
+      el.loading = 'lazy';
+      strip.appendChild(el);
+    });
+    return;
+  }
   try {
     const { images } = await api('GET', `/api/packagings/${encodeURIComponent(key)}/images`);
-    const strip = document.querySelector(`.pkg-photo-strip[data-key="${CSS.escape(key)}"]`);
-    if (!strip || images.length === 0) return;
+    if (images.length === 0) return;
     strip.innerHTML = '';
     images.slice(0, 3).forEach(img => {
       const el = document.createElement('img');
