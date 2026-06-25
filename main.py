@@ -211,7 +211,14 @@ async def predict(
         if config.detection_mode == "cross_check"
         else result.get("lot_number")
     )
-    verify_message = build_verify_message(config, template, sheet, lot_for_message)
+    exp_for_message = (
+        result.get("exp_box")
+        if config.detection_mode == "cross_check"
+        else result.get("exp_date")
+    )
+    verify_message = build_verify_message(
+        config, template, sheet, lot_for_message, exp_for_message
+    )
 
     response = {
         "lot_number":       result["lot_number"],
