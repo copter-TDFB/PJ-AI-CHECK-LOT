@@ -458,11 +458,11 @@ git commit -m "feat(scripts): backup + apply for detector dataset cleanup"
 def verify(drive) -> None:
     from collections import defaultdict
     seen = defaultdict(set)
-    leftover_full = []
+    leftovers = []
     for folder in (TRAIN_LABELS, VAL_LABELS):
         for f in list_txt(drive, folder):
-            if f["name"].startswith(DELETE_PREFIX):
-                leftover_full.append(f["name"])
+            if any(f["name"].startswith(p) for p in DELETE_PREFIXES):
+                leftovers.append(f["name"])
             pfx = f["name"].split("_aug")[0].split(".")[0]
             for cid in _distinct_ids(drive.read_text(f["id"])):
                 seen[cid].add(pfx[:24])
@@ -472,8 +472,8 @@ def verify(drive) -> None:
     problems = []
     if bad_ids:
         problems.append(f"label ids outside 0..10: {sorted(bad_ids)}")
-    if leftover_full:
-        problems.append(f"print_sticker_full files still present: {leftover_full[:5]}")
+    if leftovers:
+        problems.append(f"deleted-prefix files still present: {leftovers[:5]}")
     if doc.get("nc") != 11:
         problems.append(f"nc != 11 (got {doc.get('nc')})")
     if doc.get("names") != TARGET_NAMES:
