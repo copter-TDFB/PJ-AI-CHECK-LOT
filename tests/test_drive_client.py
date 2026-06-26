@@ -136,3 +136,34 @@ def test_ensure_folder_creates_when_missing(client_and_svc):
     svc.files.return_value.list.return_value.execute.return_value = {"files": []}
     svc.files.return_value.create.return_value.execute.return_value = {"id": "new-id"}
     assert client.ensure_folder("train", "root") == "new-id"
+
+
+def test_copy_file_calls_files_copy_with_parent_and_name(client_and_svc):
+    client, svc = client_and_svc
+    svc.files.return_value.copy.return_value.execute.return_value = {"id": "copied-id"}
+    new_id = client.copy_file("src-id", parent_id="dst-folder", name="newpack_x.jpg")
+    assert new_id == "copied-id"
+    _, kwargs = svc.files.return_value.copy.call_args
+    assert kwargs["fileId"] == "src-id"
+    assert kwargs["body"]["parents"] == ["dst-folder"]
+    assert kwargs["body"]["name"] == "newpack_x.jpg"
+
+
+def test_upload_file_uses_simple_upload_for_small_files(client_and_svc, tmp_path):
+    client, svc = client_and_svc
+    svc.files.return_value.create.return_value.execute.return_value = {"id": "fid"}
+    small = tmp_path / "small.jpg"
+    small.write_bytes(b"x" * 1024)  # 1KB — well under the resumable threshold
+    with patch("services.drive_client.MediaFileUpload") as mock_media:
+        client.upload_file(small, parent_id="p", name="small.jpg")
+    assert mock_media.call_args.kwargs["resumable"] is False
+
+
+def test_upload_file_uses_resumable_for_large_files(client_and_svc, tmp_path):
+    client, svc = client_and_svc
+    svc.files.return_value.create.return_value.execute.return_value = {"id": "fid"}
+    big = tmp_path / "big.jpg"
+    big.write_bytes(b"x" * (6 * 1024 * 1024))  # 6MB — over the 5MB threshold
+    with patch("services.drive_client.MediaFileUpload") as mock_media:
+        client.upload_file(big, parent_id="p", name="big.jpg")
+    assert mock_media.call_args.kwargs["resumable"] is True

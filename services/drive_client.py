@@ -21,6 +21,11 @@ _SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 _TOKEN_URI = "https://oauth2.googleapis.com/token"
 
+# Files at/under this size use a single-request (simple) upload instead of a
+# resumable one — resumable adds a session-init round-trip that only pays off
+# for large/flaky transfers.
+_SIMPLE_UPLOAD_MAX_BYTES = 5 * 1024 * 1024
+
 
 def _user_oauth_credentials() -> UserCredentials | None:
     """Build user OAuth creds from env if all three vars are set, else None.
@@ -115,13 +120,35 @@ class DriveClient:
         if parent_id:
             metadata["parents"] = [parent_id]
         mime, _ = mimetypes.guess_type(str(src))
-        media = MediaFileUpload(str(src), mimetype=mime or "application/octet-stream", resumable=True)
+        # Resumable uploads cost an extra session-init round-trip. For small
+        # files (the common case — packaging photos < 5MB) a simple multipart
+        # upload is a single request, roughly halving per-image latency on the
+        # sequential dataset publish. Reserve resumable for genuinely large files.
+        resumable = src.stat().st_size > _SIMPLE_UPLOAD_MAX_BYTES
+        media = MediaFileUpload(
+            str(src), mimetype=mime or "application/octet-stream", resumable=resumable
+        )
         created = self._svc.files().create(body=metadata, media_body=media, fields="id").execute()
         file_id = created["id"]
         logger.info("Uploaded %s → file_id=%s (%.1f MB)", src.name, file_id, src.stat().st_size / 1e6)
         if public:
             self._make_public(file_id)
         return file_id
+
+    def copy_file(
+        self, file_id: str, parent_id: str, name: str | None = None
+    ) -> str:
+        """Server-side copy an existing Drive file into parent_id → new file_id.
+
+        Avoids re-uploading bytes that already live in Drive (e.g. the dataset
+        publish needs the same image in both the detector and classifier
+        folders). A metadata-only operation — far cheaper than a second upload.
+        """
+        body: dict = {"parents": [parent_id]}
+        if name:
+            body["name"] = name
+        created = self._svc.files().copy(fileId=file_id, body=body, fields="id").execute()
+        return created["id"]
 
     def upload_bytes(
         self,
