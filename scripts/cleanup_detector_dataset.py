@@ -15,6 +15,11 @@ import yaml
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 logger = logging.getLogger("cleanup_detector_dataset")
 
+try:
+    sys.stdout.reconfigure(encoding="utf-8")  # avoid cp1252 UnicodeEncodeError on Windows console
+except Exception:  # noqa: BLE001
+    pass
+
 TARGET_NAMES: list[str] = [
     "back_label_lot",
     "back_label_name",
@@ -221,6 +226,36 @@ def apply_changes(drive, remap, delete) -> None:
     yaml.safe_load(new_yaml)  # sanity: must parse
     drive.update_file_content(yid, new_yaml.encode("utf-8"), mime_type="text/yaml")
     logger.info("Rewrote data.yaml (nc=11). Done.")
+
+
+def verify(drive) -> None:
+    from collections import defaultdict
+    seen = defaultdict(set)
+    leftovers = []
+    for folder in (TRAIN_LABELS, VAL_LABELS):
+        for f in list_txt(drive, folder):
+            if any(f["name"].startswith(p) for p in DELETE_PREFIXES):
+                leftovers.append(f["name"])
+            pfx = f["name"].split("_aug")[0].split(".")[0]
+            for cid in _distinct_ids(drive.read_text(f["id"])):
+                seen[cid].add(pfx[:24])
+    bad_ids = [c for c in seen if c < 0 or c > 10]
+    yid = _data_yaml_id(drive)
+    doc = yaml.safe_load(drive.read_text(yid))
+    problems = []
+    if bad_ids:
+        problems.append(f"label ids outside 0..10: {sorted(bad_ids)}")
+    if leftovers:
+        problems.append(f"deleted-prefix files still present: {leftovers[:5]}")
+    if doc.get("nc") != 11:
+        problems.append(f"nc != 11 (got {doc.get('nc')})")
+    if doc.get("names") != TARGET_NAMES:
+        problems.append("names != TARGET_NAMES")
+    for cid in sorted(seen):
+        logger.info("  id %2d <- %s", cid, sorted(seen[cid]))
+    if problems:
+        raise SystemExit("VERIFY FAILED:\n  - " + "\n  - ".join(problems))
+    logger.info("VERIFY OK: 11-class dataset is clean and consistent.")
 
 
 def main():
