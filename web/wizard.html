@@ -17,7 +17,7 @@
   --bd2:  #363B4C;
   --t1:   #EDEEF1;
   --t2:   #8A8FA5;
-  --t3:   #525769;
+  --t3:   #7C8196;
   --acc:  #E8A020;
   --acc2: #F0C040;
   --acc-bg: rgba(232,160,32,.10);
@@ -365,7 +365,7 @@ label{
 }
 .req{color:var(--acc);margin-left:2px}
 .hint{font-weight:400;color:var(--t3);font-size:11px;margin-left:6px}
-.pa-hint{background:var(--acc-bg);border-left:3px solid var(--acc-bd);border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12px;line-height:1.65;color:var(--t2)}
+.pa-hint{background:var(--acc-bg);border:1px solid var(--acc-bd);border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:12px;line-height:1.65;color:var(--t2)}
 .pa-hint strong{color:var(--t1);font-weight:600}
 .pa-hint code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--s2);padding:1px 5px;border-radius:4px;color:var(--t1)}
 .pa-hint .pa-hint-eg{margin-top:6px}
@@ -447,8 +447,8 @@ select option,select optgroup{
 /* Single (default) crop region */
 .sr-single-card{
   display:flex;align-items:flex-start;gap:11px;
-  background:var(--s2);border:1px solid var(--bd);
-  border-left:3px solid var(--acc);border-radius:7px;
+  background:var(--s2);border:1px solid var(--acc-bd);
+  border-radius:7px;
   padding:11px 13px;
 }
 .sr-single-card .sr-dot{margin-top:5px}
@@ -459,25 +459,11 @@ select option,select optgroup{
   background:var(--acc-bg);border-radius:6px;padding:8px 11px;margin-top:9px;
 }
 .sr-hint-step4 b{color:var(--acc2);font-weight:600}
-.sr-adv-toggle{
-  display:block;width:100%;text-align:left;margin-top:9px;
-  background:transparent;border:none;cursor:pointer;
-  font-family:inherit;font-size:11px;color:var(--t3);
-  padding:2px 0;transition:color .15s;
-}
-.sr-adv-toggle:hover{color:var(--acc)}
-.sr-adv-toggle b{color:var(--t2);font-weight:600}
-.sr-adv-toggle:hover b{color:var(--acc)}
 #sr-multi{display:flex;flex-direction:column;gap:9px}
 .sr-multi-head{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
   font-size:11px;color:var(--t3);line-height:1.5;
 }
-.sr-adv-collapse{
-  flex:0 0 auto;background:transparent;border:none;cursor:pointer;
-  font-family:inherit;font-size:11px;color:var(--t3);padding:2px 4px;transition:color .15s;
-}
-.sr-adv-collapse:hover{color:var(--acc)}
 /* Mode tabs — 3-way crop mode selector */
 .sr-mode-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .sr-mode-tab{
@@ -486,18 +472,17 @@ select option,select optgroup{
   cursor:pointer;transition:background .15s,color .15s,border-color .15s;text-align:center;
 }
 .sr-mode-tab:hover{color:var(--acc);border-color:var(--acc)}
-.sr-mode-tab.on{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:600}
+.sr-mode-tab.on{background:var(--acc);color:#0B0C10;border-color:var(--acc);font-weight:600}
 
 /* Info box */
 .info-box{
-  background:var(--s2);border:1px solid var(--bd);
-  border-left:3px solid var(--acc);
-  border-radius:0 7px 7px 0;
+  background:var(--s2);border:1px solid var(--acc-bd);
+  border-radius:7px;
   padding:12px 14px;font-size:12px;color:var(--t2);
   line-height:1.65;margin-bottom:16px;
 }
 .info-box strong{color:var(--t1)}
-.info-box.ok{border-left-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
+.info-box.ok{border-color:rgba(52,211,153,.25);background:var(--ok-bg);color:var(--ok)}
 .info-box.ok strong{color:var(--ok)}
 
 /* ── UPLOAD ──────────────────────────────────────── */
@@ -592,8 +577,9 @@ select option,select optgroup{
 .ls-desc{font-size:12px;color:var(--t2);max-width:290px;line-height:1.65}
 .ls-counts{display:flex;gap:22px;margin-top:4px}
 .ls-cnt-n{
-  font-family:'Playfair Display',serif;
-  font-size:28px;font-weight:500;color:var(--t1);
+  font-family:'JetBrains Mono',monospace;
+  font-size:26px;font-weight:600;color:var(--t1);
+  font-variant-numeric:tabular-nums;
 }
 .ls-cnt-n.done{color:var(--ok)}
 .ls-cnt-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;margin-top:2px;letter-spacing:.05em}
@@ -637,7 +623,7 @@ select option,select optgroup{
 
 /* ── PRODUCT ALIASES ─────────────────────────────── */
 .pa-head{display:grid;grid-template-columns:1fr 1.3fr 28px;gap:8px;margin-bottom:6px}
-.pa-head label{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);margin:0}
+.pa-head label{font-size:11.5px;font-weight:600;letter-spacing:.01em;color:var(--t2);margin:0}
 .pa-rows{display:flex;flex-direction:column;gap:8px}
 .pa-row{display:grid;grid-template-columns:1fr 1.3fr 28px;gap:8px;align-items:center}
 .pa-row input{width:100%;min-width:0;font-size:13px}
@@ -710,8 +696,9 @@ select option,select optgroup{
   flex-shrink:0;
 }
 .eval-val{
-  font-family:'Playfair Display',serif;
-  font-size:36px;font-weight:500;line-height:1;
+  font-family:'JetBrains Mono',monospace;
+  font-size:34px;font-weight:600;line-height:1;
+  font-variant-numeric:tabular-nums;
   margin-bottom:6px;
 }
 .eval-val.g{color:var(--ok)}
@@ -1143,12 +1130,97 @@ select option,select optgroup{
   flex-shrink:0;
   background:var(--s0);
 }
+
+/* ── CONFIRM MODAL ── */
+.confirm-backdrop{
+  position:fixed;inset:0;z-index:120;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(2px);
+  display:none;align-items:center;justify-content:center;
+}
+.confirm-backdrop.open{display:flex}
+.confirm-modal{
+  background:var(--s0);border:1px solid var(--bd);
+  border-radius:12px;padding:22px;width:420px;max-width:92vw;
+  box-shadow:0 20px 50px rgba(0,0,0,.5);
+}
+.confirm-title{font-family:'Playfair Display',serif;font-size:18px;font-weight:500;margin-bottom:10px}
+.confirm-body{font-size:13px;color:var(--t2);line-height:1.7;margin-bottom:20px}
+.confirm-actions{display:flex;gap:10px;justify-content:flex-end}
+
+/* ── HAMBURGER + MOBILE SIDEBAR ───────────────────── */
+.sb-toggle{
+  display:none;flex-shrink:0;
+  width:34px;height:34px;border-radius:7px;
+  background:transparent;border:1px solid var(--bd);color:var(--t1);
+  align-items:center;justify-content:center;cursor:pointer;
+}
+.sb-toggle:hover{background:var(--s1);border-color:var(--bd2)}
+.sb-backdrop{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);
+  opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:80;
+}
+.sb-backdrop.open{opacity:1;pointer-events:auto}
+
+@media (max-width:860px){
+  .sb-toggle{display:flex}
+  .sidebar{
+    position:fixed;top:0;left:0;bottom:0;z-index:81;
+    transform:translateX(-100%);
+    transition:transform .25s cubic-bezier(.4,0,.2,1);
+  }
+  .sidebar.open{transform:translateX(0)}
+  .content{padding:20px 16px}
+  .wiz-layout{flex-direction:column;gap:18px;max-width:none}
+  .wiz-steps{width:100%;min-width:0}
+  .eval-grid,.tpl-grid{grid-template-columns:1fr}
+}
+@media (max-width:520px){
+  .topbar{padding:0 14px;gap:10px}
+}
+
+/* ── REDUCED MOTION ───────────────────────────────── */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms!important;animation-iteration-count:1!important;
+    transition-duration:.001ms!important;scroll-behavior:auto!important;
+  }
+}
+
+/* ── KEYBOARD-OPERABLE NON-NATIVE CONTROLS ────────── */
+[role=button],[role=checkbox],[role=radio]{cursor:pointer}
+[role=button][aria-disabled=true],[role=checkbox][aria-disabled=true]{cursor:not-allowed}
+[role=button]:focus-visible,[role=checkbox]:focus-visible,[role=radio]:focus-visible{
+  outline:2px solid var(--acc);outline-offset:2px;
+}
+.login-gate{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:24px}
+.login-gate.hidden{display:none}
+.login-card{max-width:360px;width:100%;text-align:center;background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:32px 28px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.login-brand{font-size:13px;letter-spacing:.04em;color:var(--t3);margin-bottom:18px}
+.login-h{font-size:22px;margin:0 0 6px;color:var(--t1)}
+.login-sub{font-size:13px;color:var(--t3);margin:0 0 22px}
+.g-signin{display:flex;justify-content:center;min-height:44px}
+.login-status{margin-top:16px;font-size:13px;color:var(--err);min-height:18px}
+.topbar-user{display:flex;align-items:center;gap:10px;margin-left:8px}
+.tu-email{font-size:12px;color:var(--t2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
+<div id="login-gate" class="login-gate" role="dialog" aria-modal="true" aria-labelledby="login-title">
+  <div class="login-card">
+    <div class="login-brand">🔒 OCR Lot Checker</div>
+    <h1 id="login-title" class="login-h">เข้าสู่ระบบ</h1>
+    <p class="login-sub">ใช้บัญชี Google ของ @tdfb.co เท่านั้น</p>
+    <div id="g-signin" class="g-signin"></div>
+    <div id="login-status" class="login-status" role="status" aria-live="polite"></div>
+  </div>
+</div>
+
+<div class="sb-backdrop" id="sb-backdrop" onclick="toggleSidebar(false)"></div>
+
 <!-- SIDEBAR -->
-<aside class="sidebar">
+<aside class="sidebar" id="sidebar">
   <div class="sb-logo">
     <div class="sb-icon">L</div>
     <div>
@@ -1158,7 +1230,7 @@ select option,select optgroup{
   </div>
   <nav class="sb-nav">
     <div class="sb-label">Workspace</div>
-    <div class="nav-item active" id="nav-dash" onclick="showView('dashboard')">
+    <div class="nav-item active" id="nav-dash" role="button" tabindex="0" onclick="showView('dashboard');toggleSidebar(false)">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
         <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
@@ -1166,7 +1238,7 @@ select option,select optgroup{
       Packaging
       <span class="nav-badge">6</span>
     </div>
-    <div class="nav-item soon">
+    <div class="nav-item soon" role="button" aria-disabled="true">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
       </svg>
@@ -1174,7 +1246,7 @@ select option,select optgroup{
       <span class="nav-badge soon-tag">soon</span>
     </div>
     <div class="sb-label">ระบบ</div>
-    <div class="nav-item soon">
+    <div class="nav-item soon" role="button" aria-disabled="true">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="3"/>
         <path d="M19.07 4.93a10 10 0 0 0-14.14 0M4.93 19.07a10 10 0 0 0 14.14 0"/>
@@ -1182,7 +1254,7 @@ select option,select optgroup{
       การตั้งค่า
       <span class="nav-badge soon-tag">soon</span>
     </div>
-    <div class="nav-item soon">
+    <div class="nav-item soon" role="button" aria-disabled="true">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
       </svg>
@@ -1202,6 +1274,9 @@ select option,select optgroup{
 <!-- MAIN -->
 <main class="main">
   <header class="topbar" id="topbar">
+    <button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()" aria-label="เปิด/ปิด เมนู" aria-expanded="false" aria-controls="sidebar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
     <button class="btn btn-ghost btn-sm" id="topbar-back" style="display:none" onclick="showView('dashboard')">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
@@ -1210,6 +1285,10 @@ select option,select optgroup{
     </button>
     <div class="topbar-title" id="topbar-title">Packaging <i>Wizard</i></div>
     <div class="topbar-spacer"></div>
+    <div class="topbar-user" id="topbar-user" style="display:none">
+      <span class="tu-email" id="tu-email"></span>
+      <button class="btn btn-ghost btn-sm" id="tu-signout" onclick="signOut()">ออกจากระบบ</button>
+    </div>
     <button class="btn btn-primary btn-sm" id="topbar-add" onclick="startWizard()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -1225,7 +1304,7 @@ select option,select optgroup{
       <div class="dash-head">
         <div>
           <h1>Packaging<br><i>Classes</i></h1>
-          <p>AI model รู้จัก 6 ประเภทบรรจุภัณฑ์ — คลิกการ์ดเพื่อดูรายละเอียด</p>
+          <p id="dash-sub">AI model รู้จัก 6 ประเภทบรรจุภัณฑ์ — คลิกการ์ดเพื่อดูรายละเอียด</p>
         </div>
       </div>
 
@@ -1235,7 +1314,7 @@ select option,select optgroup{
           กำลังโหลดจาก API...
         </div>
 
-        <div class="pkg-card-add" onclick="startWizard()">
+        <div class="pkg-card-add" role="button" tabindex="0" onclick="startWizard()">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="8" x2="12" y2="16"/>
@@ -1300,15 +1379,15 @@ select option,select optgroup{
               <div class="wiz-card-desc">กำหนดชื่อและรายละเอียดของประเภทบรรจุภัณฑ์ใหม่ที่ต้องการให้ AI รู้จัก</div>
               <div class="fgroup">
                 <label>ชื่อแสดง <span class="req">*</span></label>
-                <input type="text" id="inp-display-name" value="New Tea Bag Box" placeholder="เช่น Capsule Box Premium">
+                <input type="text" id="inp-display-name" value="" placeholder="เช่น Capsule Box Premium">
               </div>
               <div class="fgroup">
                 <label>Key (code) <span class="req">*</span><span class="hint">ตัวพิมพ์เล็ก + _ เท่านั้น</span></label>
-                <input type="text" id="inp-key" value="new_tea_bag_box" style="font-family:'JetBrains Mono',monospace">
+                <input type="text" id="inp-key" value="" placeholder="เช่น capsule_box_premium" style="font-family:'JetBrains Mono',monospace">
               </div>
               <div class="fgroup">
                 <label>คำอธิบาย <span class="hint">optional</span></label>
-                <textarea id="inp-desc" placeholder="อธิบายลักษณะ เช่น สีสัน, รูปร่าง, ตำแหน่งของ lot">กล่องชาถุง 20 ซอง — มีฉลากด้านหน้าแสดง lot และวันหมดอายุ</textarea>
+                <textarea id="inp-desc" placeholder="อธิบายลักษณะ เช่น สีสัน, รูปร่าง, ตำแหน่งของ lot"></textarea>
               </div>
               <div class="fgroup">
                 <label>ประเภท Pipeline <span class="req">*</span></label>
@@ -1338,16 +1417,12 @@ select option,select optgroup{
                   <div class="sr-hint-step4">
                     เลือก field ที่จะดึง (<b>วันหมดอายุ / ชื่อสินค้า / ขนาด</b>) ได้ใน <b>Step 4 (Config)</b> — แต่ค่าจะดึงจาก<b>ข้อความในกรอบที่คุณลาก</b> ฉะนั้นถ้าข้อความอยู่คนละมุม ลากกรอบครอบให้คลุมด้วย (ยังนับเป็นจุด lot จุดเดียว ไม่ต้องใช้โหมดขั้นสูง)
                   </div>
-                  <button type="button" class="sr-adv-toggle" onclick="srToggleAdvanced(true)">
-                    ⚙ ขั้นสูง: lot พิมพ์ทั้งบน<b>กล่องนอก</b> + <b>ซองใน</b>? (เช่น container_label)
-                  </button>
                 </div>
 
                 <!-- MULTI (advanced) — physically-separate locations, cross-checked -->
                 <div id="sr-multi" style="display:none">
                   <div class="sr-multi-head">
                     <span>lot/วันที่ ปรากฏหลายตำแหน่ง — ครอบแยกเพื่อเทียบว่าตรงกัน</span>
-                    <button type="button" class="sr-adv-collapse" onclick="srToggleAdvanced(false)">↩ กลับเป็นจุดเดียว</button>
                   </div>
                   <div class="sr-list" id="sr-list"></div>
                   <button type="button" class="sr-add" id="sr-add" onclick="srAdd()">
@@ -1413,7 +1488,7 @@ select option,select optgroup{
                 <strong>เคล็ดลับ:</strong> ถ่ายจากหลายมุม (ตรง/เฉียง), หลายระยะ, แสงต่างกัน, มีและไม่มีบรรจุภัณฑ์อื่นในเฟรม
               </div>
               <input type="file" id="file-input" multiple accept="image/*" style="display:none" onchange="handleFileSelect(this.files)">
-              <div class="upload-zone" id="uz" onclick="document.getElementById('file-input').click()">
+              <div class="upload-zone" id="uz" role="button" tabindex="0" aria-label="เลือกหรือวางรูปเพื่ออัพโหลด" onclick="document.getElementById('file-input').click()">
                 <div class="upload-icon">
                   <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -1422,13 +1497,13 @@ select option,select optgroup{
                   </svg>
                 </div>
                 <div class="upload-title">คลิกเพื่อเลือกรูป หรือลากมาวางที่นี่</div>
-                <div class="upload-desc">รองรับ <span>JPG, PNG, HEIC</span></div>
+                <div class="upload-desc">รองรับ <span>JPG, PNG</span></div>
                 <div class="upload-hint">แนะนำ 50–200 รูป · สูงสุด 10MB ต่อรูป</div>
               </div>
               <div id="upload-prog" style="display:none">
                 <div class="upload-meta" style="margin-top:14px">
                   <span style="color:var(--t2)">อัพโหลดแล้ว</span>
-                  <span class="cnt" id="up-cnt">0 / 63 รูป</span>
+                  <span class="cnt" id="up-cnt">0 รูป</span>
                 </div>
                 <div class="pbar-wrap"><div class="pbar green" id="up-bar" style="width:0%"></div></div>
                 <div class="thumb-grid" id="up-thumbs"></div>
@@ -1537,15 +1612,7 @@ select option,select optgroup{
                 <label>ตัวอย่าง Lot Number <span class="req">*</span></label>
                 <div class="lot-rows" id="lot-rows">
                   <div class="lot-row">
-                    <input type="text" value="TB0005001014612426" oninput="updateRegex()">
-                    <button class="rm-btn" onclick="removeLot(this)">×</button>
-                  </div>
-                  <div class="lot-row">
-                    <input type="text" value="TB0006001014789012" oninput="updateRegex()">
-                    <button class="rm-btn" onclick="removeLot(this)">×</button>
-                  </div>
-                  <div class="lot-row">
-                    <input type="text" value="TB0007001014999876" oninput="updateRegex()">
+                    <input type="text" value="" placeholder="เลข lot ตัวอย่าง" oninput="updateRegex()">
                     <button class="rm-btn" onclick="removeLot(this)">×</button>
                   </div>
                 </div>
@@ -1553,7 +1620,7 @@ select option,select optgroup{
               </div>
               <div class="regex-preview">
                 <div class="rp-label">Pattern ที่สร้างขึ้น — ทดสอบกับตัวอย่าง</div>
-                <div class="regex-display" id="rx-display">(?i)LOT\s*[:\.\-]?\s*([A-Z]{2}\d{4,}[A-Z0-9]*)</div>
+                <div class="regex-display" id="rx-display"></div>
                 <div class="regex-matches" id="rx-matches"></div>
               </div>
             </div>
@@ -1564,19 +1631,19 @@ select option,select optgroup{
               <div class="fgroup">
                 <label>Extract fields</label>
                 <div class="cbgroup" data-group="fields">
-                  <div class="cbitem on disabled" data-field="lot">
+                  <div class="cbitem on disabled" data-field="lot" role="checkbox" aria-checked="true" aria-disabled="true">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Lot Number</div><div class="cb-desc">บังคับ — ทุก packaging</div></div>
                   </div>
-                  <div class="cbitem on" data-field="exp" onclick="toggleCb(this)">
+                  <div class="cbitem on" data-field="exp" role="checkbox" aria-checked="true" tabindex="0" onclick="toggleCb(this)">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Expiry Date</div><div class="cb-desc">ค้นหาจาก BBD / EXP / หมดอายุ</div></div>
                   </div>
-                  <div class="cbitem" data-field="product" onclick="toggleCb(this); syncProductAliasVisibility()">
+                  <div class="cbitem" data-field="product" role="checkbox" aria-checked="false" tabindex="0" onclick="toggleCb(this); syncProductAliasVisibility()">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Product Name</div><div class="cb-desc">เช่น Houjicha Powder, Classic Rich 95%</div></div>
                   </div>
-                  <div class="cbitem" data-field="size" onclick="toggleCb(this); updateAllProdPreviews()">
+                  <div class="cbitem" data-field="size" role="checkbox" aria-checked="false" tabindex="0" onclick="toggleCb(this); updateAllProdPreviews()">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Size / Weight</div><div class="cb-desc">เช่น 40 g, 200 g, 1 kg</div></div>
                   </div>
@@ -1585,11 +1652,11 @@ select option,select optgroup{
               <div class="fgroup" style="margin-top:18px">
                 <label>Sheet Checks</label>
                 <div class="cbgroup" data-group="sheet">
-                  <div class="cbitem on" data-field="lot" onclick="toggleCb(this)">
+                  <div class="cbitem on" data-field="lot" role="checkbox" aria-checked="true" tabindex="0" onclick="toggleCb(this)">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Lot match</div><div class="cb-desc">ตรวจว่า lot อยู่ใน Google Sheet</div></div>
                   </div>
-                  <div class="cbitem on" data-field="exp" onclick="toggleCb(this)">
+                  <div class="cbitem on" data-field="exp" role="checkbox" aria-checked="true" tabindex="0" onclick="toggleCb(this)">
                     <div class="cbbox"><div class="cbcheck"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div>
                     <div><div class="cb-lbl">Exp match</div><div class="cb-desc">ตรวจวันหมดอายุตรงกับ sheet</div></div>
                   </div>
@@ -1612,8 +1679,8 @@ select option,select optgroup{
               </div>
               <div class="fgroup">
                 <div class="pa-head">
-                  <label>ชื่อ Product (ตรงกับ Sheet) <span class="req">*</span></label>
-                  <label>คำที่พบบนซอง (คั่นด้วย ,)</label>
+                  <label>ชื่อสินค้าใน sheet (ใส่ {size} แทนขนาด) <span class="req">*</span></label>
+                  <label>คำที่พบบนซอง</label>
                   <span></span>
                 </div>
                 <div class="pa-rows" id="pa-rows"></div>
@@ -1624,20 +1691,20 @@ select option,select optgroup{
             <div class="wiz-card">
               <div class="wiz-card-title" style="font-size:18px">Message Template</div>
               <div class="wiz-card-desc" style="margin-bottom:14px">รูปแบบข้อความที่จะส่งไป Slack</div>
-              <div class="tpl-grid">
-                <div class="tpl-opt" data-template="lot_only" onclick="pickTpl(this)">
+              <div class="tpl-grid" role="radiogroup" aria-label="Message Template">
+                <div class="tpl-opt" data-template="lot_only" role="radio" aria-checked="false" tabindex="0" onclick="pickTpl(this)">
                   <div class="tpl-name">Lot Only</div>
                   <div class="tpl-prev">"...ตรวจ lot แล้ว ผ่าน | LOT: TB0005001014612426"</div>
                 </div>
-                <div class="tpl-opt on" data-template="default_full" onclick="pickTpl(this)">
+                <div class="tpl-opt on" data-template="default_full" role="radio" aria-checked="true" tabindex="0" onclick="pickTpl(this)">
                   <div class="tpl-name">Default Full ✓</div>
                   <div class="tpl-prev">"...ถูกต้อง ใช้งานต่อได้เลยค่า | Tea Bag Box 20s | LOT: TB0005..."</div>
                 </div>
-                <div class="tpl-opt" data-template="lot_exp" onclick="pickTpl(this)">
+                <div class="tpl-opt" data-template="lot_exp" role="radio" aria-checked="false" tabindex="0" onclick="pickTpl(this)">
                   <div class="tpl-name">Lot + Exp</div>
                   <div class="tpl-prev">"...ถูกต้อง | BBD 04/05/2027 | LOT: TB0005..."</div>
                 </div>
-                <div class="tpl-opt" data-template="container" onclick="pickTpl(this)">
+                <div class="tpl-opt" data-template="container" role="radio" aria-checked="false" tabindex="0" onclick="pickTpl(this)">
                   <div class="tpl-name">Container + Sachet</div>
                   <div class="tpl-prev">"...กล่อง+ซองตรง | LOT: TB0005..." (box+sachet)</div>
                 </div>
@@ -1665,52 +1732,12 @@ select option,select optgroup{
       </div><!-- /wiz-layout -->
     </div><!-- /view-wizard -->
 
-    <!-- ══ STAGING ════════════════════════════════════ -->
-    <div class="view" id="view-staging">
-      <div class="success-wrap">
-        <div style="width:70px;height:70px;background:var(--ok-bg);border:1px solid rgba(52,211,153,.3);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:30px">🚀</div>
-        <h2 style="font-family:'Playfair Display',serif;font-size:26px;font-weight:500;margin-bottom:8px">Deploy to Staging สำเร็จ!</h2>
-        <p style="color:var(--t2);font-size:13px;line-height:1.75;margin-bottom:26px">
-          Model ใหม่ถูก deploy ไปที่ staging environment แล้ว<br>
-          ทดสอบกับรูปจริงก่อน promote ขึ้น production
-        </p>
-        <div class="staging-url">
-          <div class="staging-url-lbl">Staging URL</div>
-          <div class="staging-url-val">https://ocr-lot-checker-staging-459907489982.asia-southeast1.run.app</div>
-          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
-            <button class="btn btn-primary btn-sm">🔗 เปิด Staging</button>
-            <button class="btn btn-secondary btn-sm" onclick="promoProd()">⬆ Promote to Production</button>
-          </div>
-        </div>
-        <div style="font-size:12px;color:var(--t3)">ทดสอบ New Tea Bag Box อย่างน้อย 5 รูปก่อน promote</div>
-      </div>
-    </div>
-
-    <!-- ══ SUCCESS ════════════════════════════════════ -->
-    <div class="view" id="view-success">
-      <div class="success-wrap">
-        <div style="font-size:56px;margin-bottom:20px">🎉</div>
-        <h2 style="font-family:'Playfair Display',serif;font-size:28px;font-weight:500;margin-bottom:8px">
-          <em style="font-style:italic;color:var(--acc)">New Tea Bag Box</em>
-        </h2>
-        <p style="font-size:15px;font-weight:600;margin-bottom:6px">Live ใน Production แล้ว!</p>
-        <p style="color:var(--t2);font-size:13px;line-height:1.75;margin-bottom:28px">
-          AI รู้จัก <strong>7 class</strong> แล้ว ✓<br>
-          Packaging ใหม่พร้อมใช้งานผ่าน n8n workflow
-        </p>
-        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-          <button class="btn btn-primary" onclick="showView('dashboard')">← กลับ Dashboard</button>
-          <button class="btn btn-secondary" onclick="startWizard()">+ เพิ่ม Packaging อื่น</button>
-        </div>
-      </div>
-    </div>
-
   </div><!-- /content -->
 </main>
 
 <!-- DRAWER -->
 <div class="drawer-backdrop" id="drawer-backdrop"></div>
-<aside class="drawer" id="drawer">
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
   <header class="drawer-head">
     <div class="drawer-head-title" id="drawer-title">—</div>
     <button class="drawer-close" onclick="closeDrawer()" aria-label="ปิด">×</button>
@@ -1719,15 +1746,184 @@ select option,select optgroup{
   <div class="drawer-actions" id="drawer-actions" style="display:none"></div>
 </aside>
 
+<!-- CONFIRM MODAL -->
+<div class="confirm-backdrop" id="confirm-backdrop">
+  <div class="confirm-modal" id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="confirm-title" id="confirm-title">—</div>
+    <div class="confirm-body" id="confirm-body"></div>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost btn-sm" id="confirm-cancel">ยกเลิก</button>
+      <button class="btn btn-primary btn-sm" id="confirm-ok">ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ─── API base ──────────────────────────────
+// Drawer "Sample images" baked offline (scripts/build_drawer_samples.py): originals +
+// detector crops + bbox, so opening a card on prod needs no Drive download and no model.
+// Re-run the script + redeploy after retraining the detector or changing dataset images.
+const BAKED_DRAWER_SAMPLES = {"back_label":[{"orig":"samples/back_label/0.jpg","regions":[{"src":"samples/back_label/0.crop0.jpg","label":null,"bbox":[132,157,263,207]},{"src":"samples/back_label/0.crop1.jpg","label":null,"bbox":[50,267,98,288]},{"src":"samples/back_label/0.crop2.jpg","label":null,"bbox":[105,297,164,319]}]},{"orig":"samples/back_label/1.jpg","regions":[{"src":"samples/back_label/1.crop0.jpg","label":null,"bbox":[142,28,256,65]},{"src":"samples/back_label/1.crop1.jpg","label":null,"bbox":[78,117,114,131]},{"src":"samples/back_label/1.crop2.jpg","label":null,"bbox":[116,143,152,157]}]},{"orig":"samples/back_label/2.jpg","regions":[{"src":"samples/back_label/2.crop0.jpg","label":null,"bbox":[133,16,247,56]},{"src":"samples/back_label/2.crop1.jpg","label":null,"bbox":[67,109,105,124]},{"src":"samples/back_label/2.crop2.jpg","label":null,"bbox":[114,134,168,153]}]}],"capsule_box":[{"orig":"samples/capsule_box/0.jpg","regions":[{"src":"samples/capsule_box/0.crop0.jpg","label":null,"bbox":[69,345,214,438]},{"src":"samples/capsule_box/0.crop1.jpg","label":null,"bbox":[70,347,211,396]}]},{"orig":"samples/capsule_box/1.jpg","regions":[{"src":"samples/capsule_box/1.crop0.jpg","label":null,"bbox":[64,361,157,409]}]},{"orig":"samples/capsule_box/2.jpg","regions":[{"src":"samples/capsule_box/2.crop0.jpg","label":null,"bbox":[39,455,110,491]}]}],"container_label":[{"orig":"samples/container_label/0.jpg","regions":[{"src":"samples/container_label/0.crop0.jpg","label":"box","bbox":[208,300,292,334]},{"src":"samples/container_label/0.crop1.jpg","label":"sachet","bbox":[207,379,262,410]}]},{"orig":"samples/container_label/1.jpg","regions":[{"src":"samples/container_label/1.crop0.jpg","label":"box","bbox":[202,291,300,330]},{"src":"samples/container_label/1.crop1.jpg","label":"sachet","bbox":[192,375,257,409]}]},{"orig":"samples/container_label/2.jpg","regions":[{"src":"samples/container_label/2.crop0.jpg","label":"box","bbox":[240,277,310,307]},{"src":"samples/container_label/2.crop1.jpg","label":"sachet","bbox":[222,350,270,378]}]}],"grade_bag":[{"orig":"samples/grade_bag/0.jpg","regions":[{"src":"samples/grade_bag/0.crop0.jpg","label":null,"bbox":[15,31,90,81]},{"src":"samples/grade_bag/0.crop1.jpg","label":null,"bbox":[215,134,252,150]}]},{"orig":"samples/grade_bag/1.jpg","regions":[{"src":"samples/grade_bag/1.crop0.jpg","label":null,"bbox":[4,31,62,82]},{"src":"samples/grade_bag/1.crop1.jpg","label":null,"bbox":[208,134,250,150]}]},{"orig":"samples/grade_bag/2.jpg","regions":[{"src":"samples/grade_bag/2.crop0.jpg","label":null,"bbox":[19,33,79,84]},{"src":"samples/grade_bag/2.crop1.jpg","label":null,"bbox":[209,134,253,150]}]}],"import_sticker":[{"orig":"samples/import_sticker/0.jpg","regions":[]},{"orig":"samples/import_sticker/1.jpg","regions":[]},{"orig":"samples/import_sticker/2.jpg","regions":[]}],"print_sticker_back":[{"orig":"samples/print_sticker_back/0.jpg","regions":[{"src":"samples/print_sticker_back/0.crop0.jpg","label":"lot_exp","bbox":[20,122,290,272]},{"src":"samples/print_sticker_back/0.crop1.jpg","label":"product_size","bbox":[128,436,249,481]}]},{"orig":"samples/print_sticker_back/1.jpg","regions":[{"src":"samples/print_sticker_back/1.crop0.jpg","label":"lot_exp","bbox":[13,64,308,225]},{"src":"samples/print_sticker_back/1.crop1.jpg","label":"product_size","bbox":[157,402,253,436]}]},{"orig":"samples/print_sticker_back/2.jpg","regions":[{"src":"samples/print_sticker_back/2.crop0.jpg","label":"lot_exp","bbox":[49,0,310,109]},{"src":"samples/print_sticker_back/2.crop1.jpg","label":"product_size","bbox":[44,2,306,153]}]}],"retail_sachet":[{"orig":"samples/retail_sachet/0.jpg","regions":[{"src":"samples/retail_sachet/0.crop0.jpg","label":null,"bbox":[217,330,239,368]}]},{"orig":"samples/retail_sachet/1.jpg","regions":[{"src":"samples/retail_sachet/1.crop0.jpg","label":null,"bbox":[160,195,182,235]}]},{"orig":"samples/retail_sachet/2.jpg","regions":[{"src":"samples/retail_sachet/2.crop0.jpg","label":null,"bbox":[99,270,126,322]}]}]};
+const BAKED_SAMPLES = {
+  "back_label": [
+    "samples/back_label/0.jpg",
+    "samples/back_label/1.jpg",
+    "samples/back_label/2.jpg"
+  ],
+  "capsule_box": [
+    "samples/capsule_box/0.jpg",
+    "samples/capsule_box/1.jpg",
+    "samples/capsule_box/2.jpg"
+  ],
+  "container_label": [
+    "samples/container_label/0.jpg",
+    "samples/container_label/1.jpg",
+    "samples/container_label/2.jpg"
+  ],
+  "grade_bag": [
+    "samples/grade_bag/0.jpg",
+    "samples/grade_bag/1.jpg",
+    "samples/grade_bag/2.jpg"
+  ],
+  "import_sticker": [
+    "samples/import_sticker/0.jpg",
+    "samples/import_sticker/1.jpg",
+    "samples/import_sticker/2.jpg"
+  ],
+  "print_sticker_back": [
+    "samples/print_sticker_back/0.jpg",
+    "samples/print_sticker_back/1.jpg",
+    "samples/print_sticker_back/2.jpg"
+  ],
+  "print_sticker_full": [
+    "samples/print_sticker_full/0.jpg",
+    "samples/print_sticker_full/1.jpg",
+    "samples/print_sticker_full/2.jpg"
+  ],
+  "retail_sachet": [
+    "samples/retail_sachet/0.jpg",
+    "samples/retail_sachet/1.jpg",
+    "samples/retail_sachet/2.jpg"
+  ]
+};
+
 const API_BASE = (() => {
+  // Always talk to production. window.API_BASE_OVERRIDE still wins so the
+  // TEST_MODE harness (:8081) and the portable bundle keep working — they
+  // inject it before this runs. Local dev against :8080 must set the override.
   if (window.API_BASE_OVERRIDE) return window.API_BASE_OVERRIDE;
-  if (location.protocol === 'file:') return 'http://localhost:8080';
-  const h = location.hostname;
-  if (h === 'localhost' || h === '127.0.0.1') return 'http://localhost:8080';
   return 'https://ocr-lot-checker-459907489982.asia-southeast1.run.app';
 })();
+
+// ── Auth gate config ──
+// GOOGLE_CLIENT_ID reuses the Drive OAuth client. Paste the value of
+// DRIVE_OAUTH_CLIENT_ID from .env here (a public *.apps.googleusercontent.com id).
+const GOOGLE_CLIENT_ID = '459907489982-bv6duqif6fmgn6oanvi7ja7l0iiouctc.apps.googleusercontent.com';
+const ALLOWED_HD = 'tdfb.co';
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+const AUTH_STORAGE_KEY = 'wizardAuth';
+
+function decodeJwtPayload(jwt) {
+  const seg = String(jwt).split('.')[1];
+  const url = seg.replace(/-/g, '+').replace(/_/g, '/');
+  const b64 = url + '==='.slice((url.length + 3) % 4);  // restore base64url padding for atob
+  const json = decodeURIComponent(
+    atob(b64).split('').map((c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join('')
+  );
+  return JSON.parse(json);
+}
+
+function isAllowedClaims(p) {
+  return !!p
+    && p.hd === ALLOWED_HD
+    && p.email_verified === true
+    && typeof p.email === 'string'
+    && p.email.toLowerCase().endsWith('@' + ALLOWED_HD)
+    && typeof p.exp === 'number'
+    && p.exp * 1000 > Date.now();
+}
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (!s || typeof s.exp !== 'number' || Date.now() >= s.exp) return null;
+    if (typeof s.email !== 'string' || !s.email.toLowerCase().endsWith('@' + ALLOWED_HD)) return null;
+    return s;
+  } catch (_) { return null; }
+}
+
+function saveSession(claims) {
+  const s = { email: claims.email, name: claims.name || '', picture: claims.picture || '', exp: Date.now() + SESSION_TTL_MS };
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(s));
+  return s;
+}
+
+function clearSession() { localStorage.removeItem(AUTH_STORAGE_KEY); }
+
+function hideGate() { document.getElementById('login-gate').classList.add('hidden'); }
+
+function renderUserChip(u) {
+  const wrap = document.getElementById('topbar-user');
+  const em = document.getElementById('tu-email');
+  if (!wrap || !em || !u) return;
+  em.textContent = u.email || '';
+  wrap.style.display = 'flex';
+}
+
+function signOut() {
+  clearSession();
+  try { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); } catch (_) {}
+  location.reload();
+}
+
+function onGoogleCredential(resp) {
+  const status = document.getElementById('login-status');
+  let claims;
+  try { claims = decodeJwtPayload(resp.credential); }
+  catch (_) { status.textContent = 'เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง'; return; }
+  if (!isAllowedClaims(claims)) {
+    status.textContent = 'เฉพาะบัญชี @tdfb.co เท่านั้น';
+    try { google.accounts.id.disableAutoSelect(); } catch (_) {}
+    return;
+  }
+  saveSession(claims);
+  renderUserChip(claims);
+  hideGate();
+  bootWizard();
+}
+
+function renderGoogleButton(status) {
+  const ready = () => window.google && google.accounts && google.accounts.id;
+  const doRender = () => {
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: onGoogleCredential,
+      hosted_domain: ALLOWED_HD,
+      auto_select: false,
+    });
+    google.accounts.id.renderButton(document.getElementById('g-signin'),
+      { type: 'standard', theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'pill' });
+  };
+  if (ready()) { doRender(); return; }
+  let tries = 0;
+  const iv = setInterval(() => {
+    if (ready()) { clearInterval(iv); doRender(); }
+    else if (++tries > 40) { clearInterval(iv); status.textContent = 'โหลด Google Sign-In ไม่สำเร็จ — รีเฟรชหน้าเพื่อลองใหม่'; }
+  }, 100);
+}
+
+function initAuth() {
+  const status = document.getElementById('login-status');
+  const session = loadSession();
+  if (session) { renderUserChip(session); hideGate(); bootWizard(); return; }
+  if (location.protocol === 'file:') {
+    status.textContent = 'เปิดผ่าน URL (https) เพื่อเข้าสู่ระบบ';
+    return;
+  }
+  renderGoogleButton(status);
+}
 
 async function api(method, path, body) {
   const opts = { method, headers: {} };
@@ -1774,6 +1970,35 @@ function showToast(msg, ms = 2800, action = null) {
   t.classList.add('show');
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+function showConfirm({ title = 'ยืนยัน', body = '', danger = false } = {}) {
+  return new Promise((resolve) => {
+    const backdrop = document.getElementById('confirm-backdrop');
+    const ok = document.getElementById('confirm-ok');
+    const cancel = document.getElementById('confirm-cancel');
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-body').innerHTML = body;
+    ok.className = 'btn btn-sm ' + (danger ? 'btn-danger' : 'btn-primary');
+    backdrop.classList.add('open');
+    ok.focus();
+    const done = (val) => {
+      backdrop.classList.remove('open');
+      ok.removeEventListener('click', onOk);
+      cancel.removeEventListener('click', onCancel);
+      backdrop.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKey);
+      resolve(val);
+    };
+    const onOk = () => done(true);
+    const onCancel = () => done(false);
+    const onBackdrop = (e) => { if (e.target === backdrop) done(false); };
+    const onKey = (e) => { if (e.key === 'Escape') done(false); };
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+    backdrop.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKey);
+  });
 }
 
 // ─── state ─────────────────────────────────
@@ -1834,14 +2059,15 @@ function startWizard() {
   syncUrl();
 }
 function goStep(n) {
-  curStep = n;
+  const maxStep = document.querySelectorAll('.step-panel').length || 5;
+  curStep = Math.max(1, Math.min(maxStep, n));
   renderSteps();
   // Scroll .content (มี overflow ของตัวเอง) — window.scrollTo ไม่มีผลกับ container นี้
   const content = document.querySelector('.content');
   if (content) content.scrollTo({top: 0, behavior: 'smooth'});
   if (n === 2) initStep2();
   if (n === 3) loadAnnotator();
-  if (n === 4) { prefillFieldsFromSubRegions(); syncProductAliasVisibility(); }
+  if (n === 4) { prefillFieldsFromSubRegions(); prefillStep4FromDraft().then(syncProductAliasVisibility); }
   if (n === 5) loadStep5();
   syncUrl();
 }
@@ -1878,8 +2104,8 @@ async function initStep2() {
     // Hide "back to step 1" — name/key/pipeline are fixed in edit mode
     if (backBtn) backBtn.style.display = 'none';
 
-    // If user already uploaded some images, mark step 2 as continueable
-    if (newCount > 0) {
+    // If user already uploaded enough NEW images, mark step 2 as continueable
+    if (newCount >= imageGate()) {
       const nextBtn = document.getElementById('btn-step2-next');
       if (nextBtn) nextBtn.disabled = false;
     }
@@ -1926,7 +2152,9 @@ async function restoreFromUrl() {
 
 function renderSteps() {
   document.querySelectorAll('.step-panel').forEach(p => p.style.display = 'none');
-  document.getElementById('sp' + curStep).style.display = 'block';
+  const panel = document.getElementById('sp' + curStep);
+  if (!panel) return;
+  panel.style.display = 'block';
   STEPS.forEach(s => {
     const ws = document.getElementById('ws' + s.id);
     const wd = document.getElementById('wd' + s.id);
@@ -1976,8 +2204,16 @@ async function loadDashboard() {
     // Sidebar counter shows live actives + drafts (not archived noise)
     const liveCount = items.filter(p => p.status === 'active').length;
     document.querySelector('#nav-dash .nav-badge').textContent = liveCount;
+    const sub = document.getElementById('dash-sub');
+    if (sub) sub.textContent = `AI model รู้จัก ${liveCount} ประเภทบรรจุภัณฑ์ — คลิกการ์ดเพื่อดูรายละเอียด`;
 
-    visible.forEach(pkg => { if (pkg.image_count > 0) loadCardImages(pkg.key); });
+    // Run for any card with baked thumbnails (show them regardless of the
+    // backend count, which is 0 on prod until the Drive-count deploy) OR with a
+    // positive count (fetches baked first, else the Drive-backed endpoint).
+    visible.forEach(pkg => {
+      const hasBaked = typeof BAKED_SAMPLES !== 'undefined' && BAKED_SAMPLES[pkg.key];
+      if (hasBaked || pkg.image_count > 0) loadCardImages(pkg.key);
+    });
   } catch (err) {
     if (loadingEl) {
       loadingEl.innerHTML = `<div style="color:var(--err);font-size:13px">❌ โหลด API ไม่ได้: ${esc(err.message)}</div>
@@ -2024,6 +2260,9 @@ function renderCard(pkg) {
   div.style.cursor = 'pointer';
   div.onclick = () => openDrawer(pkg.key, pkg);
   div.style.position = 'relative';
+  div.setAttribute('role', 'button');
+  div.tabIndex = 0;
+  div.setAttribute('aria-label', `เปิดรายละเอียด ${pkg.display_name}`);
 
   const editingCorner = hasEdit
     ? `<div class="pkg-card-corner"><span class="badge-pulse"></span>Editing</div>`
@@ -2053,6 +2292,7 @@ function renderCard(pkg) {
 // ─── DRAWER ────────────────────────────────
 let drawerReqId = 0;          // race-condition guard
 let currentDrawerKey = null;  // ป้องกัน re-fetch รูปเดิม
+let _drawerReturnFocus = null; // a11y — element to restore focus to on close
 
 async function openDrawer(key, pkgSummary) {
   if (key === currentDrawerKey && document.getElementById('drawer').classList.contains('open')) {
@@ -2070,11 +2310,17 @@ async function openDrawer(key, pkgSummary) {
   actions.style.display = 'none';
   drawer.classList.add('open');
   backdrop.classList.add('open');
+  // a11y — move focus into the dialog, remember where to return it
+  _drawerReturnFocus = document.activeElement;
+  drawer.querySelector('.drawer-close')?.focus();
 
   try {
+    // Prefer baked samples (no Drive download, no detector) — fall back to live for drafts.
+    const baked = bakedSamplesFor(key);
     const [pkg, samplesRes] = await Promise.all([
       api('GET', `/api/packagings/${encodeURIComponent(key)}`),
-      api('GET', `/api/packagings/${encodeURIComponent(key)}/samples?count=6`),
+      baked ? Promise.resolve(baked)
+            : api('GET', `/api/packagings/${encodeURIComponent(key)}/samples?count=6`),
     ]);
     if (myReq !== drawerReqId) return; // stale response — ignore
     body.innerHTML = renderDrawerBody(pkg, samplesRes);
@@ -2095,10 +2341,59 @@ function closeDrawer() {
   drawerReqId++; // invalidate any in-flight request
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawer-backdrop').classList.remove('open');
+  // a11y — restore focus to whatever opened the drawer
+  if (_drawerReturnFocus && typeof _drawerReturnFocus.focus === 'function') _drawerReturnFocus.focus();
+  _drawerReturnFocus = null;
 }
 
 // Esc to close
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+
+// ─── A11Y + MOBILE NAV ─────────────────────
+// Mobile sidebar toggle (hamburger). show omitted = flip.
+function toggleSidebar(show) {
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('sb-backdrop');
+  const btn = document.getElementById('sb-toggle');
+  if (!sb) return;
+  const open = (show === undefined) ? !sb.classList.contains('open') : show;
+  sb.classList.toggle('open', open);
+  if (bd) bd.classList.toggle('open', open);
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+// Keyboard activation for non-native controls (Enter / Space → click)
+document.addEventListener('keydown', (e) => {
+  const t = e.target;
+  if (!t || !t.matches || !t.matches('[role=button],[role=checkbox],[role=radio]')) return;
+  if (t.getAttribute('aria-disabled') === 'true') return;
+  if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+    e.preventDefault();
+    t.click();
+  }
+});
+
+// Focus trap — keep Tab inside the drawer while it is open
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Tab') return;
+  const drawer = document.getElementById('drawer');
+  if (!drawer || !drawer.classList.contains('open')) return;
+  const focusable = Array.from(
+    drawer.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+  ).filter(el => !el.disabled && el.offsetParent !== null);
+  if (!focusable.length) return;
+  const first = focusable[0], last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+
+// Expose card/drawer/step titles as headings for screen-reader outline
+// (styled <div>s — tagged here so JS-rendered cards are covered too)
+function tagHeadings() {
+  document.querySelectorAll('.wiz-card-title, .drawer-head-title, .confirm-title')
+    .forEach(el => { el.setAttribute('role', 'heading'); el.setAttribute('aria-level', '2'); });
+}
+document.addEventListener('DOMContentLoaded', tagHeadings);
 
 // Click outside drawer (but not on card) = close
 document.addEventListener('click', (e) => {
@@ -2144,7 +2439,7 @@ async function saveConfThreshold(key) {
     const res = await api('PUT', `/api/packagings/${encodeURIComponent(key)}/conf`,
       { conf_threshold: val });
     applyConfToDrawer(key, res.conf_threshold);
-    loadDashboard(); // refresh card stats
+    setCardConf(key, res.conf_threshold); // update just this card, no full re-list
     showToast(`Conf ${res.previous.toFixed(2)} → ${res.conf_threshold.toFixed(2)}`, 8000, {
       label: 'Undo',
       onClick: () => undoConfThreshold(key, res.previous),
@@ -2161,7 +2456,7 @@ async function undoConfThreshold(key, previous) {
     const res = await api('PUT', `/api/packagings/${encodeURIComponent(key)}/conf`,
       { conf_threshold: previous });
     applyConfToDrawer(key, res.conf_threshold);
-    loadDashboard();
+    setCardConf(key, res.conf_threshold);
     showToast(`คืนค่า Conf เป็น ${res.conf_threshold.toFixed(2)} แล้ว`);
   } catch (err) {
     showToast('Undo ไม่สำเร็จ: ' + err.message);
@@ -2184,7 +2479,6 @@ async function saveDrawerAliases(key) {
   try {
     const res = await api('PUT', `/api/packagings/${encodeURIComponent(key)}/product-aliases`,
       { product_aliases: aliases });
-    loadDashboard();
     showToast(`บันทึก ${res.product_aliases.length} product แล้ว`, 8000, {
       label: 'Undo',
       onClick: () => undoDrawerAliases(key, res.previous),
@@ -2199,7 +2493,6 @@ async function undoDrawerAliases(key, previous) {
   try {
     await api('PUT', `/api/packagings/${encodeURIComponent(key)}/product-aliases`,
       { product_aliases: previous });
-    loadDashboard();
     showToast('คืนค่า product names เดิมแล้ว');
   } catch (err) {
     showToast('Undo ไม่สำเร็จ: ' + err.message);
@@ -2207,11 +2500,10 @@ async function undoDrawerAliases(key, previous) {
 }
 
 async function revertDrawerAliases(key) {
-  if (!confirm('ลบ alias ที่ตั้งไว้ แล้วกลับไปใช้รายการ product มาตรฐานของระบบ?')) return;
+  if (!(await showConfirm({ title: 'กลับไปใช้รายการมาตรฐาน?', body: 'ลบ alias ที่ตั้งไว้ แล้วกลับไปใช้รายการ product มาตรฐานของระบบ', danger: true }))) return;
   try {
     await api('DELETE', `/api/packagings/${encodeURIComponent(key)}/product-aliases`);
     closeDrawer();
-    loadDashboard();
     showToast('กลับไปใช้รายการ product มาตรฐานแล้ว');
   } catch (err) {
     showToast('ล้างไม่สำเร็จ: ' + err.message);
@@ -2256,7 +2548,7 @@ function renderDrawerBody(pkg, samplesRes) {
 
   // Draft progress
   if (!isActive) {
-    const stepMap = {draft:1, uploading:2, configured:4};
+    const stepMap = {draft:1, uploading:2, labeled_full:3, configured:4, training_full:5, trained:5};
     const step = stepMap[pkg.status] ?? 1;
     html += `
       <div class="dsec">
@@ -2293,6 +2585,11 @@ function renderDrawerBody(pkg, samplesRes) {
         html += `<div class="dsec">
           <div class="dsec-label">ชื่อ Product ที่อ่าน (แก้ได้ทันที — ไม่ต้อง retrain)</div>
           ${warn}
+          <div class="pa-head">
+            <label>ชื่อสินค้าใน sheet (ใส่ {size} แทนขนาด) <span class="req">*</span></label>
+            <label>คำที่พบบนซอง</label>
+            <span></span>
+          </div>
           <div id="drawer-pa-rows" class="pa-rows" data-size-on="${sizeOn}"></div>
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <button class="btn btn-sm" onclick="addProdAliasTo('drawer-pa-rows')">+ เพิ่ม product</button>
@@ -2336,15 +2633,32 @@ function renderDrawerBody(pkg, samplesRes) {
   return html;
 }
 
+// Baked sample assets are frontend-relative (samples/...); live ones need API_BASE.
+function sampleSrc(url) { return url.startsWith('samples/') ? url : `${API_BASE}${url}`; }
+
+// Build a /samples-shaped response from baked data, or null if this key isn't baked.
+function bakedSamplesFor(key) {
+  const arr = (typeof BAKED_DRAWER_SAMPLES !== 'undefined') ? BAKED_DRAWER_SAMPLES[key] : null;
+  if (!arr || !arr.length) return null;
+  return {
+    pipeline: 'baked',
+    samples: arr.map((s, i) => ({
+      name: `sample ${i + 1}`,
+      original_url: s.orig,
+      regions: (s.regions || []).map(r => ({ bbox: r.bbox || null, label: r.label, crop_url: r.src })),
+    })),
+  };
+}
+
 function renderSampleRow(s, idx) {
-  const origSrc = `${API_BASE}${s.original_url}`;
+  const origSrc = sampleSrc(s.original_url);
   let cropsHtml;
   if (!s.regions.length) {
     cropsHtml = `<div class="no-crop">QR Scanner — ไม่มี crop</div>`;
   } else {
     cropsHtml = `<div class="sample-crops">` + s.regions.map(r => `
       <div class="sample-crop">
-        <img src="${API_BASE}${r.crop_url}" alt="crop" loading="lazy">
+        <img src="${sampleSrc(r.crop_url)}" alt="crop" loading="lazy">
         ${r.label ? `<span class="sample-crop-lbl">${esc(r.label)}</span>` : ''}
       </div>`).join('') + `</div>`;
   }
@@ -2450,19 +2764,19 @@ async function cloneActive(key) {
     showToast(`Cloned to ${draft.key} — เริ่มแก้ไข`);
     continueDraft(draft.key, draft.status);  // 'draft' → step 2 (ยังไม่มีรูปใหม่)
   } catch (err) {
-    alert(`Clone ไม่สำเร็จ: ${err.message}`);
+    showToast(`Clone ไม่สำเร็จ: ${err.message}`);
   }
 }
 
 async function archivePackaging(key) {
-  if (!confirm(`ปิดใช้งาน "${key}"?\n\nModel ยังจำ class นี้อยู่ แต่ pipeline จะส่งกลับ status="archived_class" จนกว่าจะกดเปิดใช้งานอีกครั้ง`)) return;
+  if (!(await showConfirm({ title: `ปิดใช้งาน "${esc(key)}"?`, body: 'Model ยังจำ class นี้อยู่ แต่ pipeline จะส่งกลับ status="archived_class" จนกว่าจะกดเปิดใช้งานอีกครั้ง', danger: true }))) return;
   try {
     await api('POST', `/api/packagings/${encodeURIComponent(key)}/archive`);
     showToast(`Archived ${key}`);
     closeDrawer();
     loadDashboard();
   } catch (err) {
-    alert(`Archive ไม่สำเร็จ: ${err.message}`);
+    showToast(`Archive ไม่สำเร็จ: ${err.message}`);
   }
 }
 
@@ -2473,30 +2787,31 @@ async function unarchivePackaging(key) {
     closeDrawer();
     loadDashboard();
   } catch (err) {
-    alert(`Unarchive ไม่สำเร็จ: ${err.message}`);
+    showToast(`Unarchive ไม่สำเร็จ: ${err.message}`);
   }
 }
 
 async function discardEditDraft(editKey) {
-  if (!confirm(`ทิ้ง edit draft "${editKey}"?\n\nProgress การแก้ไขทั้งหมด (รูปใหม่ + annotations) จะหาย — packaging เดิมไม่กระทบ`)) return;
+  if (!(await showConfirm({ title: `ทิ้ง edit draft "${esc(editKey)}"?`, body: 'Progress การแก้ไขทั้งหมด (รูปใหม่ + annotations) จะหาย — packaging เดิมไม่กระทบ', danger: true }))) return;
   try {
     await api('DELETE', `/api/packagings/${encodeURIComponent(editKey)}`);
     showToast(`Discarded ${editKey}`);
     closeDrawer();
     loadDashboard();
   } catch (err) {
-    alert(`ลบไม่สำเร็จ: ${err.message}`);
+    showToast(`ลบไม่สำเร็จ: ${err.message}`);
   }
 }
 
 async function deleteDraft(key) {
-  if (!confirm(`ลบ draft "${key}" — ดำเนินการต่อ?`)) return;
+  if (!(await showConfirm({ title: `ลบ draft "${esc(key)}"?`, body: 'ดำเนินการต่อ?', danger: true }))) return;
   try {
     await api('DELETE', `/api/packagings/${encodeURIComponent(key)}`);
     closeDrawer();
     loadDashboard();
+    showToast('ลบ draft แล้ว');
   } catch (err) {
-    alert(`ลบไม่สำเร็จ: ${err.message}`);
+    showToast(`ลบไม่สำเร็จ: ${err.message}`);
   }
 }
 
@@ -2521,10 +2836,23 @@ function continueDraft(key, status) {
 }
 
 async function loadCardImages(key) {
+  const strip = document.querySelector(`.pkg-photo-strip[data-key="${CSS.escape(key)}"]`);
+  if (!strip) return;
+  const baked = (typeof BAKED_SAMPLES !== 'undefined') ? BAKED_SAMPLES[key] : null;
+  if (baked && baked.length) {
+    strip.innerHTML = '';
+    baked.slice(0, 3).forEach(src => {
+      const el = document.createElement('img');
+      el.src = src;            // relative to the frontend host (Netlify / http.server)
+      el.alt = `${key} sample`;
+      el.loading = 'lazy';
+      strip.appendChild(el);
+    });
+    return;
+  }
   try {
     const { images } = await api('GET', `/api/packagings/${encodeURIComponent(key)}/images`);
-    const strip = document.querySelector(`.pkg-photo-strip[data-key="${CSS.escape(key)}"]`);
-    if (!strip || images.length === 0) return;
+    if (images.length === 0) return;
     strip.innerHTML = '';
     images.slice(0, 3).forEach(img => {
       const el = document.createElement('img');
@@ -2536,12 +2864,19 @@ async function loadCardImages(key) {
   } catch (e) { console.warn('loadCardImages', key, e); }
 }
 
+// Update a single card's Conf stat in place — avoids a full dashboard re-list.
+function setCardConf(key, val) {
+  const strip = document.querySelector(`.pkg-photo-strip[data-key="${CSS.escape(key)}"]`);
+  const cell = strip?.closest('.pkg-card')?.querySelector('.pkg-stats .pkg-stat-val'); // first stat = Conf
+  if (cell && val != null) cell.textContent = Number(val).toFixed(2);
+}
+
 // ─── STEP 1 — Create draft ─────────────────
-function cancelWizardStep1() {
+async function cancelWizardStep1() {
   // Step 1 ยังไม่ได้สร้าง draft (curDraftKey ว่าง) → ออกไป dashboard ได้เลย ไม่มีอะไรเสีย
   // ถ้าสร้างแล้ว → ถาม confirm
   if (curDraftKey) {
-    if (!confirm('ลบ draft ที่กำลังสร้าง? Progress ทั้งหมดจะหาย')) return;
+    if (!(await showConfirm({ title: 'ลบ draft ที่กำลังสร้าง?', body: 'Progress ทั้งหมดจะหาย', danger: true }))) return;
     api('DELETE', `/api/packagings/${encodeURIComponent(curDraftKey)}`).catch(() => {});
     curDraftKey = null;
   }
@@ -2631,13 +2966,6 @@ function srSetMode(mode) {
   show('sr-multi', mode === 'cross_check');
   if (mode === 'cross_check') srRender();
   if (mode === 'multi_field') srGroupChanged();
-}
-
-function srToggleAdvanced(on) {
-  if (on && cropRegions.length < 2) {
-    cropRegions = [{ value: 'box', custom: false }, { value: 'sachet', custom: false }];
-  }
-  srSetMode(on ? 'cross_check' : 'single');
 }
 
 function srRender() {
@@ -2752,13 +3080,84 @@ async function step1Next() {
     curDraftKey = body.key;
     goStep(2);
   } catch (err) {
-    alert(`สร้าง packaging ไม่สำเร็จ: ${err.message}`);
+    showToast(`สร้าง packaging ไม่สำเร็จ: ${err.message}`);
   } finally {
     btn.disabled = false; btn.textContent = 'ถัดไป: อัพรูป →';
   }
 }
 
 // ─── STEP 2 — Upload ───────────────────────
+// Min images to unlock step 2 → step 3. Edit-drafts (__edit) reuse the parent's
+// reference images at train time, so they need fewer NEW images than a fresh class.
+function imageGate() { return (curDraftKey && curDraftKey.endsWith('__edit')) ? 30 : 50; }
+
+// Cloud Run caps a single HTTP request body at 32MB — sending all selected
+// files in ONE POST silently stalls past ~50 images. So we chunk client-side
+// into batches well under that cap and POST them sequentially, advancing the
+// progress bar per batch. The endpoint returns cumulative total_images, so no
+// backend change is needed.
+const UPLOAD_BATCH_MAX_BYTES = 20 * 1024 * 1024;  // ~20MB/batch, safely < 32MB cap
+const UPLOAD_BATCH_MAX_FILES = 8;                  // also cap count per batch
+
+function chunkFilesForUpload(files) {
+  const batches = [];
+  let cur = [];
+  let curBytes = 0;
+  for (const f of files) {
+    // A single file bigger than the cap still goes alone — server enforces 10MB/img.
+    if (cur.length > 0 &&
+        (cur.length >= UPLOAD_BATCH_MAX_FILES ||
+         curBytes + f.size > UPLOAD_BATCH_MAX_BYTES)) {
+      batches.push(cur);
+      cur = [];
+      curBytes = 0;
+    }
+    cur.push(f);
+    curBytes += f.size;
+  }
+  if (cur.length > 0) batches.push(cur);
+  return batches;
+}
+
+async function uploadBatch(batch) {
+  const form = new FormData();
+  for (const f of batch) form.append('files', f);
+  const r = await fetch(`${API_BASE}/api/packagings/${encodeURIComponent(curDraftKey)}/images`, {
+    method: 'POST', body: form,
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+// Render thumbnails + success state once all batches finish.
+function renderUploadSuccess(totalImages, uploadedFiles) {
+  const thumbs = document.getElementById('up-thumbs');
+  thumbs.innerHTML = '';
+  const showCount = Math.min(uploadedFiles.length, 12);
+  for (let i = 0; i < showCount; i++) {
+    const t = document.createElement('div');
+    t.className = 'thumb';
+    const img = document.createElement('img');
+    img.src = `${API_BASE}/api/packagings/${encodeURIComponent(curDraftKey)}/images/${encodeURIComponent(uploadedFiles[i].name)}`;
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover';
+    t.appendChild(img);
+    thumbs.appendChild(t);
+  }
+  if (totalImages > 12) {
+    const more = document.createElement('div');
+    more.className = 'thumb thumb-more';
+    more.textContent = '+' + (totalImages - 12);
+    thumbs.appendChild(more);
+  }
+
+  const uz = document.getElementById('uz');
+  uz.innerHTML = `<div style="font-size:20px;margin-bottom:6px">✅</div>
+    <div style="color:var(--ok);font-weight:600">อัพแล้ว ${totalImages} รูป</div>
+    <div style="font-size:11px;color:var(--t3);margin-top:6px">คลิกเพื่อเพิ่มอีก</div>`;
+
+  if (totalImages >= imageGate()) document.getElementById('btn-step2-next').disabled = false;
+}
+
 async function handleFileSelect(files) {
   if (!curDraftKey) { alert('ยังไม่ได้สร้าง draft — กลับ step 1'); return; }
   if (!files || files.length === 0) return;
@@ -2767,50 +3166,43 @@ async function handleFileSelect(files) {
   prog.style.display = 'block';
   const bar = document.getElementById('up-bar');
   const cnt = document.getElementById('up-cnt');
-  const thumbs = document.getElementById('up-thumbs');
 
-  bar.style.width = '15%';
-  cnt.textContent = `0 / ${files.length} รูป — กำลังอัพ...`;
+  const fileList = Array.from(files);
+  const total = fileList.length;
+  const batches = chunkFilesForUpload(fileList);
 
-  const form = new FormData();
-  for (const f of files) form.append('files', f);
+  bar.style.width = '2%';
+  cnt.textContent = `0 / ${total} รูป — กำลังอัพ...`;
+
+  const uploadedFiles = [];   // accumulated {name} for thumbnails
+  let done = 0;               // files successfully uploaded
+  let failed = 0;             // files in failed batches
+  let totalImages = 0;        // server-reported cumulative count
 
   try {
-    const r = await fetch(`${API_BASE}/api/packagings/${encodeURIComponent(curDraftKey)}/images`, {
-      method: 'POST', body: form,
-    });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const result = await r.json();
+    for (const batch of batches) {
+      try {
+        const result = await uploadBatch(batch);
+        done += result.uploaded ?? batch.length;
+        totalImages = result.total_images ?? totalImages;
+        if (Array.isArray(result.files)) uploadedFiles.push(...result.files);
+      } catch (err) {
+        // One failed chunk shouldn't sink the rest — record and continue.
+        failed += batch.length;
+        showToast(`อัพบางรูปไม่สำเร็จ (${batch.length} รูป): ${err.message}`);
+      }
+      const pct = Math.round(((done + failed) / total) * 100);
+      bar.style.width = `${Math.max(pct, 2)}%`;
+      cnt.textContent = `${done} / ${total} รูป — กำลังอัพ...`;
+    }
+
+    if (done === 0) throw new Error('ไม่มีรูปที่อัพสำเร็จ');
 
     bar.style.width = '100%';
-    cnt.textContent = `${result.total_images} / ${result.total_images} รูป`;
-
-    thumbs.innerHTML = '';
-    const showCount = Math.min(result.files.length, 12);
-    for (let i = 0; i < showCount; i++) {
-      const t = document.createElement('div');
-      t.className = 'thumb';
-      const img = document.createElement('img');
-      img.src = `${API_BASE}/api/packagings/${encodeURIComponent(curDraftKey)}/images/${encodeURIComponent(result.files[i].name)}`;
-      img.style.cssText = 'width:100%;height:100%;object-fit:cover';
-      t.appendChild(img);
-      thumbs.appendChild(t);
-    }
-    if (result.total_images > 12) {
-      const more = document.createElement('div');
-      more.className = 'thumb thumb-more';
-      more.textContent = '+' + (result.total_images - 12);
-      thumbs.appendChild(more);
-    }
-
-    const uz = document.getElementById('uz');
-    uz.innerHTML = `<div style="font-size:20px;margin-bottom:6px">✅</div>
-      <div style="color:var(--ok);font-weight:600">อัพแล้ว ${result.total_images} รูป</div>
-      <div style="font-size:11px;color:var(--t3);margin-top:6px">คลิกเพื่อเพิ่มอีก</div>`;
-
-    if (result.total_images >= 10) document.getElementById('btn-step2-next').disabled = false;
+    cnt.textContent = `${totalImages} / ${totalImages} รูป`;
+    renderUploadSuccess(totalImages, uploadedFiles);
   } catch (err) {
-    alert(`อัพโหลดล้มเหลว: ${err.message}`);
+    showToast(`อัพโหลดล้มเหลว: ${err.message}`);
   } finally {
     // Reset file input value — กันคลิกอัพไฟล์เดิม change event ไม่ fire
     const fi = document.getElementById('file-input');
@@ -3112,7 +3504,7 @@ async function saveAnnotation() {
       renderThumbStrip();
       updateProgressUI();
     } catch (err) {
-      console.warn('save annotation failed', err);
+      showToast('เซฟ annotation ไม่สำเร็จ — ลองวาดใหม่อีกครั้ง');
     }
   }, 250);
 }
@@ -3233,7 +3625,7 @@ async function runPrelabel() {
     showToast(`✓ Prelabel แล้ว ${res.prelabeled} รูป · ข้าม ${res.skipped_already_labeled} · ผิดพลาด ${res.errors}`);
     await loadAnnotator();
   } catch (err) {
-    alert(`Prelabel ไม่สำเร็จ: ${err.message}`);
+    showToast(`Prelabel ไม่สำเร็จ: ${err.message}`);
   } finally {
     btn.disabled = false;
     btn.removeAttribute('aria-busy');
@@ -3282,14 +3674,21 @@ function updateRegex() {
         matchesEl.appendChild(row);
       });
     } catch (err) {
-      console.warn('regex preview', err);
+      showToast('สร้าง regex preview ไม่สำเร็จ');
     }
   }, 350);
 }
 updateRegex();
 
-function toggleCb(el) { if (!el.classList.contains('disabled')) el.classList.toggle('on'); }
-function pickTpl(el)  { document.querySelectorAll('.tpl-opt').forEach(t => t.classList.remove('on')); el.classList.add('on'); }
+function toggleCb(el) {
+  if (el.classList.contains('disabled')) return;
+  el.classList.toggle('on');
+  el.setAttribute('aria-checked', el.classList.contains('on') ? 'true' : 'false');
+}
+function pickTpl(el)  {
+  document.querySelectorAll('.tpl-opt').forEach(t => { t.classList.remove('on'); t.setAttribute('aria-checked', 'false'); });
+  el.classList.add('on'); el.setAttribute('aria-checked', 'true');
+}
 
 function prefillFieldsFromSubRegions() {
   if (cropMode !== 'multi_field') return;
@@ -3298,6 +3697,45 @@ function prefillFieldsFromSubRegions() {
     if (el.dataset.field === 'lot') return;
     el.classList.toggle('on', want.has(el.dataset.field));
   });
+}
+
+async function prefillStep4FromDraft() {
+  if (!curDraftKey) return;
+  let pkg;
+  try { pkg = await api('GET', `/api/packagings/${encodeURIComponent(curDraftKey)}`); }
+  catch { return; }
+  const cfg = pkg.config;
+  if (!cfg) return;   // fresh draft with no saved config → keep defaults
+
+  // Restore lot pattern directly; reset example rows to one empty (the regex
+  // source can't be reconstructed, and empty rows won't let updateRegex overwrite it).
+  if (cfg.lot_patterns && cfg.lot_patterns.length) {
+    document.getElementById('rx-display').textContent = cfg.lot_patterns[0];
+  }
+  document.getElementById('lot-rows').innerHTML =
+    `<div class="lot-row"><input type="text" value="" placeholder="เลข lot ตัวอย่าง" oninput="updateRegex()"><button class="rm-btn" onclick="removeLot(this)">×</button></div>`;
+
+  // Fields
+  const wantFields = new Set(cfg.fields_extracted || ['lot']);
+  document.querySelectorAll('#sp4 [data-group="fields"] .cbitem[data-field]').forEach(el => {
+    if (el.dataset.field === 'lot') return;
+    el.classList.toggle('on', wantFields.has(el.dataset.field));
+  });
+  // Sheet checks
+  const wantSheet = new Set(cfg.sheet_checks || []);
+  document.querySelectorAll('#sp4 [data-group="sheet"] .cbitem[data-field]').forEach(el => {
+    el.classList.toggle('on', wantSheet.has(el.dataset.field));
+  });
+  // Template
+  const tplKey = cfg.message_template_key;
+  if (tplKey) {
+    const tile = document.querySelector(`#sp4 .tpl-opt[data-template="${tplKey}"]`);
+    if (tile) pickTpl(tile);
+  }
+  // Product aliases
+  document.getElementById('pa-rows').innerHTML = '';
+  (cfg.product_aliases || []).forEach(a => addProdAlias(a.canonical, (a.keywords || []).join(', ')));
+  syncProductAliasVisibility();
 }
 
 // ─── Product aliases (shared by step 4 + drawer) ──────
@@ -3390,9 +3828,10 @@ async function step4Next() {
   btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
   try {
     await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/config`, collectConfig());
+    showToast('บันทึก config แล้ว');
     goStep(5);
   } catch (err) {
-    alert(`บันทึก config ไม่สำเร็จ: ${err.message}`);
+    showToast(`บันทึก config ไม่สำเร็จ: ${err.message}`);
   } finally {
     btn.disabled = false; btn.textContent = 'ถัดไป: Full Training & Eval →';
   }
@@ -3431,7 +3870,7 @@ async function loadStep5() {
 function renderStep5_preTraining(pkg) {
   document.getElementById('sp5-body').innerHTML = `
     <div class="wiz-card">
-      <div class="wiz-card-title">Full Training</div>
+      <div class="wiz-card-title" role="heading" aria-level="2">Full Training</div>
       <div class="wiz-card-desc">รัน full training บน Colab — ใช้ทั้ง 50+ รูปที่ label แล้ว (รวมที่ verify จาก seed) — ใช้เวลา ~30-60 นาที</div>
       <div class="info-box">
         <strong>ต้องทำก่อน Deploy:</strong> full training จะคำนวณ mAP@0.5 + precision/recall ที่ใช้เช็ค hard floor
@@ -3448,7 +3887,7 @@ function renderStep5_preTraining(pkg) {
 function renderStep5_training(pkg) {
   document.getElementById('sp5-body').innerHTML = `
     <div class="wiz-card">
-      <div class="wiz-card-title">Full Training — รอ Colab</div>
+      <div class="wiz-card-title" role="heading" aria-level="2">Full Training — รอ Colab</div>
       <div class="info-box">
         <strong>📒 Training notebook เปิดแล้ว</strong> — กด <code>Runtime → Run all</code>
         (detector ~60 นาที + classifier ~30 นาที). Model จะเซฟลง Drive
@@ -3487,7 +3926,7 @@ function renderStep5_eval(pkg, evRes) {
   const deployedStatus = pkg.status === 'deployed';
   document.getElementById('sp5-body').innerHTML = `
     <div class="wiz-card">
-      <div class="wiz-card-title">ผลการประเมิน Model</div>
+      <div class="wiz-card-title" role="heading" aria-level="2">ผลการประเมิน Model</div>
       <div class="wiz-card-desc">ตัวเลขจาก val set (20% ของ labeled images)</div>
       <div class="eval-grid">
         <div class="eval-card">
@@ -3593,34 +4032,25 @@ async function startFullTraining() {
     prog.finish(false);
     btn.disabled = false;
     btn.textContent = '🚀 ลองอีกครั้ง';
-    alert(`Start full training ไม่สำเร็จ: ${err.message}`);
+    showToast(`Start full training ไม่สำเร็จ: ${err.message}`);
   }
 }
 
 async function doDeploy() {
   const isEdit = curDraftKey && curDraftKey.endsWith('__edit');
   const parentKey = isEdit ? curDraftKey.slice(0, -'__edit'.length) : null;
-  const prompt = isEdit
-    ? `Deploy ทับ active "${parentKey}"? ตัวเก่าจะถูก backup ก่อน — Cloud Run restart ~30s`
+  const body = isEdit
+    ? `Deploy ทับ active "${esc(parentKey)}"? ตัวเก่าจะถูก backup ก่อน — Cloud Run restart ~30s`
     : 'Deploy packaging นี้ขึ้น production? Cloud Run จะ restart ~30s';
-  if (!confirm(prompt)) return;
+  if (!(await showConfirm({ title: 'ยืนยัน Deploy', body }))) return;
   const btn = document.getElementById('btn-deploy');
   btn.disabled = true;
   btn.textContent = '⏳ Deploying...';
   try {
     const res = await api('POST', `/api/packagings/${encodeURIComponent(curDraftKey)}/deploy`);
     const cr = res.cloud_run || {};
-    let msg = '✅ Deploy สำเร็จ!\n\n';
-    msg += `Target: ${res.target_key || curDraftKey}\n`;
-    msg += `YAML: ${res.yaml_path}\n`;
-    if (res.model_promoted) msg += `Model: ${res.model_promoted}\n`;
-    if (res.backup && res.backup.files && res.backup.files.length) {
-      msg += `Backup: ${res.backup.files.length} files @ ${res.backup.timestamp}\n`;
-    }
-    msg += '\n' + (cr.triggered
-      ? `Cloud Run revision: triggered (~30s downtime)`
-      : `⚠ Cloud Run restart skipped: ${cr.reason || 'permission missing'}`);
-    alert(msg);
+    const crNote = cr.triggered ? 'Cloud Run: triggered (~30s)' : `Cloud Run ข้าม: ${cr.reason || 'permission missing'}`;
+    showToast(`✅ Deploy สำเร็จ — ${res.target_key || curDraftKey} · ${crNote}`, 8000);
     // Edit-draft is consumed on success — return to dashboard
     if (isEdit) {
       curDraftKey = null;
@@ -3631,20 +4061,27 @@ async function doDeploy() {
   } catch (err) {
     btn.disabled = false;
     btn.textContent = isEdit ? `Deploy & Overwrite ${parentKey}` : 'Deploy to Production';
-    alert(`Deploy failed: ${err.message}`);
+    showToast(`Deploy failed: ${err.message}`);
   }
 }
 
-renderSteps();
-srSetMode('single');
-onPipelineChange();
-// Bootstrap: ถ้า URL มี draft+step → resume wizard, ไม่งั้นไป dashboard
-(async () => {
-  const resumed = await restoreFromUrl();
-  if (!resumed) loadDashboard();
-})();
-// Browser back/forward → sync state
-window.addEventListener('popstate', () => { restoreFromUrl(); });
+let _booted = false;
+function bootWizard() {
+  if (_booted) return;   // guard against double-init if both auth paths fire
+  _booted = true;
+  renderSteps();
+  srSetMode('single');
+  onPipelineChange();
+  // Bootstrap: ถ้า URL มี draft+step → resume wizard, ไม่งั้นไป dashboard
+  (async () => {
+    const resumed = await restoreFromUrl();
+    if (!resumed) loadDashboard();
+  })();
+}
+// Browser back/forward → sync state (only meaningful once authed)
+window.addEventListener('popstate', () => { if (loadSession()) restoreFromUrl(); });
+// Auth gate is the entry point; bootWizard runs only after a valid session.
+initAuth();
 </script>
 </body>
 </html>

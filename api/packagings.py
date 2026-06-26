@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -32,6 +33,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/packagings", tags=["packagings"])
 
 _ACTIVE_IMAGES_DIR = Path("images")
+_DRIVE_SAMPLE_CACHE = Path(
+    os.getenv("DRIVE_SAMPLE_CACHE_DIR", str(Path(tempfile.gettempdir()) / "drive_samples"))
+)
 _CROP_CACHE_DIR = Path(os.getenv("CROP_CACHE_DIR", "data/crops"))
 _DETECTOR_MODEL_PATH = Path(os.getenv("MODEL_DETECTOR_PATH", "models/detector.pt"))
 _IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
@@ -69,7 +73,7 @@ def list_packagings():
                 display_name=cfg.display_name,
                 pipeline=cfg.pipeline,
                 status="active",
-                image_count=_count_active_images(key),
+                image_count=cfg.image_count if cfg.image_count is not None else _count_active_images(key),
                 conf_threshold=cfg.conf_threshold,
                 accuracy=cfg.accuracy,
                 sub_regions=cfg.sub_regions,
@@ -90,7 +94,8 @@ def list_packagings():
                 display_name=data.get("display_name", arch_key),
                 pipeline=data.get("pipeline", "detector_ocr"),
                 status="archived",
-                image_count=_count_active_images(arch_key),
+                image_count=int(data["image_count"]) if data.get("image_count") is not None
+                    else _count_active_images(arch_key),
                 conf_threshold=float(data.get("conf_threshold", 0.6)),
                 accuracy=float(data["accuracy"]) if data.get("accuracy") is not None else None,
             ))
@@ -142,7 +147,7 @@ def get_packaging(key: str):
                 display_name=cfg.display_name,
                 pipeline=cfg.pipeline,
                 status="active",
-                image_count=_count_active_images(key),
+                image_count=cfg.image_count if cfg.image_count is not None else _count_active_images(key),
                 conf_threshold=cfg.conf_threshold,
                 accuracy=cfg.accuracy,
                 sub_regions=cfg.sub_regions,
@@ -161,7 +166,8 @@ def get_packaging(key: str):
                 display_name=data.get("display_name", key),
                 pipeline=data.get("pipeline", "detector_ocr"),
                 status="archived",
-                image_count=_count_active_images(key),
+                image_count=int(data["image_count"]) if data.get("image_count") is not None
+                    else _count_active_images(key),
                 conf_threshold=float(data.get("conf_threshold", 0.6)),
                 accuracy=float(data["accuracy"]) if data.get("accuracy") is not None else None,
             )
@@ -433,13 +439,24 @@ def list_images(key: str):
 
     if main.registry is not None and main.registry.get(key) is not None:
         img_dir = _ACTIVE_IMAGES_DIR / key
-        if not img_dir.exists():
-            return {"images": []}
-        return {"images": [
-            {"name": p.name, "size": p.stat().st_size, "read_only": False}
-            for p in sorted(img_dir.iterdir())
-            if p.is_file() and p.suffix.lower() in _IMG_EXTS
-        ]}
+        local = (
+            [
+                {"name": p.name, "size": p.stat().st_size, "read_only": False}
+                for p in sorted(img_dir.iterdir())
+                if p.is_file() and p.suffix.lower() in _IMG_EXTS
+            ]
+            if img_dir.exists()
+            else []
+        )
+        if local:
+            return {"images": local}
+        if os.getenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "").strip():
+            from services import drive_samples
+            return {"images": [
+                {"name": f["name"], "size": None, "read_only": True}
+                for f in drive_samples.class_images(key)
+            ]}
+        return {"images": []}
 
     draft = packaging_store.get_draft(key)
     if draft is None:
@@ -480,6 +497,10 @@ def get_image(key: str, filename: str):
         candidate = _ACTIVE_IMAGES_DIR / key / safe
         if candidate.exists() and candidate.is_file():
             return FileResponse(candidate)
+        if os.getenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "").strip():
+            cached = _drive_sample_path(key, safe)
+            if cached is not None:
+                return FileResponse(cached)
         raise HTTPException(404, "image not found")
 
     p = packaging_store.image_path(key, safe)
@@ -831,6 +852,13 @@ def deploy_packaging(key: str):
         if (parent_key is not None or has_synced) else None
     )
 
+    # Snapshot the dataset image count into the YAML so the dashboard reads it
+    # from config instead of counting via Drive on every request (PackagingConfig.image_count).
+    img_count = len(packaging_store.list_images(key))
+    if parent_key is not None:
+        img_count += _count_active_images(parent_key)  # edit-draft = existing refs + new uploads
+    draft["image_count"] = img_count
+
     try:
         # 4. Write packaging YAML under target_key (parent_key on overwrite)
         yaml_path = cloudrun_deployer.write_packaging_yaml(target_key, draft)
@@ -964,13 +992,18 @@ def _list_sample_files(key: str, count: int) -> list[str]:
     import main
     if main.registry is not None and main.registry.get(key) is not None:
         img_dir = _ACTIVE_IMAGES_DIR / key
-        if not img_dir.exists():
-            return []
-        files = sorted(
-            p.name for p in img_dir.iterdir()
-            if p.is_file() and p.suffix.lower() in _IMG_EXTS
-        )
-        return files[:count]
+        if img_dir.exists():
+            files = sorted(
+                p.name for p in img_dir.iterdir()
+                if p.is_file() and p.suffix.lower() in _IMG_EXTS
+            )
+            if files:
+                return files[:count]
+        # Prod ships no local images/ — fall back to the Drive dataset.
+        if os.getenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "").strip():
+            from services import drive_samples
+            return [f["name"] for f in drive_samples.class_images(key)[:count]]
+        return []
     # Draft
     return [img["name"] for img in packaging_store.list_images(key)[:count]]
 
@@ -981,7 +1014,12 @@ def _resolve_image_path(key: str, filename: str) -> Path | None:
     safe = Path(filename).name
     if main.registry is not None and main.registry.get(key) is not None:
         p = _ACTIVE_IMAGES_DIR / key / safe
-        return p if p.exists() else None
+        if p.exists():
+            return p
+        # Prod has no local file — download the Drive dataset image on demand.
+        if os.getenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "").strip():
+            return _drive_sample_path(key, safe)
+        return None
     return packaging_store.image_path(key, safe)
 
 
@@ -1050,9 +1088,47 @@ def _ensure_crops(
 
 def _count_active_images(key: str) -> int:
     img_dir = _ACTIVE_IMAGES_DIR / key
-    if not img_dir.exists():
-        return 0
-    return sum(
-        1 for p in img_dir.iterdir()
-        if p.is_file() and p.suffix.lower() in _IMG_EXTS
+    if img_dir.exists():
+        local = sum(
+            1 for p in img_dir.iterdir()
+            if p.is_file() and p.suffix.lower() in _IMG_EXTS
+        )
+        if local > 0:
+            return local
+    if os.getenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "").strip():
+        from services import drive_samples
+        return len(drive_samples.class_images(key))
+    return 0
+
+
+def _drive_sample_path(key: str, safe: str) -> Path | None:
+    """Return a locally-cached copy of a Drive classifier-dataset image, or None.
+
+    Downloads on first miss into _DRIVE_SAMPLE_CACHE/<key>/<safe>; serves the cached
+    file thereafter. Returns None when the name is not in the class's Drive folder or
+    the download fails (caller turns this into a 404).
+    """
+    dest = _DRIVE_SAMPLE_CACHE / key / safe
+    if dest.exists() and dest.is_file():
+        return dest
+
+    from services import drive_samples
+    from services.drive_client import DriveClient as _DriveClient
+
+    file_id = next(
+        (f["id"] for f in drive_samples.class_images(key) if f["name"] == safe), None
     )
+    if file_id is None:
+        return None
+    try:
+        _DriveClient().download_file(file_id, dest)
+        return dest
+    except Exception as e:  # noqa: BLE001 -- a broken thumbnail must not 500
+        logger.warning("drive sample download failed %s/%s: %s", key, safe, e)
+        # Drop any partially-written file so a later request retries instead of
+        # serving a truncated image forever (the cache-hit at line 1093).
+        try:
+            dest.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return None

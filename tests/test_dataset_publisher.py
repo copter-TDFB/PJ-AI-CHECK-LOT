@@ -140,6 +140,10 @@ def fake_drive():
         lambda src, parent_id=None, name=None, public=False:
         drive.events.append(("upload_file", parent_id, name)) or f"id-{name}"
     )
+    drive.copy_file.side_effect = (
+        lambda file_id, parent_id, name=None:
+        drive.events.append(("copy_file", parent_id, name)) or f"copy-{name}"
+    )
     drive.upload_bytes.side_effect = (
         lambda content, name, parent_id=None, mime_type=None, public=False:
         drive.events.append(("upload_bytes", parent_id, name)) or f"id-{name}"
@@ -164,7 +168,8 @@ def test_publish_uploads_images_labels_and_classifier_copies(draft, env, fake_dr
     assert summary["images_skipped"] == 0
     assert summary["new_classes"] == ["newpack_lot"]
     kinds = [e[0] for e in fake_drive.events]
-    assert kinds.count("upload_file") == 6   # 3 detector imgs + 3 classifier copies
+    assert kinds.count("upload_file") == 3   # 3 detector image uploads
+    assert kinds.count("copy_file") == 3     # 3 classifier copies (server-side, no re-upload)
     assert kinds.count("upload_bytes") == 3  # 3 label files
 
 
@@ -189,7 +194,7 @@ def test_publish_classifier_copies_land_under_images_subfolder(draft, env, fake_
     # ensure_folder side_effect: f-{parent}-{name}
     cls_parent = "f-f-cls-root-images-newpack"
     cls_copies = [e for e in fake_drive.events
-                  if e[0] == "upload_file" and e[1] == cls_parent]
+                  if e[0] == "copy_file" and e[1] == cls_parent]
     assert len(cls_copies) == 3
 
 

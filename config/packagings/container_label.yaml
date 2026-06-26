@@ -19,3 +19,5 @@ post_ocr_fixes: []
 message_template_key: container
 model_classifier_label: container_label
 detector_yolo_prefixes: [container_label_box, container_label_sachet]
+
+image_count: 200

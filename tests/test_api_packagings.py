@@ -1329,3 +1329,192 @@ def test_sync_download_failure_cleans_partial_files(client, monkeypatch):
     models = packaging_store._DRAFT_DIR / key / "models"
     assert updates == {}
     assert not models.exists() or list(models.iterdir()) == []
+
+
+def test_count_active_images_prefers_local(monkeypatch, tmp_path):
+    from api import packagings
+
+    d = tmp_path / "back_label"
+    d.mkdir()
+    (d / "a.jpg").write_bytes(b"x")
+    (d / "b.jpg").write_bytes(b"y")
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path)
+
+    def _no_drive(key):
+        raise AssertionError("Drive must not be hit when local dir is populated")
+
+    monkeypatch.setattr("services.drive_samples.class_images", _no_drive)
+    assert packagings._count_active_images("back_label") == 2
+
+
+def test_count_active_images_falls_back_to_drive(monkeypatch, tmp_path):
+    from api import packagings
+
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path)  # empty
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSROOT")
+    monkeypatch.setattr(
+        "services.drive_samples.class_images",
+        lambda key: [{"id": "1", "name": "a.jpg"}, {"id": "2", "name": "b.jpg"},
+                     {"id": "3", "name": "c.jpg"}],
+    )
+    assert packagings._count_active_images("x") == 3
+
+
+def test_count_active_images_zero_without_local_or_env(monkeypatch, tmp_path):
+    from api import packagings
+
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path)  # empty
+    monkeypatch.delenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", raising=False)
+    assert packagings._count_active_images("x") == 0
+
+
+def test_list_images_active_drive_fallback(client, monkeypatch, tmp_path):
+    import main
+    from api import packagings
+
+    class _Reg:
+        def get(self, k):
+            return object()  # truthy cfg -> active branch
+
+    monkeypatch.setattr(main, "registry", _Reg())
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path)  # empty
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSROOT")
+    monkeypatch.setattr(
+        "services.drive_samples.class_images",
+        lambda key: [{"id": "1", "name": "a.jpg"}, {"id": "2", "name": "b.jpg"}],
+    )
+
+    r = client.get("/api/packagings/back_label/images")
+    assert r.status_code == 200
+    body = r.json()
+    assert [i["name"] for i in body["images"]] == ["a.jpg", "b.jpg"]
+    assert all(i["read_only"] for i in body["images"])
+
+
+def test_get_image_active_drive_download(client, monkeypatch, tmp_path):
+    import main
+    from api import packagings
+
+    class _Reg:
+        def get(self, k):
+            return object()
+
+    monkeypatch.setattr(main, "registry", _Reg())
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path / "empty")
+    monkeypatch.setattr(packagings, "_DRIVE_SAMPLE_CACHE", tmp_path / "cache")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSROOT")
+    monkeypatch.setattr(
+        "services.drive_samples.class_images",
+        lambda key: [{"id": "FID", "name": "a.jpg"}],
+    )
+
+    class _Drive:
+        def download_file(self, file_id, dest):
+            assert file_id == "FID"
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(b"\xff\xd8\xffDATA")
+
+    monkeypatch.setattr("services.drive_client.DriveClient", lambda: _Drive())
+
+    r = client.get("/api/packagings/back_label/images/a.jpg")
+    assert r.status_code == 200
+    assert r.content == b"\xff\xd8\xffDATA"
+
+
+def test_get_image_active_drive_missing_returns_404(client, monkeypatch, tmp_path):
+    import main
+    from api import packagings
+
+    class _Reg:
+        def get(self, k):
+            return object()
+
+    monkeypatch.setattr(main, "registry", _Reg())
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path / "empty")
+    monkeypatch.setattr(packagings, "_DRIVE_SAMPLE_CACHE", tmp_path / "cache")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSROOT")
+    monkeypatch.setattr("services.drive_samples.class_images", lambda key: [])
+
+    r = client.get("/api/packagings/back_label/images/nope.jpg")
+    assert r.status_code == 404
+
+
+def test_drive_sample_path_cleans_partial_on_failure(monkeypatch, tmp_path):
+    """A mid-download failure must delete the truncated file so a later request
+    retries instead of serving a corrupt thumbnail from the cache-hit branch."""
+    from api import packagings
+
+    monkeypatch.setattr(packagings, "_DRIVE_SAMPLE_CACHE", tmp_path / "cache")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSROOT")
+    monkeypatch.setattr(
+        "services.drive_samples.class_images",
+        lambda key: [{"id": "FID", "name": "a.jpg"}],
+    )
+
+    class _Drive:
+        def download_file(self, file_id, dest):
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(b"partial")  # truncated write before the error
+            raise RuntimeError("network drop mid-download")
+
+    monkeypatch.setattr("services.drive_client.DriveClient", lambda: _Drive())
+
+    result = packagings._drive_sample_path("back_label", "a.jpg")
+    assert result is None
+    assert not (tmp_path / "cache" / "back_label" / "a.jpg").exists()
+
+
+def test_list_sample_files_local_first_no_drive(monkeypatch, tmp_path):
+    import main
+    from api import packagings
+
+    class _Reg:
+        def get(self, k):
+            return object()
+
+    monkeypatch.setattr(main, "registry", _Reg())
+    d = tmp_path / "back_label"
+    d.mkdir()
+    (d / "z.jpg").write_bytes(b"x")
+    (d / "a.jpg").write_bytes(b"y")
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path)
+
+    def _boom(k):
+        raise AssertionError("Drive must not be hit when local dir is populated")
+
+    monkeypatch.setattr("services.drive_samples.class_images", _boom)
+    assert packagings._list_sample_files("back_label", 6) == ["a.jpg", "z.jpg"]
+
+
+def test_list_sample_files_drive_fallback(monkeypatch, tmp_path):
+    import main
+    from api import packagings
+
+    class _Reg:
+        def get(self, k):
+            return object()
+
+    monkeypatch.setattr(main, "registry", _Reg())
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path)  # empty
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSROOT")
+    monkeypatch.setattr(
+        "services.drive_samples.class_images",
+        lambda k: [{"id": str(i), "name": f"{i}.jpg"} for i in range(10)],
+    )
+    assert packagings._list_sample_files("back_label", 6) == [f"{i}.jpg" for i in range(6)]
+
+
+def test_resolve_image_path_drive_fallback(monkeypatch, tmp_path):
+    import main
+    from api import packagings
+
+    class _Reg:
+        def get(self, k):
+            return object()
+
+    monkeypatch.setattr(main, "registry", _Reg())
+    monkeypatch.setattr(packagings, "_ACTIVE_IMAGES_DIR", tmp_path / "empty")
+    monkeypatch.setenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "CLSROOT")
+    sentinel = tmp_path / "dl" / "a.jpg"
+    monkeypatch.setattr(packagings, "_drive_sample_path", lambda k, s: sentinel)
+    assert packagings._resolve_image_path("back_label", "a.jpg") == sentinel

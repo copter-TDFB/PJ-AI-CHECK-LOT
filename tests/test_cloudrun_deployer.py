@@ -44,3 +44,38 @@ def test_promote_draft_model_none_present(tmp_path, monkeypatch):
     (tmp_path / "drafts" / "k1" / "models").mkdir(parents=True)
     dep = _reload_with_dirs(monkeypatch, tmp_path / "drafts", tmp_path / "models")
     assert dep.promote_draft_model("k1") == {}
+
+
+def test_trigger_cloud_run_routes_traffic_to_latest(monkeypatch):
+    # The triggered revision must RECEIVE traffic, else a wizard deploy publishes
+    # new models to GCS but the new revision sits at 0% (traffic stays pinned).
+    from services import cloudrun_deployer as dep
+    captured = {}
+
+    class _Exec:
+        def __init__(self, ret): self.ret = ret
+        def execute(self): return self.ret
+
+    class _Services:
+        def get(self, name): return _Exec({"template": {"annotations": {}}})
+        def patch(self, name, body, updateMask):
+            captured["body"] = body
+            captured["updateMask"] = updateMask
+            return _Exec({"name": "operations/op1"})
+
+    class _Run:
+        def projects(self):
+            class _P:
+                def locations(self_inner):
+                    class _L:
+                        def services(self_i2): return _Services()
+                    return _L()
+            return _P()
+
+    monkeypatch.setattr("googleapiclient.discovery.build", lambda *a, **k: _Run())
+    monkeypatch.setattr("google.auth.default", lambda scopes=None: (object(), "proj"))
+
+    res = dep.trigger_cloud_run_revision()
+    assert res["triggered"] is True
+    assert "traffic" in captured["updateMask"]
+    assert {"type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST", "percent": 100} in captured["body"]["traffic"]

@@ -140,6 +140,29 @@ def test_predict_import_sticker_uses_qr(client):
         assert body["bbox"] is None
 
 
+@needs_models
+def test_predict_unconfigured_class_returns_graceful(client, monkeypatch):
+    """A high-confidence prediction for a class with no config (e.g. a classifier
+    label that ships ahead of its packaging) must return a graceful response,
+    not HTTP 500."""
+    import main
+
+    class _FakeClf:
+        def predict(self, b):
+            return ("print_sticker_full", 0.95)
+
+    monkeypatch.setattr(main, "classifier", _FakeClf())
+    monkeypatch.setattr(main.registry, "get", lambda k: None)
+    monkeypatch.setattr(main.registry, "is_archived", lambda k: False)
+    r = client.post(
+        "/predict",
+        params=_DUMMY_SHEET_PARAMS,
+        files={"file": ("x.jpg", b"imgbytes", "image/jpeg")},
+    )
+    assert r.status_code == 200
+    assert r.json()["status"] == "unconfigured_class"
+
+
 # ─── Classifier accuracy smoke test ───────────────────────────────────────────
 
 @needs_models

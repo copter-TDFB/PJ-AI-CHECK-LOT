@@ -160,8 +160,29 @@ async def predict(
             })
 
         if config is None:
-            logger.error("No config found for class=%s", image_class)
-            raise HTTPException(status_code=500, detail=f"Unknown class: {image_class}")
+            logger.warning("Classified class has no config: %s (conf=%.4f)", image_class, class_confidence)
+            return JSONResponse({
+                "lot_number":       None,
+                "confidence":       None,
+                "class":            image_class,
+                "class_confidence": class_confidence,
+                "raw_text":         "",
+                "mfg_date":         None,
+                "exp_date":         None,
+                "product_name":     None,
+                "size":             None,
+                "lot_box":          None,
+                "lot_sachet":       None,
+                "exp_box":          None,
+                "exp_sachet":       None,
+                "lot_match":        False,
+                "exp_match":        False,
+                "product_match":    False,
+                "sachet_match":     False,
+                "verify_message":   "⚠️ ตรวจพบประเภทรูปที่ยังไม่ได้ตั้งค่าในระบบ กรุณาตรวจสอบด้วยตนเอง",
+                "bbox":             None,
+                "status":           "unconfigured_class",
+            })
 
         result, bbox = pipeline_runner.run(image_bytes, config)
 
@@ -190,7 +211,14 @@ async def predict(
         if config.detection_mode == "cross_check"
         else result.get("lot_number")
     )
-    verify_message = build_verify_message(config, template, sheet, lot_for_message)
+    exp_for_message = (
+        result.get("exp_box")
+        if config.detection_mode == "cross_check"
+        else result.get("exp_date")
+    )
+    verify_message = build_verify_message(
+        config, template, sheet, lot_for_message, exp_for_message
+    )
 
     response = {
         "lot_number":       result["lot_number"],

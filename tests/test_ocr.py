@@ -3,6 +3,8 @@ tests สำหรับ utils/validators.py — ทดสอบ regex extractio
 รัน: python -m pytest tests/test_ocr.py -v
 """
 
+import re
+
 import pytest
 
 from utils.validators import (
@@ -239,3 +241,10 @@ class TestProductCompositionPaths:
         size = "40 g"
         composed = f"{name} {size}" if (name and size) else name
         assert composed == "Houjicha Powder 40 g"
+
+
+def test_find_lot_config_pattern_without_capture_group():
+    # Wizard-generated lot_patterns may have no capture group (e.g. M3/M4 print
+    # sticker). find_lot must fall back to the full match, not crash on group(1).
+    pat = [re.compile(r"(?i)[A-Z]{1}\d{17,}[A-Z0-9]*")]
+    assert find_lot("A12345678901234567", patterns=pat) == "A12345678901234567"

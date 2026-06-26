@@ -267,10 +267,11 @@ def _upload_items(
         img_fid = dest[(split, "images")]
         lbl_fid = dest[(split, "labels")]
 
+        det_id = None
         if new_name in existing_files[img_fid]:
             skipped += 1
         else:
-            drive.upload_file(img_path, parent_id=img_fid, name=new_name)
+            det_id = drive.upload_file(img_path, parent_id=img_fid, name=new_name)
             uploaded += 1
         if lbl_name not in existing_files[lbl_fid]:
             drive.upload_bytes(
@@ -278,7 +279,14 @@ def _upload_items(
                 name=lbl_name, parent_id=lbl_fid, mime_type="text/plain",
             )
         if new_name not in existing_files[cls_folder]:
-            drive.upload_file(img_path, parent_id=cls_folder, name=new_name)
+            # The classifier folder needs the same image. If we just uploaded it
+            # to the detector folder, server-side copy is far cheaper than a
+            # second byte upload. Fall back to upload only when the detector copy
+            # already existed (skipped) so we have no fresh id to copy from.
+            if det_id is not None:
+                drive.copy_file(det_id, parent_id=cls_folder, name=new_name)
+            else:
+                drive.upload_file(img_path, parent_id=cls_folder, name=new_name)
         if progress_cb:
             progress_cb(i + 1, total, img_path.name)
 

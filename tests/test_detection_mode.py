@@ -211,6 +211,29 @@ def test_multi_field_shared_box_feeds_both_extractors(monkeypatch):
     assert result["status"] == "ok"
 
 
+def test_multi_field_resolves_size_token_in_product_name(monkeypatch):
+    # product_aliases canonical carries a {size} token — _run_multi_field must
+    # resolve it with the OCR'd size (mirrors the single-path in ocr_engine.py).
+    dets = [
+        DetectionResult(cropped_bytes=b"LOT", bbox=[0, 0, 1, 1], class_name="k_lot"),
+        DetectionResult(cropped_bytes=b"PRODSIZE", bbox=[0, 1, 1, 2], class_name="k_product_size"),
+    ]
+    monkeypatch.setattr(pr, "find_lot", lambda t, image_class=None, patterns=None: "L")
+    monkeypatch.setattr(pr, "find_product_name", lambda t, aliases=None: "Matcha M4 {size}")
+    monkeypatch.setattr(pr, "find_size", lambda t: "60g")
+
+    cfg = _cfg_multi()
+    cfg = cfg.__class__(**{**cfg.__dict__,
+                          "sub_regions": ["lot", "product_size"],
+                          "product_aliases": [{"canonical": "Matcha M4 {size}",
+                                               "keywords": ["Matcha M4"]}]})
+    runner = PipelineRunner(_FakeDetector(dets), _FakePre(), _FakeOcr(), object())
+    result, _ = runner._run_multi_field(b"img", cfg)
+
+    assert result["product_name"] == "Matcha M4 60g"
+    assert result["size"] == "60g"
+
+
 def test_multi_field_raw_text_not_duplicated_for_shared_crop(monkeypatch):
     dets = [
         DetectionResult(cropped_bytes=b"LOTEXP", bbox=[0, 0, 1, 1], class_name="k_lot_exp"),
