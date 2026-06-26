@@ -156,3 +156,38 @@ Vision API อ่าน `0` ตัวแรกเป็น `Q` → ได้ `Q3
 
 `correct_ocr()` ถูกเรียกใน `find_expiry()` ซึ่ง run ทุก class → ครอบคลุม `container_label` และ `retail_sachet` โดยอัตโนมัติ  
 ความเสี่ยง false positive ต่ำมาก เพราะ `Q` ตามด้วย 7 digits แทบไม่มีความหมายอื่นบนฉลากสินค้า
+
+---
+
+## Fix 4 — detector dataset `data.yaml` เพี้ยนจาก current class (2026-06-26)
+
+### ปัญหา
+
+`data.yaml` ของ detector reference dataset บน Drive (`DRIVE_DETECTOR_DATASET_FOLDER_ID`) ประกาศ `nc: 16` แต่ไม่ตรงกับ class ปัจจุบัน (7 packagings → 11 detector classes) และ parse ด้วย PyYAML ไม่ผ่าน — ถ้า retrain detector รอบใหม่จะได้โมเดลที่ label เพี้ยนหรือ training ล้ม
+
+### Root Cause
+
+สแกน label ครบ 565 ไฟล์ (train 451 + val 114) เทียบ id ที่ label ใช้จริง กับชื่อใน `data.yaml`:
+- id 0–8 ถูกต้อง (back_label/capsule/container/grade_bag/retail)
+- id 11 = `-test_u` (พัง — ไม่มีเว้นวรรคหลัง `-` → ทำ YAML parse ล้ม), 0 refs
+- id 12,13 = `-test_y`/`-test_u` (ขยะ) **แต่รูป print_sticker_back ตัวจริงอ้าง id 12,13** → training จะ label print_sticker_back เป็น `-test_y/-test_u`
+- id 14,15 = `print_sticker_full` (มี label จริง ~102 ไฟล์ แต่ **ไม่มี config**)
+- id 9 = `new_tea_bag_box` (test-draft ที่หลงเหลือ 24 รูป train, ไม่มี config) ไม่ใช่ print_sticker_back
+
+ต้นเหตุระบบ: `services/dataset_publisher.merge_class_names` เป็น **append-only** (numeric label id ห้าม reorder) ไม่มี GC + การ publish ตอน TEST_MODE หลุดขยะ class เข้า dataset prod
+
+### วิธีแก้
+
+สคริปต์ one-off `scripts/cleanup_detector_dataset.py` (dry-run default, `--execute` gate, ลบลง Drive Trash, backup ก่อนแก้, `--verify`):
+- remap label print_sticker_back 49 ไฟล์: id `12→9`, `13→10`
+- ลบ `print_sticker_full` + `new_tea_bag_box` (151 รายการ images+labels) ลง Trash
+- เขียน `data.yaml` ใหม่เป็นขั้นสุดท้าย (commit point): `nc: 11`, 11 names ตรงกับ `models/detector.pt` + `config/packagings/*` เป๊ะ
+
+ผลหลังแก้ (verify live): ids 0–10, id 9/10 = print_sticker_back ล้วน, ไม่มี test junk → **VERIFY OK**
+
+### หมายเหตุ
+
+- `prod detector.pt` ปัจจุบัน (11 คลาส 0–10) ไม่กระทบ — ปัญหานี้มีผลเฉพาะตอน retrain ครั้งหน้า
+- Rollback: remap+data.yaml เดิมอยู่ใน `dataset-backup/<ts>/` (local, gitignored); deletes อยู่ใน Drive Trash (30 วัน)
+- เจอ side-issue: `drive_client` log อักขระ `→` ทำ Windows cp1252 console crash (`UnicodeEncodeError`) — สคริปต์ harden ด้วย `sys.stdout.reconfigure("utf-8")` (Drive op run ก่อนบรรทัด log นั้นเสมอ จึงสำเร็จ)
+- **Follow-up (ยังไม่ทำ):** กัน TEST_MODE publish ลง dataset folder จริง + เพิ่ม reconcile/GC ให้ `merge_class_names` — ดู spec `docs/superpowers/specs/2026-06-26-detector-dataset-datayaml-cleanup-design.md`
