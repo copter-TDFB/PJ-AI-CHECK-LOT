@@ -18,7 +18,7 @@
 - Known folder ids: detector root `1xmhCGoUrhPpDOHGdsewusPn57twkQXEr`; train/labels `14VNccSkH0VU--chNUF_TUqaCMtnEhzXZ`; val/labels `1-9ZELumgXRoTbFJI_xpnZUS4BqaNi0Zv`. Classifier root from `DRIVE_CLASSIFIER_DATASET_FOLDER_ID`.
 - Target class set (must match `models/detector.pt` names 0–10 exactly):
   `back_label_lot, back_label_name, back_label_size, capsule_box, container_label_box, container_label_sachet, grade_bag_lot, grade_bag_product, retail_sachet_lot, print_sticker_back_lot_exp, print_sticker_back_product_size`
-- Label id remap: `{12: 9, 13: 10}`. Delete: all `print_sticker_full_*`.
+- Label id remap: `{12: 9, 13: 10}`. Delete (`DELETE_PREFIXES`): all `print_sticker_full_*` AND all `new_tea_bag_box_*` (leftover wizard test-draft, no config/classifier folder — confirmed 24 train image+label pairs at id 9, 0 in val; controller decision 2026-06-26 after dry-run revealed id-9 `new*` files are `new_tea_bag_box`, not `print_sticker_back`).
 
 ---
 

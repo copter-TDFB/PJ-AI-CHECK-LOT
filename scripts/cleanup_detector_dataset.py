@@ -33,7 +33,10 @@ REMAP: dict[int, int] = {12: 9, 13: 10}
 DET_ROOT = "1xmhCGoUrhPpDOHGdsewusPn57twkQXEr"
 TRAIN_LABELS = "14VNccSkH0VU--chNUF_TUqaCMtnEhzXZ"
 VAL_LABELS = "1-9ZELumgXRoTbFJI_xpnZUS4BqaNi0Zv"
-DELETE_PREFIX = "print_sticker_full"
+# Test-draft / no-config classes to remove entirely (images + labels + any
+# classifier folder). print_sticker_full has no config; new_tea_bag_box is a
+# leftover wizard test-draft (no config, no classifier folder).
+DELETE_PREFIXES = ["print_sticker_full", "new_tea_bag_box"]
 NEW_PREFIX = "new"
 
 
@@ -156,15 +159,16 @@ def plan_delete(drive):
         if not fid:
             continue
         for f in drive.list_folder(fid):
-            if f["name"].startswith(DELETE_PREFIX):
+            if any(f["name"].startswith(p) for p in DELETE_PREFIXES):
                 plan.append({"id": f["id"], "name": f["name"], "kind": kind})
-    # classifier images/<prefix> folder
+    # classifier images/<prefix> folder(s)
     cls_root = os.getenv("DRIVE_CLASSIFIER_DATASET_FOLDER_ID", "")
     if cls_root:
         cls_images = drive.find_in_folder(cls_root, "images")
-        psf = drive.find_in_folder(cls_images, DELETE_PREFIX) if cls_images else None
-        if psf:
-            plan.append({"id": psf, "name": f"images/{DELETE_PREFIX}", "kind": "classifier-folder"})
+        for prefix in DELETE_PREFIXES:
+            psf = drive.find_in_folder(cls_images, prefix) if cls_images else None
+            if psf:
+                plan.append({"id": psf, "name": f"images/{prefix}", "kind": "classifier-folder"})
     return plan
 
 
