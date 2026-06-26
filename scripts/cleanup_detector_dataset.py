@@ -192,7 +192,7 @@ def backup(drive, remap, delete) -> str:
     drive.download_file(yid, bdir / "data.yaml")
     manifest = {"data_yaml_id": yid, "remap": [], "delete": []}
     for p in remap:
-        drive.download_file(p["id"], bdir / "remap" / p["name"])
+        drive.download_file(p["id"], bdir / "remap" / p["folder"] / p["name"])
         manifest["remap"].append({"id": p["id"], "name": p["name"], "folder": p["folder"]})
     for p in delete:
         if p["kind"] != "classifier-folder":  # files only; folder restored from Trash
@@ -204,7 +204,8 @@ def backup(drive, remap, delete) -> str:
 
 
 def apply_changes(drive, remap, delete) -> None:
-    backup(drive, remap, delete)
+    bdir = backup(drive, remap, delete)
+    logger.info("Backup complete at %s — proceeding with mutations.", bdir)
     for p in remap:
         drive.update_file_content(p["id"], p["new_text"].encode("utf-8"), mime_type="text/plain")
     logger.info("Remapped %d label files", len(remap))
