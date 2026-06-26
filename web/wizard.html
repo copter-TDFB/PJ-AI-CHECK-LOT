@@ -3091,6 +3091,73 @@ async function step1Next() {
 // reference images at train time, so they need fewer NEW images than a fresh class.
 function imageGate() { return (curDraftKey && curDraftKey.endsWith('__edit')) ? 30 : 50; }
 
+// Cloud Run caps a single HTTP request body at 32MB — sending all selected
+// files in ONE POST silently stalls past ~50 images. So we chunk client-side
+// into batches well under that cap and POST them sequentially, advancing the
+// progress bar per batch. The endpoint returns cumulative total_images, so no
+// backend change is needed.
+const UPLOAD_BATCH_MAX_BYTES = 20 * 1024 * 1024;  // ~20MB/batch, safely < 32MB cap
+const UPLOAD_BATCH_MAX_FILES = 8;                  // also cap count per batch
+
+function chunkFilesForUpload(files) {
+  const batches = [];
+  let cur = [];
+  let curBytes = 0;
+  for (const f of files) {
+    // A single file bigger than the cap still goes alone — server enforces 10MB/img.
+    if (cur.length > 0 &&
+        (cur.length >= UPLOAD_BATCH_MAX_FILES ||
+         curBytes + f.size > UPLOAD_BATCH_MAX_BYTES)) {
+      batches.push(cur);
+      cur = [];
+      curBytes = 0;
+    }
+    cur.push(f);
+    curBytes += f.size;
+  }
+  if (cur.length > 0) batches.push(cur);
+  return batches;
+}
+
+async function uploadBatch(batch) {
+  const form = new FormData();
+  for (const f of batch) form.append('files', f);
+  const r = await fetch(`${API_BASE}/api/packagings/${encodeURIComponent(curDraftKey)}/images`, {
+    method: 'POST', body: form,
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+// Render thumbnails + success state once all batches finish.
+function renderUploadSuccess(totalImages, uploadedFiles) {
+  const thumbs = document.getElementById('up-thumbs');
+  thumbs.innerHTML = '';
+  const showCount = Math.min(uploadedFiles.length, 12);
+  for (let i = 0; i < showCount; i++) {
+    const t = document.createElement('div');
+    t.className = 'thumb';
+    const img = document.createElement('img');
+    img.src = `${API_BASE}/api/packagings/${encodeURIComponent(curDraftKey)}/images/${encodeURIComponent(uploadedFiles[i].name)}`;
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover';
+    t.appendChild(img);
+    thumbs.appendChild(t);
+  }
+  if (totalImages > 12) {
+    const more = document.createElement('div');
+    more.className = 'thumb thumb-more';
+    more.textContent = '+' + (totalImages - 12);
+    thumbs.appendChild(more);
+  }
+
+  const uz = document.getElementById('uz');
+  uz.innerHTML = `<div style="font-size:20px;margin-bottom:6px">✅</div>
+    <div style="color:var(--ok);font-weight:600">อัพแล้ว ${totalImages} รูป</div>
+    <div style="font-size:11px;color:var(--t3);margin-top:6px">คลิกเพื่อเพิ่มอีก</div>`;
+
+  if (totalImages >= imageGate()) document.getElementById('btn-step2-next').disabled = false;
+}
+
 async function handleFileSelect(files) {
   if (!curDraftKey) { alert('ยังไม่ได้สร้าง draft — กลับ step 1'); return; }
   if (!files || files.length === 0) return;
@@ -3099,48 +3166,41 @@ async function handleFileSelect(files) {
   prog.style.display = 'block';
   const bar = document.getElementById('up-bar');
   const cnt = document.getElementById('up-cnt');
-  const thumbs = document.getElementById('up-thumbs');
 
-  bar.style.width = '15%';
-  cnt.textContent = `0 / ${files.length} รูป — กำลังอัพ...`;
+  const fileList = Array.from(files);
+  const total = fileList.length;
+  const batches = chunkFilesForUpload(fileList);
 
-  const form = new FormData();
-  for (const f of files) form.append('files', f);
+  bar.style.width = '2%';
+  cnt.textContent = `0 / ${total} รูป — กำลังอัพ...`;
+
+  const uploadedFiles = [];   // accumulated {name} for thumbnails
+  let done = 0;               // files successfully uploaded
+  let failed = 0;             // files in failed batches
+  let totalImages = 0;        // server-reported cumulative count
 
   try {
-    const r = await fetch(`${API_BASE}/api/packagings/${encodeURIComponent(curDraftKey)}/images`, {
-      method: 'POST', body: form,
-    });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const result = await r.json();
+    for (const batch of batches) {
+      try {
+        const result = await uploadBatch(batch);
+        done += result.uploaded ?? batch.length;
+        totalImages = result.total_images ?? totalImages;
+        if (Array.isArray(result.files)) uploadedFiles.push(...result.files);
+      } catch (err) {
+        // One failed chunk shouldn't sink the rest — record and continue.
+        failed += batch.length;
+        showToast(`อัพบางรูปไม่สำเร็จ (${batch.length} รูป): ${err.message}`);
+      }
+      const pct = Math.round(((done + failed) / total) * 100);
+      bar.style.width = `${Math.max(pct, 2)}%`;
+      cnt.textContent = `${done} / ${total} รูป — กำลังอัพ...`;
+    }
+
+    if (done === 0) throw new Error('ไม่มีรูปที่อัพสำเร็จ');
 
     bar.style.width = '100%';
-    cnt.textContent = `${result.total_images} / ${result.total_images} รูป`;
-
-    thumbs.innerHTML = '';
-    const showCount = Math.min(result.files.length, 12);
-    for (let i = 0; i < showCount; i++) {
-      const t = document.createElement('div');
-      t.className = 'thumb';
-      const img = document.createElement('img');
-      img.src = `${API_BASE}/api/packagings/${encodeURIComponent(curDraftKey)}/images/${encodeURIComponent(result.files[i].name)}`;
-      img.style.cssText = 'width:100%;height:100%;object-fit:cover';
-      t.appendChild(img);
-      thumbs.appendChild(t);
-    }
-    if (result.total_images > 12) {
-      const more = document.createElement('div');
-      more.className = 'thumb thumb-more';
-      more.textContent = '+' + (result.total_images - 12);
-      thumbs.appendChild(more);
-    }
-
-    const uz = document.getElementById('uz');
-    uz.innerHTML = `<div style="font-size:20px;margin-bottom:6px">✅</div>
-      <div style="color:var(--ok);font-weight:600">อัพแล้ว ${result.total_images} รูป</div>
-      <div style="font-size:11px;color:var(--t3);margin-top:6px">คลิกเพื่อเพิ่มอีก</div>`;
-
-    if (result.total_images >= imageGate()) document.getElementById('btn-step2-next').disabled = false;
+    cnt.textContent = `${totalImages} / ${totalImages} รูป`;
+    renderUploadSuccess(totalImages, uploadedFiles);
   } catch (err) {
     showToast(`อัพโหลดล้มเหลว: ${err.message}`);
   } finally {
