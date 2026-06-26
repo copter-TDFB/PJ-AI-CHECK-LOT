@@ -82,3 +82,6 @@ htmlcov/
 data/test/
 
 .codex/
+
+# Detector dataset cleanup backups
+dataset-backup/

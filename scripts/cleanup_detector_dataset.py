@@ -172,6 +172,56 @@ def plan_delete(drive):
     return plan
 
 
+def _data_yaml_id(drive):
+    yid = drive.find_in_folder(DET_ROOT, "data.yaml")
+    if not yid:
+        raise SystemExit("ABORT: data.yaml not found in detector root")
+    return yid
+
+
+def backup(drive, remap, delete) -> str:
+    import json
+    import time
+    from pathlib import Path
+
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    bdir = Path(repo) / "dataset-backup" / stamp
+    bdir.mkdir(parents=True, exist_ok=True)
+    yid = _data_yaml_id(drive)
+    drive.download_file(yid, bdir / "data.yaml")
+    manifest = {"data_yaml_id": yid, "remap": [], "delete": []}
+    for p in remap:
+        drive.download_file(p["id"], bdir / "remap" / p["name"])
+        manifest["remap"].append({"id": p["id"], "name": p["name"], "folder": p["folder"]})
+    for p in delete:
+        if p["kind"] != "classifier-folder":  # files only; folder restored from Trash
+            drive.download_file(p["id"], bdir / "delete" / f'{p["kind"].replace("/", "_")}__{p["name"]}')
+        manifest["delete"].append(p)
+    (bdir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    logger.info("Backup written to %s", bdir)
+    return str(bdir)
+
+
+def apply_changes(drive, remap, delete) -> None:
+    backup(drive, remap, delete)
+    for p in remap:
+        drive.update_file_content(p["id"], p["new_text"].encode("utf-8"), mime_type="text/plain")
+    logger.info("Remapped %d label files", len(remap))
+    for p in delete:
+        drive._svc.files().update(fileId=p["id"], body={"trashed": True}).execute()
+    logger.info("Trashed %d files/folders", len(delete))
+    yid = _data_yaml_id(drive)
+    raw = drive.read_text(yid)
+    train, val = extract_split_paths(raw)
+    if not train or not val:
+        raise SystemExit(f"ABORT: could not extract train/val from data.yaml (train={train!r} val={val!r})")
+    new_yaml = build_data_yaml(train, val, TARGET_NAMES)
+    yaml.safe_load(new_yaml)  # sanity: must parse
+    drive.update_file_content(yid, new_yaml.encode("utf-8"), mime_type="text/yaml")
+    logger.info("Rewrote data.yaml (nc=11). Done.")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--execute", action="store_true", help="apply changes (default: dry-run)")
@@ -193,7 +243,7 @@ def main():
     if not args.execute:
         logger.info("DRY-RUN. Re-run with --execute to apply.")
         return
-    apply_changes(drive, remap, delete)  # defined in Task 3
+    apply_changes(drive, remap, delete)
 
 
 if __name__ == "__main__":
