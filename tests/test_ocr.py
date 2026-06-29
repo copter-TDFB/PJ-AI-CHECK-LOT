@@ -66,8 +66,9 @@ class TestFindLotGeneric:
 
 class TestFindLotByClass:
     def test_back_label_lot(self):
-        text = "สินค้าไทย\nน้ำหนัก 500g\nLOT: TH250601\nEXP 12/2027"
-        assert find_lot(text, "back_label") == "TH250601"
+        # back_label ใช้ lot ยาว alpha-prefix แบบเดียวกับ grade_bag (เช่น ER...P) ไม่ใช่เลขสั้น
+        text = "สินค้าไทย\nน้ำหนัก 500g\nLOT: ER0010000019616726P\nEXP 12/2027"
+        assert find_lot(text, "back_label") == "ER0010000019616726P"
 
     def test_back_label_lot_new_format(self):
         assert (
@@ -88,8 +89,8 @@ class TestFindLotByClass:
         )
 
     def test_container_label_lot(self):
-        text = "LOT TDF-2025-001\nMFG 01/06/2025"
-        assert find_lot(text, "container_label") == "TDF-2025-001"
+        text = "LOT ER0010000019616726P\nMFG 01/06/2025"
+        assert find_lot(text, "container_label") == "ER0010000019616726P"
 
     def test_container_label_lot_new_format(self):
         assert (
@@ -119,8 +120,8 @@ class TestFindLotByClass:
         )
 
     def test_grade_bag_lot(self):
-        text = "MEDIUM GRADE\nLOT: GR250601\nEXP 06/2026"
-        assert find_lot(text, "grade_bag") == "GR250601"
+        text = "MEDIUM GRADE\nLOT: ER0010000019616726P\nEXP 06/2026"
+        assert find_lot(text, "grade_bag") == "ER0010000019616726P"
 
     def test_grade_bag_lot_new_format(self):
         assert (

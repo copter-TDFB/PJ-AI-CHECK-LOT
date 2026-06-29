@@ -38,9 +38,13 @@ _LOT_GENERIC: list[re.Pattern] = [
 ]
 
 # ─── Class-specific lot patterns (ลองก่อน generic) ───────────────────────────
+# back_label / container_label / grade_bag ใช้ lot ยาว alpha-prefix รูปแบบเดียวกัน
+# เช่น ER0010000019616726P (suffix P/P1/P2 ได้) — ไม่ใช่เลขสั้น
+# ฟอร์แมตใหม่แทรกตัวอักษรพิมพ์ใหญ่ 3 ตัวกลางเลข (เช่น ER0010TDF019616726P) จึงใช้
+# alternation (?:\d{6,}|\d{4,}[A-Z]{3}\d{2,}) เพื่อรับทั้งเก่าและใหม่
 
 _LOT_BY_CLASS: dict[str, list[re.Pattern]] = {
-    # back_label: lot บรรทัดสุดท้ายของฉลาก มักเป็น LOT: XXXXX หรือ L XXXXXX
+    # back_label: lot ยาว alpha-prefix (LOT: ER...P) หรือรูป "L XXXXX"
     "back_label": [
         re.compile(r'LOT\s*[:\.\-]?\s*([A-Z]{0,3}(?:\d{6,}|\d{4,}[A-Z]{3}\d{2,})[A-Z0-9]*)', re.IGNORECASE),
         re.compile(r'\bL[:\s]?\s*([A-Z0-9]{5,})', re.IGNORECASE),
@@ -52,7 +56,7 @@ _LOT_BY_CLASS: dict[str, list[re.Pattern]] = {
         re.compile(r'LOT\s*[:\.\-]?\s*([A-Z0-9\-]{4,})', re.IGNORECASE),
         re.compile(r'^([A-Z]{1,3}(?:\d{6,}|\d{4,}[A-Z]{3}\d{2,})[A-Z0-9]*)$', re.IGNORECASE | re.MULTILINE),
     ],
-    # grade_bag: lot ใกล้ barcode มักเป็นตัวเลขล้วนหรือ prefix สั้น
+    # grade_bag: lot ยาว alpha-prefix (เหมือน back_label) — มี LOT นำหน้า หรือยืนเดี่ยว
     "grade_bag": [
         re.compile(r'LOT\s*[:\.\-]?\s*([A-Z]{0,3}(?:\d{6,}|\d{4,}[A-Z]{3}\d{2,})[A-Z0-9]*)', re.IGNORECASE),
         re.compile(r'\b([A-Z]{1,3}(?:\d{6,}|\d{4,}[A-Z]{3}\d{2,})[A-Z0-9]*)\b'),
