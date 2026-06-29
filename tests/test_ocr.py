@@ -78,6 +78,15 @@ class TestFindLotByClass:
             == "ER0010TDF019616726P"
         )
 
+    def test_back_label_lot_old_format(self):
+        assert (
+            find_lot(
+                "LOT: ER0010000019616726P\nEXP 12/2027",
+                "back_label",
+            )
+            == "ER0010000019616726P"
+        )
+
     def test_container_label_lot(self):
         text = "LOT TDF-2025-001\nMFG 01/06/2025"
         assert find_lot(text, "container_label") == "TDF-2025-001"
@@ -129,6 +138,16 @@ class TestFindLotByClass:
                 "grade_bag",
             )
             == "ER0010000019616726P"
+        )
+
+    def test_grade_bag_lot_new_format_bare(self):
+        # bare line (no LOT: prefix) → exercises the word-bound pattern
+        assert (
+            find_lot(
+                "MEDIUM GRADE\nER0010TDF019616726P\nEXP 06/2026",
+                "grade_bag",
+            )
+            == "ER0010TDF019616726P"
         )
 
     def test_retail_sachet_lot(self):
