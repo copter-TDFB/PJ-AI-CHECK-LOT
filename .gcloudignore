@@ -67,3 +67,31 @@ dist/
 
 # Runtime/test data (drafts, test models, config overrides) — prod uses config/ + GCS
 data/
+
+# Dataset backups (training-image snapshots from cleanup_detector_dataset.py) — hundreds of MB
+dataset-backup/
+
+# Tool caches & agent/session scratch — never bake into the prod image
+.understand-anything/
+.playwright-mcp/
+.superpowers/
+.uv-cache/
+.uv-python/
+.codex/
+scratchpad/
+
+# Notebooks (dev/training/colab only)
+*.ipynb
+
+# User manual (docs + screenshots/PDF) — not used by the API at runtime
+docs/manual/
+
+# Loose scratch / screenshots / unrelated WIP at repo root
+/*.png
+/--full-page
+/report.txt
+/patch_nb.ps1
+/n8n workflow
+/FLOW_PROJECT.html
+/FLOW_SWIMLANE*.html
+/*local test/
