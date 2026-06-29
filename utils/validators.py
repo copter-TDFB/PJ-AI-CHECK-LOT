@@ -42,7 +42,7 @@ _LOT_GENERIC: list[re.Pattern] = [
 _LOT_BY_CLASS: dict[str, list[re.Pattern]] = {
     # back_label: lot บรรทัดสุดท้ายของฉลาก มักเป็น LOT: XXXXX หรือ L XXXXXX
     "back_label": [
-        re.compile(r'LOT\s*[:\.\-]?\s*([A-Z]{0,3}\d{6,}[A-Z0-9]*)', re.IGNORECASE),
+        re.compile(r'LOT\s*[:\.\-]?\s*([A-Z]{0,3}(?:\d{6,}|\d{4,}[A-Z]{3}\d{2,})[A-Z0-9]*)', re.IGNORECASE),
         re.compile(r'\bL[:\s]?\s*([A-Z0-9]{5,})', re.IGNORECASE),
     ],
     # container_label: lot ในกล่องขาว
@@ -50,12 +50,12 @@ _LOT_BY_CLASS: dict[str, list[re.Pattern]] = {
     # - lot ยาว: ตัวอักษรนำ + ตัวเลขยาว บนบรรทัดของตัวเอง เช่น "HR0012000645508526P"
     "container_label": [
         re.compile(r'LOT\s*[:\.\-]?\s*([A-Z0-9\-]{4,})', re.IGNORECASE),
-        re.compile(r'^([A-Z]{1,3}\d{6,}[A-Z0-9]*)$', re.IGNORECASE | re.MULTILINE),
+        re.compile(r'^([A-Z]{1,3}(?:\d{6,}|\d{4,}[A-Z]{3}\d{2,})[A-Z0-9]*)$', re.IGNORECASE | re.MULTILINE),
     ],
     # grade_bag: lot ใกล้ barcode มักเป็นตัวเลขล้วนหรือ prefix สั้น
     "grade_bag": [
-        re.compile(r'LOT\s*[:\.\-]?\s*([A-Z]{0,3}\d{6,}[A-Z0-9]*)', re.IGNORECASE),
-        re.compile(r'\b([A-Z]{1,3}\d{6,}[A-Z0-9]*)\b'),
+        re.compile(r'LOT\s*[:\.\-]?\s*([A-Z]{0,3}(?:\d{6,}|\d{4,}[A-Z]{3}\d{2,})[A-Z0-9]*)', re.IGNORECASE),
+        re.compile(r'\b([A-Z]{1,3}(?:\d{6,}|\d{4,}[A-Z]{3}\d{2,})[A-Z0-9]*)\b'),
     ],
     # retail_sachet: lot ด้านหลังซอง — ตัวเลขล้วน 4 ตัว เช่น "0109"
     "retail_sachet": [

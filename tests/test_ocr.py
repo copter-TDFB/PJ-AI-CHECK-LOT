@@ -69,13 +69,67 @@ class TestFindLotByClass:
         text = "สินค้าไทย\nน้ำหนัก 500g\nLOT: TH250601\nEXP 12/2027"
         assert find_lot(text, "back_label") == "TH250601"
 
+    def test_back_label_lot_new_format(self):
+        assert (
+            find_lot(
+                "LOT: ER0010TDF019616726P\nEXP 12/2027",
+                "back_label",
+            )
+            == "ER0010TDF019616726P"
+        )
+
     def test_container_label_lot(self):
         text = "LOT TDF-2025-001\nMFG 01/06/2025"
         assert find_lot(text, "container_label") == "TDF-2025-001"
 
+    def test_container_label_lot_new_format(self):
+        assert (
+            find_lot(
+                "ER0010TDF019616726P\nMFG 01/06/2025",
+                "container_label",
+            )
+            == "ER0010TDF019616726P"
+        )
+
+    def test_container_label_lot_old_format(self):
+        assert (
+            find_lot(
+                "ER0010000019616726P1\nMFG 01/06/2025",
+                "container_label",
+            )
+            == "ER0010000019616726P1"
+        )
+
+    def test_container_label_lot_suffix_p2(self):
+        assert (
+            find_lot(
+                "ER0010TDF019616726P2\nMFG 01/06/2025",
+                "container_label",
+            )
+            == "ER0010TDF019616726P2"
+        )
+
     def test_grade_bag_lot(self):
         text = "MEDIUM GRADE\nLOT: GR250601\nEXP 06/2026"
         assert find_lot(text, "grade_bag") == "GR250601"
+
+    def test_grade_bag_lot_new_format(self):
+        assert (
+            find_lot(
+                "MEDIUM GRADE\nLOT: ER0010TDF019616726P1\nEXP 06/2026",
+                "grade_bag",
+            )
+            == "ER0010TDF019616726P1"
+        )
+
+    def test_grade_bag_lot_old_format(self):
+        assert (
+            find_lot(
+                "MEDIUM GRADE\nER0010000019616726P\nEXP 06/2026",
+                "grade_bag",
+            )
+            == "ER0010000019616726P"
+        )
 
     def test_retail_sachet_lot(self):
         text = "EXCELLENT\nLOT RS25060101\nBBD 01/06/2026"
@@ -248,3 +302,12 @@ def test_find_lot_config_pattern_without_capture_group():
     # sticker). find_lot must fall back to the full match, not crash on group(1).
     pat = [re.compile(r"(?i)[A-Z]{1}\d{17,}[A-Z0-9]*")]
     assert find_lot("A12345678901234567", patterns=pat) == "A12345678901234567"
+
+
+def test_print_sticker_back_new_format():
+    pat = [
+        re.compile(
+            r"(?i)([A-Z]{1}(?:\d{17,}|\d{4,}[A-Z]{3}\d{2,})[A-Z0-9]*)"
+        )
+    ]
+    assert find_lot("M40001YST001613226R", patterns=pat) == "M40001YST001613226R"
