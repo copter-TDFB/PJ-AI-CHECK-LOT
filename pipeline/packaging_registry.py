@@ -30,7 +30,7 @@ class PackagingConfig:
     model_classifier_label: str
     detector_yolo_prefixes: list[str]
     conf_threshold: float
-    accuracy: float | None           # measured top-1 accuracy on test set (Phase 4 auto-populates)
+    accuracy: float | None           # MANUAL YAML field — top-1 acc read off confusion_matrix.png; no auto-populate
     gate_on_lot: bool
     lot_short_fallback: bool
     sub_regions: list[str]           # ['box', 'sachet'] for container_label
