@@ -82,7 +82,9 @@ _MFG_KW = (
     r'|วันผลิต|ผลิตเมื่อ|ผลิต)'
 )
 
-_DATE_SLASH   = r'(\d{1,2}/\d{1,2}/\d{2,4})'   # dd/mm/yy หรือ dd/mm/yyyy
+# คั่นวันที่ด้วย / หรือ - (เช่น 02/06/2027 หรือ 30-06-2027)
+_DATE_SEP     = r'[/-]'
+_DATE_SLASH   = rf'(\d{{1,2}}{_DATE_SEP}\d{{1,2}}{_DATE_SEP}\d{{2,4}})'  # dd/mm/yy(yy) หรือ dd-mm-yyyy
 _DATE_COMPACT = r'(\d{8})'                        # ddmmyyyy
 
 
@@ -102,7 +104,9 @@ EXP_PATTERNS: list[re.Pattern] = _build_date_patterns(_EXP_KW)
 MFG_PATTERNS: list[re.Pattern] = _build_date_patterns(_MFG_KW)
 
 # fallback: หา dd/mm/yy(yy) หรือ ddmmyyyy ทั่วไปเมื่อไม่มี keyword นำหน้า
-DATE_FALLBACK         = re.compile(_DATE_SLASH)
+# guard ด้วย (?<![\d-]) / (?![\d-]) กันไป match เศษของเลขยาวที่คั่นด้วย -
+# เช่น เลข อย. 11-2-02167-6-0024 หรือเบอร์โทร 02-114-3715
+DATE_FALLBACK         = re.compile(rf'(?<![\d-]){_DATE_SLASH}(?![\d-])')
 DATE_COMPACT_FALLBACK = re.compile(r'\b(\d{8})\b')
 
 
@@ -113,6 +117,7 @@ def normalize_date(raw: str) -> str | None:
     if not raw:
         return None
     s = re.sub(r'\s+', '', raw)
+    s = s.replace('-', '/')   # รับ separator แบบ dash (30-06-2027) ให้เหมือน slash
 
     if re.fullmatch(r'\d{8}', s):
         d, m, y = s[0:2], s[2:4], s[4:8]
@@ -213,22 +218,30 @@ def find_size(text: str) -> str | None:
     return None
 
 
+def _kw_present(kw: str, lower_text: str) -> bool:
+    """match keyword แบบ literal ไม่กินคำข้างเคียง (กัน "rich" ไป match ใน "enriched")
+    ใช้ lookaround แทน \\b เพราะ keyword อาจลงท้ายด้วยอักขระที่ไม่ใช่ตัวอักษร เช่น "95%"."""
+    return re.search(r"(?<![a-z0-9])" + re.escape(kw) + r"(?![a-z0-9])", lower_text) is not None
+
+
 def _match_aliases(text: str, aliases: list[dict]) -> str | None:
     """ไล่ aliases ตามลำดับ (priority) — keyword แรกที่เจอใน text → คืน canonical.
 
-    keyword ถูก escape เป็น literal และ match แบบไม่กินคำข้างเคียง (กัน "rich"
-    ไป match ใน "enriched") โดยใช้ lookaround แทน \\b เพราะ keyword อาจลงท้าย
-    ด้วยอักขระที่ไม่ใช่ตัวอักษร เช่น "95%".
+    keyword แต่ละตัวเป็นได้ 2 แบบ:
+      - string เดี่ยว เช่น "Classic Rich" → เจอตัวเดียวก็ match (OR)
+      - list/tuple เช่น ["Excellent", "30 Sachets"] → ต้องเจอ "ครบทุกคำ" (AND)
     """
     lower = text.lower()
     for entry in aliases:
         canonical = (entry.get("canonical") or "").strip()
         for kw in entry.get("keywords") or []:
-            kw = str(kw).strip().lower()
-            if not kw:
+            if isinstance(kw, (list, tuple)):
+                terms = [str(t).strip().lower() for t in kw if str(t).strip()]
+                if terms and all(_kw_present(t, lower) for t in terms):
+                    return canonical or None
                 continue
-            pattern = r"(?<![a-z0-9])" + re.escape(kw) + r"(?![a-z0-9])"
-            if re.search(pattern, lower):
+            kw = str(kw).strip().lower()
+            if kw and _kw_present(kw, lower):
                 return canonical or None
     return None
 

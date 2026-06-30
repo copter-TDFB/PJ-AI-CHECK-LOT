@@ -33,6 +33,12 @@ class TestNormalizeDate:
     def test_compact_8digit(self):
         assert normalize_date("23032026") == "2026-03-23"
 
+    def test_dash_separator(self):
+        assert normalize_date("30-06-2027") == "2027-06-30"
+
+    def test_dash_2digit_year(self):
+        assert normalize_date("30-06-27") == "2027-06-30"
+
     def test_invalid_date(self):
         assert normalize_date("32/13/2026") is None
 
@@ -188,6 +194,22 @@ class TestFindExpiry:
         # ไม่มี keyword → fallback เอาวันแรกที่เจอ
         assert find_expiry("23/03/2026") == "2026-03-23"
 
+    def test_dash_date_thai_keyword(self):
+        # สติกเกอร์ Classic Rich: ควรบริโภคก่อน + วันที่คั่นด้วย -
+        assert find_expiry("ควรบริโภคก่อน\n30-06-2027") == "2027-06-30"
+
+    def test_dash_date_fallback(self):
+        assert find_expiry("30-06-2027") == "2027-06-30"
+
+    def test_fda_number_not_read_as_date(self):
+        # เลข อย. 11-2-02167-6-0024 ต้องไม่ถูกอ่านเป็นวันหมดอายุ
+        assert find_expiry("11-2-02167-6-0024") is None
+
+    def test_fda_then_real_dash_date(self):
+        # มีทั้งเลข อย. และวันหมดอายุจริง — ต้องได้วันหมดอายุ ไม่ใช่เศษเลข อย.
+        text = "11-2-02167-6-0024\nควรบริโภคก่อน\n30-06-2027"
+        assert find_expiry(text) == "2027-06-30"
+
     def test_no_date(self):
         assert find_expiry("LOT AB1234") is None
 
@@ -263,6 +285,18 @@ class TestFindProductNameAliases:
         # → ไม่ fallback hardcode, คืน None (wizard กรองทิ้งก่อนส่งแล้ว — ดู collectConfig)
         aliases = [{"canonical": "Houjicha Powder", "keywords": []}]
         assert find_product_name("houjicha classic", aliases) is None
+
+    def test_and_group_requires_all_terms(self):
+        # keyword แบบ nested list = AND — ต้องเจอครบทุกคำถึง match
+        aliases = [{"canonical": "Excellent 3 g (30 Sachets)",
+                    "keywords": [["Excellent", "30 Sachets"]]}]
+        assert find_product_name("matcha excellent 3 g x 30 sachets", aliases) == "Excellent 3 g (30 Sachets)"
+
+    def test_and_group_partial_match_returns_none(self):
+        # เจอแค่คำเดียวจาก AND group → ไม่ match
+        aliases = [{"canonical": "Excellent 3 g (30 Sachets)",
+                    "keywords": [["Excellent", "30 Sachets"]]}]
+        assert find_product_name("matcha excellent rich blend", aliases) is None
 
 
 # ─── resolve_product_template ───────────────────────────────
