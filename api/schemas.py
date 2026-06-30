@@ -62,9 +62,13 @@ class PackagingUpdate(BaseModel):
 
 
 class ProductAlias(BaseModel):
-    """keyword บนบรรจุภัณฑ์ → canonical name ที่ตรงกับคอลัมน์ Product Name ใน sheet."""
+    """keyword บนบรรจุภัณฑ์ → canonical name ที่ตรงกับคอลัมน์ Product Name ใน sheet.
+
+    keyword เป็น string เดี่ยว (เจอตัวเดียวพอ) หรือ list ของ string (AND — ต้องเจอครบ)
+    เช่น [["Excellent", "30 Sachets"]] — ดู utils.validators._match_aliases.
+    """
     canonical: str
-    keywords: list[str] = Field(default_factory=list)
+    keywords: list[str | list[str]] = Field(default_factory=list)
 
 
 class PackagingConfigUpdate(BaseModel):
