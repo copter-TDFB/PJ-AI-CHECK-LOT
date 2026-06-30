@@ -2,7 +2,7 @@ key: 30_sachet
 display_name: "Matcha Back Sticker (30 Sachet)"
 pipeline: detector_ocr
 conf_threshold: 0.6
-accuracy: null
+accuracy: 1.0   # 40/40 บน test set (confusion matrix 2026-06-30)
 gate_on_lot: true
 lot_short_fallback: false
 sub_regions: []
