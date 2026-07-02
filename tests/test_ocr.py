@@ -67,6 +67,9 @@ class TestFindLotGeneric:
     def test_ignores_date_as_lot(self):
         assert find_lot("LOT 23/03/2026") is None
 
+    def test_ignores_dash_date_as_lot(self):
+        assert find_lot("LOT 30-06-2027") is None
+
 
 # ─── find_lot — per class ──────────────────────────────────────────────────────
 
@@ -86,6 +89,33 @@ class TestFindLotByClass:
     def test_retail_sachet_lot(self):
         text = "EXCELLENT\nLOT RS25060101\nBBD 01/06/2026"
         assert find_lot(text, "retail_sachet") == "RS25060101"
+
+    # 30_sachet lot_patterns (config/packagings/30_sachet.yaml) — passed via
+    # `patterns=`, mirroring how PackagingConfig.lot_patterns reach find_lot
+    _SACHET30_PATTERNS = [
+        re.compile(
+            r'(?i)LOT\s*[:\.\-]?\s*(?:\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\s*)?'
+            r'([A-Z]{0,3}(?:\d{6,}|\d{4,}[A-Z]{3}\d{2,})[A-Z0-9]*)'
+        ),
+        re.compile(r'(?i)LOT\s*[:\.\-]?\s*([A-Z0-9\-]{4,})'),
+    ]
+
+    def test_30_sachet_lot_skips_interleaved_exp_date(self):
+        # B-Grade label: combined "ควรบริโภคก่อน / Lot :" line, then EXP date,
+        # then the real lot code on the next line — must skip the date line
+        text = (
+            "11-2-02167-6-0025/\n"
+            "ควรบริโภคก่อน / Lot :\n"
+            "02-07-2027\n"
+            "MR0006HKW028618326R"
+        )
+        assert find_lot(text, "30_sachet", patterns=self._SACHET30_PATTERNS) == "MR0006HKW028618326R"
+
+    def test_30_sachet_lot_same_line_unaffected(self):
+        # Excellent-variant label (all real training photos): code on the
+        # same line as "Lot :" — must be unaffected by the date-skip group
+        text = "ควรบริโภคก่อน 02/06/2027\nLot : EX0002000020616826P"
+        assert find_lot(text, "30_sachet", patterns=self._SACHET30_PATTERNS) == "EX0002000020616826P"
 
     def test_class_specific_before_generic(self):
         # back_label pattern ควรจับ L-prefix ได้

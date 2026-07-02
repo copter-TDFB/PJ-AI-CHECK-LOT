@@ -150,7 +150,7 @@ def _is_valid_lot(lot: str) -> bool:
     """กรอง false positive — ห้ามเป็นวันที่หรือสั้นเกินไป"""
     if len(lot) < 4:
         return False
-    if re.fullmatch(r'\d{1,2}/\d{1,2}/\d{2,4}', lot):
+    if re.fullmatch(r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}', lot):
         return False
     return True
 

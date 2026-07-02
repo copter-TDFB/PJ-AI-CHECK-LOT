@@ -156,3 +156,55 @@ Vision API อ่าน `0` ตัวแรกเป็น `Q` → ได้ `Q3
 
 `correct_ocr()` ถูกเรียกใน `find_expiry()` ซึ่ง run ทุก class → ครอบคลุม `container_label` และ `retail_sachet` โดยอัตโนมัติ  
 ความเสี่ยง false positive ต่ำมาก เพราะ `Q` ตามด้วย 7 digits แทบไม่มีความหมายอื่นบนฉลากสินค้า
+
+---
+
+## Fix 5 — `30_sachet` lot_number อ่านได้วันหมดอายุแทนเลข lot จริง (2026-07-02)
+
+### ปัญหา
+
+ส่งรูป `IMG_20260702_091824.jpg` (สติกเกอร์หลังกล่อง MATCHAZUKI รุ่น B-Grade Medium Rich) ผ่าน pipeline จริง (`PipelineRunner` + `PackagingRegistry`, ไม่ใช่ `test_image.py`) ได้ `lot_number: "02-07-2027"` ซึ่งเป็นวันหมดอายุ ไม่ใช่ lot code — ค่าที่ถูกต้องคือ `MR0006HKW028618326R` ที่พิมพ์อยู่บรรทัดถัดไปในฉลากเดียวกัน
+
+### Root Cause (2 บั๊กแยกกัน)
+
+**บั๊กที่ 1 — `_is_valid_lot()` เช็ควันที่ไม่ครบ (`utils/validators.py`)**
+
+`_is_valid_lot()` กัน false positive ด้วย `re.fullmatch(r'\d{1,2}/\d{1,2}/\d{2,4}', lot)` — เช็คเฉพาะรูปแบบคั่นด้วย `/` เท่านั้น ตั้งแต่ 2026-06-30 ที่เพิ่มรองรับวันที่คั่นด้วย `-` ให้ `find_expiry`/`normalize_date` (ดู `bug_fix.md` ไม่มีบันทึกไว้ ณ ตอนนั้น) ไม่มีใครอัปเดต `_is_valid_lot` ให้ตามทัน จึงมีช่องโหว่: ค่า `"02-07-2027"` ผ่านเป็น "valid lot" ได้ — กระทบทุก packaging ไม่ใช่แค่ `30_sachet` `tests/test_ocr.py` เดิมมี `test_ignores_date_as_lot` ทดสอบแค่ฟอร์แมต `/` ไม่มี test คู่ฟอร์แมต `-` เลย
+
+**บั๊กที่ 2 — `30_sachet.yaml` lot_patterns ข้ามบรรทัดวันที่ไม่ได้**
+
+ฉลากรุ่น B-Grade รวม 2 label ไว้บรรทัดเดียว (`ควรบริโภคก่อน / Lot :`) แล้วตามด้วยค่า **2 บรรทัด**: วันหมดอายุก่อน แล้วค่อยเป็น lot code จริง —
+```
+ควรบริโภคก่อน / Lot :
+02-07-2027
+MR0006HKW028618326R
+```
+`lot_patterns[0]` (`LOT\s*[:\.\-]?\s*([A-Z]{0,3}(?:\d{6,}|\d{4,}[A-Z]{3}\d{2,})[A-Z0-9]*)`) ออกแบบมาให้จับรูปแบบ `MR...R` นี้เป๊ะ แต่ `\s*` กินแค่ whitespace ข้ามบรรทัดวันที่ (ซึ่งไม่ใช่ whitespace) ไม่ได้ → ไม่แมตช์เลยที่ตำแหน่งนี้ → fallback ไป `lot_patterns[1]` (`[A-Z0-9\-]{4,}` แบบกว้าง) ซึ่งจับ `"02-07-2027"` ได้ทันที (ตัวเลข+ขีดอยู่ใน character class) แล้วหยุดที่ `\n` — ได้ค่าวันที่แทน lot code
+
+ตรวจ training photo จริงทั้ง 13 รูปใน `images/30_sachet/` (ไม่รวม `aug_*`) แล้วพบว่า**ไม่มีรูปไหนเจอ layout นี้เลย** — ทุกรูปเป็นรุ่น "Excellent" ที่ `Lot :` ตามด้วย code `EX...` บรรทัดเดียวกันทันที แปลว่า regex เดิมถูกออกแบบ/เทสต์กับ layout รุ่นเดียว ไม่ครอบคลุมรุ่น B-Grade ที่เพิ่งเจอ
+
+### วิธีแก้
+
+1. `utils/validators.py::_is_valid_lot` — เพิ่ม `-` เป็น separator ที่ยอมรับ: `re.fullmatch(r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}', lot)`
+2. `config/packagings/30_sachet.yaml::lot_patterns[0]` — เพิ่ม optional group ให้ข้ามวันที่คั่นด้วย `/` หรือ `-` หนึ่งบรรทัดก่อนถึง code จริง: `LOT\s*[:\.\-]?\s*(?:\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\s*)?([A-Z]{0,3}(?:\d{6,}|\d{4,}[A-Z]{3}\d{2,})[A-Z0-9]*)` — scope เฉพาะ pattern[0] ของ `30_sachet` เท่านั้น (ไม่แตะ `lot_patterns[1]`, ไม่แตะ `back_label.yaml` หรือ class อื่นที่ใช้ pattern shape เดียวกัน — ยังไม่มีหลักฐานว่ามี layout แบบนี้ที่อื่น)
+
+### เทสต์ที่เพิ่ม (`tests/test_ocr.py`)
+
+- `test_ignores_dash_date_as_lot` — `find_lot("LOT 30-06-2027")` ต้องได้ `None` (คู่ฟอร์แมต `-` ของ `test_ignores_date_as_lot` เดิม)
+- `test_30_sachet_lot_skips_interleaved_exp_date` — raw text รูปแบบ B-Grade จริง ต้องได้ `MR0006HKW028618326R`
+- `test_30_sachet_lot_same_line_unaffected` — raw text รูปแบบ Excellent (ของจริงจาก training set) ต้องไม่เปลี่ยนพฤติกรรม
+
+### ผลลัพธ์หลังแก้
+
+| | ก่อนแก้ | หลังแก้ |
+|---|---|---|
+| lot_number | `02-07-2027` ❌ | `MR0006HKW028618326R` ✅ |
+| exp_date | `2027-07-02` (ถูกอยู่แล้ว) | `2027-07-02` (ไม่เปลี่ยน) |
+
+Validation: `pytest tests/test_ocr.py` 71 ผ่านหมด, `pytest` เต็ม suite ไม่มี regression ใหม่ (2 failed ใน `test_api_packagings.py` + 3 error ใน `test_classifier.py` เป็นของเดิมอยู่แล้ว ยืนยันด้วย `git stash` แล้วรันซ้ำ), รูป `IMG_20260702_091824.jpg` ผ่าน `PipelineRunner` จริงได้ค่าถูกแล้ว, OCR ซ้ำ 13 รูป training จริงใน `images/30_sachet/` ได้ lot เดิมทุกรูปไม่มี regression
+
+### หมายเหตุ
+
+- `30_sachet` เป็น shipped class ที่ baked เข้า image (ไม่ใช่ GCS-overlay-editable) — ต้อง rebuild image + deploy ถึงจะขึ้น prod ไม่ใช่แค่แก้ YAML/push
+- `back_label.yaml` ใช้ pattern shape เดียวกับ `lot_patterns[0]` ของ `30_sachet` (comment เดิมอ้างถึงกันตรงๆ) แต่ยังไม่ได้ตรวจว่ามี layout แบบเดียวกันหรือไม่ — ทิ้งไว้เป็น scope ในอนาคตถ้าเจอหลักฐานจริง
+- **Follow-up (ยังไม่ทำ):** กัน TEST_MODE publish ลง dataset folder จริง + เพิ่ม reconcile/GC ให้ `merge_class_names` — ดู spec `docs/superpowers/specs/2026-06-26-detector-dataset-datayaml-cleanup-design.md`
