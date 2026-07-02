@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>OCR Lot Checker — Packaging Wizard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Load fonts off the critical render path (display=swap covers FOUT) -->
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
 <style>
 :root {
   --bg:   #0B0C10;
@@ -17,7 +20,7 @@
   --bd2:  #363B4C;
   --t1:   #EDEEF1;
   --t2:   #8A8FA5;
-  --t3:   #7C8196;
+  --t3:   #868CA1;
   --acc:  #E8A020;
   --acc2: #F0C040;
   --acc-bg: rgba(232,160,32,.10);
@@ -28,6 +31,11 @@
   --err-bg: rgba(248,113,113,.10);
   --warn: #FBBF24;
   --warn-bg: rgba(251,191,36,.10);
+  /* foreground colors used on filled/overlay surfaces */
+  --on-accent: #0B0C10;
+  --on-overlay: #fff;
+  --ok2:  var(--ok2);
+  --warn2:#E5A800;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:14px}
@@ -59,7 +67,7 @@ body{
   display:flex;align-items:center;justify-content:center;
   font-family:'Playfair Display',serif;
   font-size:17px;font-weight:600;
-  color:#0B0C10;flex-shrink:0;
+  color:var(--on-accent);flex-shrink:0;
 }
 .sb-name{font-size:13px;font-weight:600;color:var(--t1)}
 .sb-sub{font-size:10px;color:var(--t3);letter-spacing:.05em;text-transform:uppercase;margin-top:2px}
@@ -122,7 +130,7 @@ body{
   width:28px;height:28px;border-radius:50%;
   background:linear-gradient(135deg,var(--acc),var(--acc2));
   display:flex;align-items:center;justify-content:center;
-  font-size:11px;font-weight:700;color:#0B0C10;flex-shrink:0;
+  font-size:11px;font-weight:700;color:var(--on-accent);flex-shrink:0;
 }
 .user-name{font-size:12px;font-weight:500;color:var(--t1)}
 .user-role{font-size:10px;color:var(--t3)}
@@ -151,14 +159,14 @@ body{
   transition:all .15s;white-space:nowrap;
   font-family:inherit;line-height:1;
 }
-.btn-primary{background:var(--acc);color:#0B0C10;border-color:var(--acc)}
+.btn-primary{background:var(--acc);color:var(--on-accent);border-color:var(--acc)}
 .btn-primary:hover{background:var(--acc2)}
 .btn-secondary{background:var(--s2);color:var(--t1);border-color:var(--bd)}
 .btn-secondary:hover{background:var(--s3);border-color:var(--bd2)}
 .btn-ghost{background:transparent;color:var(--t2)}
 .btn-ghost:hover{background:var(--s1);color:var(--t1)}
-.btn-success{background:var(--ok);color:#0B0C10;font-weight:600}
-.btn-success:hover{background:#2EBF8A}
+.btn-success{background:var(--ok);color:var(--on-accent);font-weight:600}
+.btn-success:hover{background:var(--ok2)}
 .btn-danger{background:var(--err-bg);color:var(--err);border-color:rgba(248,113,113,.2)}
 .btn-sm{padding:6px 12px;font-size:12px}
 .btn:disabled{opacity:.35;cursor:not-allowed}
@@ -335,7 +343,7 @@ select:focus-visible{
 .wiz-step.done .wiz-dot{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
 .wiz-step.active .wiz-dot{
   background:var(--acc);border-color:var(--acc);
-  color:#0B0C10;font-weight:700;
+  color:var(--on-accent);font-weight:700;
   box-shadow:0 0 0 3px var(--acc-bg);
 }
 .wiz-step-title{font-size:13px;font-weight:500;color:var(--t2);padding-top:5px;transition:color .15s}
@@ -472,7 +480,7 @@ select option,select optgroup{
   cursor:pointer;transition:background .15s,color .15s,border-color .15s;text-align:center;
 }
 .sr-mode-tab:hover{color:var(--acc);border-color:var(--acc)}
-.sr-mode-tab.on{background:var(--acc);color:#0B0C10;border-color:var(--acc);font-weight:600}
+.sr-mode-tab.on{background:var(--acc);color:var(--on-accent);border-color:var(--acc);font-weight:600}
 
 /* Info box */
 .info-box{
@@ -503,7 +511,7 @@ select option,select optgroup{
 .upload-meta .cnt{font-family:'JetBrains Mono',monospace;color:var(--t1)}
 .pbar-wrap{height:6px;background:var(--s2);border-radius:10px;overflow:hidden}
 .pbar{height:100%;border-radius:10px;background:linear-gradient(to right,var(--acc),var(--acc2));transition:width .4s ease}
-.pbar.green{background:linear-gradient(to right,var(--ok),#2EBF8A)}
+.pbar.green{background:linear-gradient(to right,var(--ok),var(--ok2))}
 
 /* ── TRAINING UPLOAD PROGRESS (Drive) ─────────────── */
 .train-prog{
@@ -542,7 +550,7 @@ select option,select optgroup{
 @keyframes tpShine{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
 .train-prog-fill.indet{width:38%;animation:tpIndet 1.25s cubic-bezier(.45,.05,.55,.95) infinite;transition:none}
 @keyframes tpIndet{from{transform:translateX(-110%)}to{transform:translateX(300%)}}
-.train-prog-fill.ok{background:linear-gradient(90deg,var(--ok),#2EBF8A)}
+.train-prog-fill.ok{background:linear-gradient(90deg,var(--ok),var(--ok2))}
 .train-prog-file{
   font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t3);
   margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -655,7 +663,7 @@ select option,select optgroup{
   flex-shrink:0;margin-top:1px;transition:all .15s;
 }
 .cbitem.on .cbbox{background:var(--acc);border-color:var(--acc)}
-.cbcheck{display:none;color:#0B0C10}
+.cbcheck{display:none;color:var(--on-accent)}
 .cbitem.on .cbcheck{display:flex}
 .cb-lbl{font-size:13px;font-weight:500;color:var(--t1)}
 .cb-desc{font-size:11px;color:var(--t2);margin-top:2px}
@@ -713,8 +721,8 @@ select option,select optgroup{
   width:128px;flex-shrink:0;
 }
 .bar-track{flex:1;height:7px;background:var(--s2);border-radius:10px;overflow:hidden}
-.bar-fill{height:100%;border-radius:10px;background:linear-gradient(to right,var(--ok),#2EBF8A)}
-.bar-fill.w{background:linear-gradient(to right,var(--warn),#E5A800)}
+.bar-fill{height:100%;border-radius:10px;background:linear-gradient(to right,var(--ok),var(--ok2))}
+.bar-fill.w{background:linear-gradient(to right,var(--warn),var(--warn2))}
 .bar-pct{
   font-family:'JetBrains Mono',monospace;
   font-size:12px;width:38px;text-align:right;flex-shrink:0;
@@ -852,7 +860,7 @@ select option,select optgroup{
 .annot-thumb-num{
   position:absolute;top:2px;left:4px;
   font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;
-  color:#fff;text-shadow:0 0 4px rgba(0,0,0,.85);
+  color:var(--on-overlay);text-shadow:0 0 4px rgba(0,0,0,.85);
 }
 
 .annot-stage{
@@ -1106,7 +1114,7 @@ select option,select optgroup{
 .sample-crop-lbl{
   position:absolute;top:4px;left:5px;
   font-size:9px;font-weight:600;text-transform:uppercase;
-  background:var(--acc);color:#0B0C10;
+  background:var(--acc);color:var(--on-accent);
   padding:1px 6px;border-radius:8px;
 }
 .no-crop{
@@ -1176,6 +1184,16 @@ select option,select optgroup{
 }
 @media (max-width:520px){
   .topbar{padding:0 14px;gap:10px}
+}
+
+/* ── TOUCH TARGETS — comfortable hit areas on coarse pointers ──────── */
+@media (pointer:coarse){
+  .btn{min-height:44px}
+  .btn-sm{min-height:40px;padding-top:9px;padding-bottom:9px}
+  .rm-btn,.sr-mini,.annot-bbox-del,.drawer-close,.sb-toggle,.toast-action{
+    min-width:40px;min-height:40px;
+  }
+  .nav-item{padding-top:11px;padding-bottom:11px}
 }
 
 /* ── REDUCED MOTION ───────────────────────────────── */
@@ -1263,10 +1281,10 @@ select option,select optgroup{
     </div>
   </nav>
   <div class="sb-footer">
-    <div class="user-av">OP</div>
+    <div class="user-av" id="sb-user-av">–</div>
     <div>
-      <div class="user-name">Operations Team</div>
-      <div class="user-role">op@tdfb.co.th</div>
+      <div class="user-name" id="sb-user-name">—</div>
+      <div class="user-role" id="sb-user-role"></div>
     </div>
   </div>
 </aside>
@@ -1473,7 +1491,7 @@ select option,select optgroup{
               <!-- Edit-mode banner — shown only when current draft is an edit-draft -->
               <div id="edit-mode-banner" style="display:none;margin:-2px 0 18px;padding:14px 16px;border-radius:9px;
                 background:linear-gradient(135deg,rgba(232,160,32,.08),rgba(232,160,32,.02));
-                border:1px solid var(--acc-bd);border-left-width:3px;display:flex;gap:12px;align-items:flex-start">
+                border:1px solid var(--acc-bd);display:flex;gap:12px;align-items:flex-start">
                 <div style="font-size:18px;line-height:1;margin-top:1px">✦</div>
                 <div style="flex:1;min-width:0">
                   <div style="font-family:'Playfair Display',serif;font-size:15px;font-weight:500;color:var(--t1);margin-bottom:3px">
@@ -1763,7 +1781,7 @@ select option,select optgroup{
 // Drawer "Sample images" baked offline (scripts/build_drawer_samples.py): originals +
 // detector crops + bbox, so opening a card on prod needs no Drive download and no model.
 // Re-run the script + redeploy after retraining the detector or changing dataset images.
-const BAKED_DRAWER_SAMPLES = {"back_label":[{"orig":"samples/back_label/0.jpg","regions":[{"src":"samples/back_label/0.crop0.jpg","label":null,"bbox":[132,157,263,207]},{"src":"samples/back_label/0.crop1.jpg","label":null,"bbox":[50,267,98,288]},{"src":"samples/back_label/0.crop2.jpg","label":null,"bbox":[105,297,164,319]}]},{"orig":"samples/back_label/1.jpg","regions":[{"src":"samples/back_label/1.crop0.jpg","label":null,"bbox":[142,28,256,65]},{"src":"samples/back_label/1.crop1.jpg","label":null,"bbox":[78,117,114,131]},{"src":"samples/back_label/1.crop2.jpg","label":null,"bbox":[116,143,152,157]}]},{"orig":"samples/back_label/2.jpg","regions":[{"src":"samples/back_label/2.crop0.jpg","label":null,"bbox":[133,16,247,56]},{"src":"samples/back_label/2.crop1.jpg","label":null,"bbox":[67,109,105,124]},{"src":"samples/back_label/2.crop2.jpg","label":null,"bbox":[114,134,168,153]}]}],"capsule_box":[{"orig":"samples/capsule_box/0.jpg","regions":[{"src":"samples/capsule_box/0.crop0.jpg","label":null,"bbox":[69,345,214,438]},{"src":"samples/capsule_box/0.crop1.jpg","label":null,"bbox":[70,347,211,396]}]},{"orig":"samples/capsule_box/1.jpg","regions":[{"src":"samples/capsule_box/1.crop0.jpg","label":null,"bbox":[64,361,157,409]}]},{"orig":"samples/capsule_box/2.jpg","regions":[{"src":"samples/capsule_box/2.crop0.jpg","label":null,"bbox":[39,455,110,491]}]}],"container_label":[{"orig":"samples/container_label/0.jpg","regions":[{"src":"samples/container_label/0.crop0.jpg","label":"box","bbox":[208,300,292,334]},{"src":"samples/container_label/0.crop1.jpg","label":"sachet","bbox":[207,379,262,410]}]},{"orig":"samples/container_label/1.jpg","regions":[{"src":"samples/container_label/1.crop0.jpg","label":"box","bbox":[202,291,300,330]},{"src":"samples/container_label/1.crop1.jpg","label":"sachet","bbox":[192,375,257,409]}]},{"orig":"samples/container_label/2.jpg","regions":[{"src":"samples/container_label/2.crop0.jpg","label":"box","bbox":[240,277,310,307]},{"src":"samples/container_label/2.crop1.jpg","label":"sachet","bbox":[222,350,270,378]}]}],"grade_bag":[{"orig":"samples/grade_bag/0.jpg","regions":[{"src":"samples/grade_bag/0.crop0.jpg","label":null,"bbox":[15,31,90,81]},{"src":"samples/grade_bag/0.crop1.jpg","label":null,"bbox":[215,134,252,150]}]},{"orig":"samples/grade_bag/1.jpg","regions":[{"src":"samples/grade_bag/1.crop0.jpg","label":null,"bbox":[4,31,62,82]},{"src":"samples/grade_bag/1.crop1.jpg","label":null,"bbox":[208,134,250,150]}]},{"orig":"samples/grade_bag/2.jpg","regions":[{"src":"samples/grade_bag/2.crop0.jpg","label":null,"bbox":[19,33,79,84]},{"src":"samples/grade_bag/2.crop1.jpg","label":null,"bbox":[209,134,253,150]}]}],"import_sticker":[{"orig":"samples/import_sticker/0.jpg","regions":[]},{"orig":"samples/import_sticker/1.jpg","regions":[]},{"orig":"samples/import_sticker/2.jpg","regions":[]}],"print_sticker_back":[{"orig":"samples/print_sticker_back/0.jpg","regions":[{"src":"samples/print_sticker_back/0.crop0.jpg","label":"lot_exp","bbox":[20,122,290,272]},{"src":"samples/print_sticker_back/0.crop1.jpg","label":"product_size","bbox":[128,436,249,481]}]},{"orig":"samples/print_sticker_back/1.jpg","regions":[{"src":"samples/print_sticker_back/1.crop0.jpg","label":"lot_exp","bbox":[13,64,308,225]},{"src":"samples/print_sticker_back/1.crop1.jpg","label":"product_size","bbox":[157,402,253,436]}]},{"orig":"samples/print_sticker_back/2.jpg","regions":[{"src":"samples/print_sticker_back/2.crop0.jpg","label":"lot_exp","bbox":[49,0,310,109]},{"src":"samples/print_sticker_back/2.crop1.jpg","label":"product_size","bbox":[44,2,306,153]}]}],"retail_sachet":[{"orig":"samples/retail_sachet/0.jpg","regions":[{"src":"samples/retail_sachet/0.crop0.jpg","label":null,"bbox":[217,330,239,368]}]},{"orig":"samples/retail_sachet/1.jpg","regions":[{"src":"samples/retail_sachet/1.crop0.jpg","label":null,"bbox":[160,195,182,235]}]},{"orig":"samples/retail_sachet/2.jpg","regions":[{"src":"samples/retail_sachet/2.crop0.jpg","label":null,"bbox":[99,270,126,322]}]}]};
+const BAKED_DRAWER_SAMPLES = {"back_label":[{"orig":"samples/back_label/0.jpg","regions":[{"src":"samples/back_label/0.crop0.jpg","label":null,"bbox":[132,157,263,207]},{"src":"samples/back_label/0.crop1.jpg","label":null,"bbox":[50,267,98,288]},{"src":"samples/back_label/0.crop2.jpg","label":null,"bbox":[105,297,164,319]}]},{"orig":"samples/back_label/1.jpg","regions":[{"src":"samples/back_label/1.crop0.jpg","label":null,"bbox":[142,28,256,65]},{"src":"samples/back_label/1.crop1.jpg","label":null,"bbox":[78,117,114,131]},{"src":"samples/back_label/1.crop2.jpg","label":null,"bbox":[116,143,152,157]}]},{"orig":"samples/back_label/2.jpg","regions":[{"src":"samples/back_label/2.crop0.jpg","label":null,"bbox":[133,16,247,56]},{"src":"samples/back_label/2.crop1.jpg","label":null,"bbox":[67,109,105,124]},{"src":"samples/back_label/2.crop2.jpg","label":null,"bbox":[114,134,168,153]}]}],"capsule_box":[{"orig":"samples/capsule_box/0.jpg","regions":[{"src":"samples/capsule_box/0.crop0.jpg","label":null,"bbox":[68,252,159,302]}]},{"orig":"samples/capsule_box/1.jpg","regions":[{"src":"samples/capsule_box/1.crop0.jpg","label":null,"bbox":[64,361,157,409]}]},{"orig":"samples/capsule_box/2.jpg","regions":[{"src":"samples/capsule_box/2.crop0.jpg","label":null,"bbox":[39,455,110,491]}]}],"container_label":[{"orig":"samples/container_label/0.jpg","regions":[{"src":"samples/container_label/0.crop0.jpg","label":"box","bbox":[208,300,292,334]},{"src":"samples/container_label/0.crop1.jpg","label":"sachet","bbox":[207,379,262,410]}]},{"orig":"samples/container_label/1.jpg","regions":[{"src":"samples/container_label/1.crop0.jpg","label":"box","bbox":[202,291,300,330]},{"src":"samples/container_label/1.crop1.jpg","label":"sachet","bbox":[192,375,257,409]}]},{"orig":"samples/container_label/2.jpg","regions":[{"src":"samples/container_label/2.crop0.jpg","label":"box","bbox":[240,277,310,307]},{"src":"samples/container_label/2.crop1.jpg","label":"sachet","bbox":[222,350,270,378]}]}],"grade_bag":[{"orig":"samples/grade_bag/0.jpg","regions":[{"src":"samples/grade_bag/0.crop0.jpg","label":null,"bbox":[15,31,90,81]},{"src":"samples/grade_bag/0.crop1.jpg","label":null,"bbox":[215,134,252,150]}]},{"orig":"samples/grade_bag/1.jpg","regions":[{"src":"samples/grade_bag/1.crop0.jpg","label":null,"bbox":[4,31,62,82]},{"src":"samples/grade_bag/1.crop1.jpg","label":null,"bbox":[208,134,250,150]}]},{"orig":"samples/grade_bag/2.jpg","regions":[{"src":"samples/grade_bag/2.crop0.jpg","label":null,"bbox":[19,33,79,84]},{"src":"samples/grade_bag/2.crop1.jpg","label":null,"bbox":[209,134,253,150]}]}],"import_sticker":[{"orig":"samples/import_sticker/0.jpg","regions":[]},{"orig":"samples/import_sticker/1.jpg","regions":[]},{"orig":"samples/import_sticker/2.jpg","regions":[]}],"print_sticker_back":[{"orig":"samples/print_sticker_back/2.jpg","regions":[{"src":"samples/print_sticker_back/2.crop0.jpg","label":"product_size","bbox":[6,96,295,264]},{"src":"samples/print_sticker_back/2.crop1.jpg","label":"lot_exp","bbox":[141,421,239,456]}]},{"orig":"samples/print_sticker_back/0.jpg","regions":[{"src":"samples/print_sticker_back/0.crop0.jpg","label":"product_size","bbox":[20,122,290,272]},{"src":"samples/print_sticker_back/0.crop1.jpg","label":"lot_exp","bbox":[128,436,249,481]}]},{"orig":"samples/print_sticker_back/1.jpg","regions":[{"src":"samples/print_sticker_back/1.crop0.jpg","label":"product_size","bbox":[13,64,308,225]},{"src":"samples/print_sticker_back/1.crop1.jpg","label":"lot_exp","bbox":[157,402,253,436]}]}],"retail_sachet":[{"orig":"samples/retail_sachet/0.jpg","regions":[{"src":"samples/retail_sachet/0.crop0.jpg","label":null,"bbox":[217,330,239,368]}]},{"orig":"samples/retail_sachet/1.jpg","regions":[{"src":"samples/retail_sachet/1.crop0.jpg","label":null,"bbox":[160,195,182,235]}]},{"orig":"samples/retail_sachet/2.jpg","regions":[{"src":"samples/retail_sachet/2.crop0.jpg","label":null,"bbox":[99,270,126,322]}]}]};
 const BAKED_SAMPLES = {
   "back_label": [
     "samples/back_label/0.jpg",
@@ -1864,12 +1882,26 @@ function clearSession() { localStorage.removeItem(AUTH_STORAGE_KEY); }
 
 function hideGate() { document.getElementById('login-gate').classList.add('hidden'); }
 
+function userInitials(s) {
+  const parts = String(s || '').trim().split(/[\s._-]+/).filter(Boolean);
+  if (!parts.length) return 'U';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
 function renderUserChip(u) {
+  if (!u) return;
   const wrap = document.getElementById('topbar-user');
   const em = document.getElementById('tu-email');
-  if (!wrap || !em || !u) return;
-  em.textContent = u.email || '';
-  wrap.style.display = 'flex';
+  if (wrap && em) { em.textContent = u.email || ''; wrap.style.display = 'flex'; }
+  // Sidebar footer reflects the actual logged-in Google user (not a hardcoded placeholder).
+  const name = (u.name && u.name.trim()) || (u.email ? u.email.split('@')[0] : '');
+  const nameEl = document.getElementById('sb-user-name');
+  const roleEl = document.getElementById('sb-user-role');
+  const avEl = document.getElementById('sb-user-av');
+  if (nameEl) nameEl.textContent = name || '—';
+  if (roleEl) roleEl.textContent = u.email || '';
+  if (avEl) avEl.textContent = userInitials(name || u.email);
 }
 
 function signOut() {
@@ -2373,13 +2405,21 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// Focus trap — keep Tab inside the drawer while it is open
+// Focus trap — keep Tab inside the topmost open dialog (confirm modal sits
+// above the drawer in z-index, so it wins when both are open)
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Tab') return;
+  const confirmBackdrop = document.getElementById('confirm-backdrop');
   const drawer = document.getElementById('drawer');
-  if (!drawer || !drawer.classList.contains('open')) return;
+  let container = null;
+  if (confirmBackdrop && confirmBackdrop.classList.contains('open')) {
+    container = document.getElementById('confirm-modal');
+  } else if (drawer && drawer.classList.contains('open')) {
+    container = drawer;
+  }
+  if (!container) return;
   const focusable = Array.from(
-    drawer.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+    container.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
   ).filter(el => !el.disabled && el.offsetParent !== null);
   if (!focusable.length) return;
   const first = focusable[0], last = focusable[focusable.length - 1];
@@ -3325,6 +3365,7 @@ async function annotSelect(idx) {
 
   // Load image + existing annotations
   const img = document.getElementById('annot-img');
+  img.alt = `รูปตัวอย่างสำหรับ annotate: ${im.name}`;
   img.src = `${API_BASE}/api/packagings/${encodeURIComponent(curDraftKey)}/images/${encodeURIComponent(im.name)}`;
   img.onload = () => {
     annot.imgNatural = {w: img.naturalWidth, h: img.naturalHeight};
