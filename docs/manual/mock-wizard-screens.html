@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ตัวอย่างหน้าจอ · Packaging Wizard</title>
+<style>
+:root{
+  --bg:#0f1210;--panel:#171c17;--panel2:#1f261f;--line:#313a31;
+  --text:#f2f5ef;--muted:#aab3a5;--faint:#778273;--accent:#e8a020;
+  --ok:#34d399;--warn:#fbbf24;--err:#f87171;--blue:#60a5fa;
+  --font:"IBM Plex Sans Thai","Leelawadee UI",Tahoma,system-ui,sans-serif;
+  --mono:"JetBrains Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#eef1eb;color:#1f241f;font-family:var(--font);line-height:1.55}
+.page{max-width:1200px;margin:0 auto;padding:28px}
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:22px}
+h1{font-size:26px;margin:0 0 4px}
+.top p{margin:0;color:#5a6558}
+.toc{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 24px}
+.toc a{padding:7px 11px;border:1px solid #d5ddd1;border-radius:8px;background:#fff;color:#354032;text-decoration:none;font-size:13px}
+section{margin:0 0 30px}
+h2{font-size:18px;margin:0 0 10px}
+.shot{background:var(--bg);border-radius:16px;border:1px solid #cfd7cc;overflow:hidden;box-shadow:0 16px 38px rgba(30,36,30,.14)}
+.browserbar{height:34px;background:#e9ede6;border-bottom:1px solid #d6ddd2;display:flex;align-items:center;gap:6px;padding:0 12px}
+.dot{width:10px;height:10px;border-radius:50%;background:#b8c2b5}.dot:nth-child(1){background:#ef7770}.dot:nth-child(2){background:#f0c45b}.dot:nth-child(3){background:#6ccf8d}
+.url{margin-left:8px;flex:1;background:#fff;border:1px solid #d0d8cc;border-radius:999px;padding:4px 12px;font:12px var(--mono);color:#647064}
+.app{min-height:620px;background:var(--bg);color:var(--text);display:grid;grid-template-columns:248px 1fr}
+.sidebar{background:#111511;border-right:1px solid var(--line);padding:22px 16px;display:flex;flex-direction:column}
+.brand{display:flex;gap:10px;align-items:center;margin-bottom:26px}
+.logo{width:34px;height:34px;border-radius:9px;background:var(--accent);color:#1a1206;display:grid;place-items:center;font-weight:800}
+.brand b{display:block}.brand span{font-size:12px;color:var(--muted)}
+.nav-label{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.12em;margin:18px 8px 8px}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:8px;color:#d7ddd3;font-size:14px}
+.nav.active{background:#252b22}.badge{font:11px var(--mono);background:#2f382f;border:1px solid #465244;border-radius:999px;padding:1px 7px;color:#cbd4c8}
+.user{margin-top:auto;display:flex;gap:10px;align-items:center;color:#dbe2d8;font-size:13px}.avatar{width:32px;height:32px;border-radius:50%;background:#2d352c;display:grid;place-items:center}
+.main{padding:26px 30px;min-width:0}.topbar{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+.title{font-size:18px;font-weight:700}.spacer{flex:1}.btn{border:1px solid #465245;background:#242b23;color:#edf3e9;border-radius:8px;padding:8px 12px;font-weight:700;font-size:13px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#181008}.btn.ok{background:var(--ok);border-color:var(--ok);color:#07130d}
+.login{min-height:620px;background:radial-gradient(circle at 30% 15%,rgba(232,160,32,.15),transparent 34%),var(--bg);display:grid;place-items:center;color:var(--text)}
+.login-card{width:360px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:30px;text-align:center}
+.login-card .small{font:12px var(--mono);color:var(--accent);margin-bottom:18px}.login-card h3{font-size:28px;margin:0 0 6px}
+.login-card p{color:var(--muted);margin:0 0 22px}.google{height:42px;border-radius:999px;background:#2d6cdf;color:#fff;display:flex;align-items:center;justify-content:center;gap:10px;font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.photo{height:88px;display:flex}.photo span{flex:1;background:#30382f}.photo span:nth-child(2){background:#222a22}
+.card-body{padding:14px}.pill{display:inline-flex;gap:6px;align-items:center;border:1px solid #315b45;color:#aaf0c8;background:#123322;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700}
+.pkg{font-size:17px;font-weight:800;margin:10px 0 2px}.key{font:12px var(--mono);color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:13px}.stat{background:#111610;border:1px solid #293229;border-radius:8px;padding:8px}.stat span{display:block;color:var(--faint);font-size:10px}.stat b{font-size:14px}
+.add{border:1px dashed #52604f;background:#151a15;display:grid;place-items:center;min-height:214px;color:#cdd5ca;font-weight:800}
+.wizard{display:grid;grid-template-columns:210px 1fr;gap:24px}.steps{border-right:1px solid var(--line);padding-right:18px}.step{display:flex;gap:10px;align-items:center;margin-bottom:16px;color:var(--muted)}
+.num{width:26px;height:26px;border-radius:50%;background:#2b342b;display:grid;place-items:center;font:12px var(--mono)}.step.active{color:var(--text)}.step.active .num{background:var(--accent);color:#1a1206}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px}.panel h3{font-size:20px;margin:0 0 6px}.desc{color:var(--muted);font-size:14px;margin:0 0 18px}
+.field{margin-bottom:15px}.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}.input,.select,.textarea{background:#111610;border:1px solid #384237;border-radius:8px;padding:10px 12px;color:#e9efe6;width:100%;font:14px var(--font)}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}.tab{padding:9px 11px;border:1px solid #384237;background:#121711;border-radius:8px;color:#cfd8cc;font-size:13px}.tab.on{border-color:var(--accent);background:#2f2614;color:#ffe2a1}
+.upload{border:1px dashed #596655;border-radius:12px;min-height:190px;display:grid;place-items:center;text-align:center;background:#121711}.upload b{display:block;font-size:18px}.upload span{color:var(--muted)}
+.eval{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.metric{background:#111610;border:1px solid #2d362d;border-radius:10px;padding:16px}.metric span{color:var(--muted);font-size:12px}.metric b{font:30px var(--mono);color:var(--ok)}
+.floor{margin-top:14px;background:#10291c;border:1px solid #25583c;border-radius:10px;padding:14px;color:#bdf3d2;font-weight:800}
+.row{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.note{font-size:13px;color:#5f6a5d;margin-top:8px}
+@media(max-width:800px){.app{grid-template-columns:1fr}.sidebar{display:none}.grid,.eval{grid-template-columns:1fr}.wizard{grid-template-columns:1fr}.steps{border-right:none;border-bottom:1px solid var(--line);padding:0 0 12px}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="top">
+    <div>
+      <h1>ตัวอย่างหน้าจอ Packaging Wizard</h1>
+      <p>ไฟล์ตัวอย่างสำหรับเปิดดูหน้าจอประกอบคู่มือ ไม่ต้องเชื่อมต่อระบบจริงหรือเข้าสู่ระบบ</p>
+    </div>
+  </div>
+  <nav class="toc">
+    <a href="#login">เข้าสู่ระบบ</a>
+    <a href="#dashboard">หน้าแรก</a>
+    <a href="#step1">Step 1</a>
+    <a href="#step2">Step 2</a>
+    <a href="#deploy">สถานะ Deploy</a>
+  </nav>
+
+  <section id="login">
+    <h2>หน้าเข้าสู่ระบบ</h2>
+    <div class="shot">
+      <div class="browserbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><div class="url">https://wizard.example/</div></div>
+      <div class="login">
+        <div class="login-card">
+          <div class="small">OCR Lot Checker</div>
+          <h3>เข้าสู่ระบบ</h3>
+          <p>ใช้บัญชี Google ของ @tdfb.co เท่านั้น</p>
+          <div class="google">G Sign in with Google</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">ตัวอย่างนี้ใช้ประกอบหัวข้อการเข้าสู่ระบบในคู่มือ</div>
+  </section>
+
+  <section id="dashboard">
+    <h2>หน้าแรกของ Packaging Wizard</h2>
+    <div class="shot">
+      <div class="browserbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><div class="url">https://wizard.example/#dashboard</div></div>
+      <div class="app">
+        <aside class="sidebar">
+          <div class="brand"><div class="logo">L</div><div><b>OCR Lot Checker</b><span>Packaging Wizard</span></div></div>
+          <div class="nav-label">Workspace</div>
+          <div class="nav active">Packaging <span class="badge">7</span></div>
+          <div class="nav">ผลการ Eval <span class="badge">soon</span></div>
+          <div class="nav-label">ระบบ</div>
+          <div class="nav">การตั้งค่า <span class="badge">soon</span></div>
+          <div class="user"><div class="avatar">OP</div><div>Operations<br><span style="color:var(--muted)">ops@tdfb.co</span></div></div>
+        </aside>
+        <main class="main">
+          <div class="topbar"><div class="title">Packaging Classes</div><div class="spacer"></div><button class="btn primary">เพิ่ม Packaging</button></div>
+          <div class="grid">
+            <div class="card"><div class="photo"><span></span><span></span><span></span></div><div class="card-body"><span class="pill">Live</span><div class="pkg">สติกเกอร์หลังซอง Matcha</div><div class="key">print_sticker_back · Detector + OCR</div><div class="stats"><div class="stat"><span>Conf</span><b>0.70</b></div><div class="stat"><span>Accuracy</span><b>91%</b></div><div class="stat"><span>Images</span><b>86</b></div></div></div></div>
+            <div class="card"><div class="photo"><span></span><span></span><span></span></div><div class="card-body"><span class="pill">Live</span><div class="pkg">QR Import Sticker</div><div class="key">import_sticker · QR Scanner</div><div class="stats"><div class="stat"><span>Conf</span><b>0.60</b></div><div class="stat"><span>Accuracy</span><b>--</b></div><div class="stat"><span>Images</span><b>44</b></div></div></div></div>
+            <div class="add">+ เพิ่ม Packaging ใหม่</div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <section id="step1">
+    <h2>ขั้น 1: ตั้งชื่อ Key และ Pipeline</h2>
+    <div class="shot">
+      <div class="browserbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><div class="url">https://wizard.example/#draft=new&step=1</div></div>
+      <div class="app">
+        <aside class="sidebar"><div class="brand"><div class="logo">L</div><div><b>OCR Lot Checker</b><span>Packaging Wizard</span></div></div></aside>
+        <main class="main">
+          <div class="wizard">
+            <div class="steps"><div class="step active"><div class="num">1</div><div>ตั้งชื่อ</div></div><div class="step"><div class="num">2</div><div>อัพรูป</div></div><div class="step"><div class="num">3</div><div>Annotation</div></div><div class="step"><div class="num">4</div><div>Config</div></div><div class="step"><div class="num">5</div><div>Eval & Deploy</div></div></div>
+            <div class="panel">
+              <h3>ตั้งชื่อ Packaging</h3><p class="desc">กำหนดชื่อและรายละเอียดของประเภทบรรจุภัณฑ์ใหม่ที่ต้องการให้ AI รู้จัก</p>
+              <div class="field"><label>ชื่อแสดง *</label><div class="input">สติกเกอร์หลังซอง Matcha</div></div>
+              <div class="field"><label>Key (code) *</label><div class="input" style="font-family:var(--mono)">matcha_back_sticker</div></div>
+              <div class="field"><label>ประเภท Pipeline *</label><div class="select">Detector + OCR (สำหรับ packaging ทั่วไป)</div></div>
+              <div class="field"><label>จุดที่จะ Crop</label><div class="tabs"><div class="tab on">ข้อมูลอยู่ใกล้กัน กรอบเดียว</div><div class="tab">แต่ละข้อมูลอยู่คนละมุม</div><div class="tab">lot อยู่หลายที่ ต้องเทียบ</div></div></div>
+              <div class="row"><button class="btn">ยกเลิก</button><button class="btn primary">ถัดไป: อัพรูป</button></div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <section id="step2">
+    <h2>ขั้น 2: อัพโหลดรูปตัวอย่าง</h2>
+    <div class="shot">
+      <div class="browserbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><div class="url">https://wizard.example/#draft=matcha&step=2</div></div>
+      <div class="app">
+        <aside class="sidebar"><div class="brand"><div class="logo">L</div><div><b>OCR Lot Checker</b><span>Packaging Wizard</span></div></div></aside>
+        <main class="main">
+          <div class="wizard">
+            <div class="steps"><div class="step"><div class="num">1</div><div>ตั้งชื่อ</div></div><div class="step active"><div class="num">2</div><div>อัพรูป</div></div><div class="step"><div class="num">3</div><div>Annotation</div></div></div>
+            <div class="panel">
+              <h3>อัพโหลดรูปตัวอย่าง</h3><p class="desc">อัพรูป packaging จากสถานการณ์จริง อย่างน้อย 50 รูป</p>
+              <div class="upload"><div><b>คลิกเพื่อเลือกรูป</b><span>รองรับ JPG, PNG · แนะนำ 50 ถึง 200 รูป · สูงสุด 10MB ต่อรูป</span></div></div>
+              <div class="row"><button class="btn">กลับไปแก้ชื่อ packaging</button><button class="btn primary">ถัดไป: Annotation</button></div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <section id="deploy">
+    <h2>ขั้น 5: สถานะหลัง Deploy</h2>
+    <div class="shot">
+      <div class="browserbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><div class="url">https://wizard.example/#draft=matcha&step=5</div></div>
+      <div class="app">
+        <aside class="sidebar"><div class="brand"><div class="logo">L</div><div><b>OCR Lot Checker</b><span>Packaging Wizard</span></div></div></aside>
+        <main class="main">
+          <div class="panel">
+            <h3>ผลการประเมิน Model</h3><p class="desc">ตัวเลขจาก val set และ hard floor check</p>
+            <div class="eval"><div class="metric"><span>Detector mAP@0.5</span><b>0.912</b></div><div class="metric"><span>Precision</span><b>93%</b></div></div>
+            <div class="floor">ผ่าน Hard Floor พร้อม Deploy</div>
+          </div>
+          <div class="panel" style="margin-top:16px">
+            <div class="floor">✅ Deployed แล้ว packaging live ใน production</div>
+            <div class="row"><button class="btn">Refresh</button><button class="btn ok">กลับ Dashboard</button></div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>คู่มือการใช้งาน · Packaging Wizard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:#F4F5F2;        /* quiet product-doc background */
+  --paper:#FFFFFF;         /* content surface */
+  --white:#FFFFFF;         /* figure mat */
+  --ink:#242721;
+  --ink-soft:#41473F;
+  --muted:#5D665D;
+  --faint:#778074;
+  --line:#DFE3DC;
+  --line-2:#C8D0C3;
+  --faint-line:#B8C1B4;
+  --gold:#B27508;          /* legible amber for text/links */
+  --gold-bright:#E8A020;   /* brand gold — solid markers/fills */
+  --gold-wash:#FBEFD6;
+  --green:#2E6B4C;         /* tea-leaf — tips / success */
+  --green-wash:#E6F0E8;
+  --amber:#9A6309;
+  --amber-wash:#FBEACB;
+
+  --display:'Bai Jamjuree','IBM Plex Sans Thai','Leelawadee UI',Tahoma,sans-serif;
+  --body:'IBM Plex Sans Thai','Leelawadee UI',Tahoma,system-ui,sans-serif;
+  --mono:'JetBrains Mono','IBM Plex Mono',ui-monospace,monospace;
+
+  --col:760px;
+  --wide:980px;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{
+  margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-weight:400;font-size:17px;line-height:1.75;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+img{max-width:100%;display:block}
+a{color:var(--gold);text-decoration:none}
+a:hover{text-decoration:underline}
+b,strong{font-weight:600;color:var(--ink)}
+code,kbd{font-family:var(--mono);font-size:.86em}
+code{background:var(--gold-wash);color:#7A4F06;padding:.08em .4em;border-radius:5px}
+kbd{background:var(--white);border:1px solid var(--line-2);border-bottom-width:2px;border-radius:6px;padding:.05em .45em;color:var(--ink);font-size:.8em}
+
+/* ── Top bar ───────────────────────────── */
+.topbar{
+  position:sticky;top:0;z-index:50;background:rgba(244,245,242,.9);
+  backdrop-filter:saturate(150%) blur(10px);border-bottom:1px solid var(--line);
+}
+.topbar-in{max-width:1240px;margin:0 auto;padding:13px 28px;display:flex;align-items:center;gap:13px}
+.logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(150deg,var(--gold-bright),#c97f10);
+  display:flex;align-items:center;justify-content:center;color:#231a07;font-family:var(--display);font-weight:700;font-size:17px;
+  box-shadow:0 2px 8px rgba(178,117,8,.3)}
+.brand{display:flex;flex-direction:column;line-height:1.2}
+.brand b{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.01em}
+.brand span{font-size:11px;color:var(--faint);letter-spacing:.16em;text-transform:uppercase;font-weight:500}
+.topbar .print-hint{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.topbar .print-hint kbd{font-size:11px}
+
+/* ── Layout ────────────────────────────── */
+.shell{max-width:1240px;margin:0 auto;padding:0 28px;display:grid;grid-template-columns:248px 1fr;gap:54px;align-items:start}
+.toc{position:sticky;top:78px;align-self:start;padding:34px 0 40px;max-height:calc(100vh - 78px);overflow:auto}
+.toc-eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);font-weight:600;margin:0 0 14px}
+.toc ol{list-style:none;margin:0;padding:0;counter-reset:toc}
+.toc li{margin:0}
+.toc a{display:flex;gap:11px;align-items:baseline;padding:7px 12px;border-radius:8px;color:var(--ink-soft);
+  font-size:14.5px;font-weight:500;transition:background .15s,color .15s}
+.toc a .n{font-family:var(--mono);font-size:11.5px;color:var(--faint);min-width:20px}
+.toc a:hover{background:#E9EDE6;text-decoration:none;color:var(--ink)}
+.toc a.active{background:var(--gold-wash);color:#7A4F06;font-weight:600}
+.toc a.active .n{color:var(--gold)}
+.toc .sub a{padding-left:34px;font-size:13.5px;color:var(--muted)}
+
+main{padding:34px 0 110px;min-width:0;max-width:var(--wide)}
+
+/* ── Hero ──────────────────────────────── */
+.hero{padding:30px 0 8px;border-bottom:1px solid var(--line);margin-bottom:48px}
+.hero .eyebrow{font-size:12.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);font-weight:600;margin:0 0 18px;
+  display:flex;align-items:center;gap:10px}
+.hero .eyebrow::before{content:"";width:26px;height:2px;background:var(--gold-bright);display:inline-block}
+.hero h1{font-family:var(--display);font-weight:700;font-size:clamp(32px,4.4vw,52px);line-height:1.1;margin:0 0 18px;letter-spacing:-.015em;text-wrap:balance}
+.hero h1 em{font-style:normal;color:var(--gold)}
+.hero .lead{font-size:19px;line-height:1.7;color:var(--ink-soft);max-width:640px;margin:0 0 28px}
+.hero .lead b{color:var(--ink)}
+.minimap{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.minimap .chip{display:flex;align-items:center;gap:8px;background:var(--paper);border:1px solid var(--line);
+  border-radius:999px;padding:7px 15px 7px 9px;font-size:13.5px;font-weight:500;color:var(--ink-soft)}
+.minimap .chip .num{font-family:var(--mono);font-size:11px;background:var(--ink);color:var(--ground);
+  width:21px;height:21px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:500}
+.prereq{display:flex;gap:12px;align-items:flex-start;background:var(--green-wash);border:1px solid #bcd6c2;
+  border-radius:10px;padding:15px 18px;font-size:14.5px;color:var(--ink-soft);margin:26px 0 4px}
+.prereq b{color:var(--green)}
+.prereq .ic{flex:none;font-size:17px;line-height:1.5}
+
+/* ── Sections & headings ───────────────── */
+section{scroll-margin-top:80px;margin:0 0 60px}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin:0 0 8px;padding-top:14px}
+/* numbered kickers removed: these sections are topics, not a sequence (the step 1-5 numerals are the only earned sequence) */
+.sec-head .kicker{display:none}
+h2{font-family:var(--display);font-weight:700;font-size:clamp(24px,2.8vw,32px);line-height:1.2;margin:0;letter-spacing:-.01em;text-wrap:balance}
+h3{font-family:var(--display);font-weight:600;font-size:21px;margin:34px 0 10px;letter-spacing:-.005em;text-wrap:balance}
+.sec-intro{font-size:17px;color:var(--ink-soft);max-width:var(--col);margin:0 0 22px;text-wrap:pretty}
+p{max-width:var(--col);margin:0 0 16px;text-wrap:pretty}
+.muted{color:var(--muted)}
+
+/* ── Glossary ──────────────────────────── */
+.glossary{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:13px;overflow:hidden;margin:6px 0 8px}
+.gloss-row{display:grid;grid-template-columns:200px 1fr;gap:0;background:var(--paper)}
+.gloss-row .term{padding:16px 20px;font-family:var(--display);font-weight:600;font-size:15.5px;color:var(--ink);background:#EEF2EA}
+.gloss-row .def{padding:16px 22px;font-size:15px;color:var(--ink-soft);line-height:1.65}
+
+/* ── Step cards ────────────────────────── */
+.step{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:30px 32px;margin:0 0 26px;
+  box-shadow:0 1px 0 rgba(0,0,0,.02)}
+.step-top{display:flex;gap:20px;align-items:flex-start;margin-bottom:6px}
+.step-num{flex:none;width:58px;height:58px;border-radius:15px;background:var(--ink);color:var(--ground);
+  font-family:var(--display);font-weight:700;font-size:26px;display:flex;align-items:center;justify-content:center;
+  position:relative}
+.step-num::after{content:attr(data-step);position:absolute;bottom:-7px;right:-7px;font-size:9px;letter-spacing:.1em;
+  background:var(--gold-bright);color:#231a07;border-radius:5px;padding:2px 5px;font-family:var(--mono);font-weight:500}
+.step-titles{flex:1;min-width:0}
+.step-titles .label{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:600}
+.step-titles h2{font-size:25px;margin:4px 0 0}
+.step-body{margin-top:18px}
+
+/* clicks list */
+.clicks{list-style:none;counter-reset:cl;margin:14px 0 4px;padding:0;max-width:var(--col)}
+.clicks li{counter-increment:cl;position:relative;padding:9px 0 9px 40px;border-top:1px solid var(--line);font-size:16px;line-height:1.6}
+.clicks li:first-child{border-top:none}
+.clicks li::before{content:counter(cl);position:absolute;left:0;top:9px;width:25px;height:25px;border-radius:50%;
+  background:var(--gold-wash);color:#7A4F06;font-family:var(--mono);font-size:12.5px;font-weight:500;
+  display:flex;align-items:center;justify-content:center;border:1px solid #f0dcb4}
+
+/* ── Figures ───────────────────────────── */
+figure{margin:24px 0;max-width:var(--wide)}
+.frame{background:var(--white);border:1px solid var(--line-2);border-radius:14px;padding:10px;
+  box-shadow:0 14px 40px -22px rgba(41,37,31,.5),0 2px 6px rgba(41,37,31,.05)}
+.frame img{border-radius:8px;width:100%}
+figcaption{margin-top:13px;font-size:14px;color:var(--muted);max-width:var(--col)}
+.legend{display:flex;flex-wrap:wrap;gap:7px 16px;margin:12px 0 0;padding:0;list-style:none;max-width:var(--wide)}
+.legend li{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink-soft)}
+.legend .b{flex:none;width:23px;height:23px;border-radius:50%;background:var(--gold-bright);color:#231a07;
+  font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;font-family:var(--body)}
+
+/* ── Callouts ──────────────────────────── */
+.note{display:flex;gap:13px;border-radius:12px;padding:15px 19px;margin:20px 0;font-size:15px;line-height:1.65;max-width:var(--col)}
+.note .ic{flex:none;font-size:17px;line-height:1.5}
+.note.tip{background:var(--green-wash);border:1px solid #bcd6c2}
+.note.tip b{color:var(--green)}
+.note.warn{background:var(--amber-wash);border:1px solid #ecd29a}
+.note.warn b{color:var(--amber)}
+.note.info{background:var(--paper);border:1px solid var(--line-2)}
+
+/* ── Colab block ───────────────────────── */
+.colab{border:1px dashed var(--line-2);background:linear-gradient(180deg,#FFFFFF,#F7F8F4);border-radius:16px;padding:26px 30px;margin:24px 0}
+.colab-head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.colab-head .tag{font-family:var(--mono);font-size:11px;letter-spacing:.08em;background:#fde9c4;color:#8a5a07;
+  padding:4px 9px;border-radius:6px;font-weight:500}
+.colab-head h3{margin:0;font-size:20px}
+.placeholder{border:2px dashed var(--line-2);border-radius:12px;background:#fbf6ec;padding:30px 22px;text-align:center;
+  color:var(--muted);font-size:14px;margin:16px 0}
+.placeholder .big{font-size:26px;margin-bottom:8px;opacity:.7}
+.placeholder b{color:var(--amber)}
+
+/* ── Browser-independent mock screens ───── */
+.mock-shot{background:#0f1210;border:1px solid #242922;border-radius:14px;padding:18px;color:#eef2ea;
+  min-height:360px;display:grid;place-items:center;position:relative;overflow:hidden}
+.mock-shot::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,rgba(232,160,32,.14),transparent 32%),
+  linear-gradient(180deg,#151914,#0d100e);pointer-events:none}
+.mock-login-card{position:relative;width:min(360px,92%);background:#181d18;border:1px solid #30382f;border-radius:12px;
+  padding:30px 28px;text-align:center;box-shadow:0 12px 30px rgba(0,0,0,.28)}
+.mock-login-brand{font-family:var(--mono);font-size:12px;color:#E8A020;margin-bottom:18px}
+.mock-login-card h3{color:#fff;margin:0 0 6px;font-size:26px}
+.mock-login-card p{color:#a9b2a5;font-size:14px;margin:0 auto 22px}
+.mock-google{height:42px;border-radius:999px;background:#2D6CDF;color:#fff;display:flex;align-items:center;justify-content:center;
+  gap:10px;font-size:14px;font-weight:600}
+.mock-google::before{content:"G";width:22px;height:22px;border-radius:50%;background:#fff;color:#2D6CDF;
+  display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;font-weight:700}
+.mock-deploy{position:relative;width:min(720px,94%);background:#181d18;border:1px solid #30382f;border-radius:12px;padding:22px}
+.mock-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:0 0 14px}
+.mock-metric{background:#101510;border:1px solid #2b332b;border-radius:9px;padding:14px;text-align:left}
+.mock-metric span{display:block;color:#a9b2a5;font-size:12px;margin-bottom:4px}
+.mock-metric b{font-family:var(--mono);font-size:26px;color:#34D399}
+.mock-floor{background:#10291c;border:1px solid #25583c;border-radius:9px;padding:14px;color:#bdf3d2;font-weight:700;text-align:left}
+.mock-live{margin-top:12px;background:#142216;border:1px solid #315b45;border-radius:9px;padding:14px;color:#d7f8e3;text-align:center;font-weight:700}
+.mock-screen-link{font-size:13.5px;color:var(--muted);margin-top:10px}
+
+/* ── FAQ ───────────────────────────────── */
+.faq details{border:1px solid var(--line);border-radius:12px;background:var(--paper);margin:0 0 10px;overflow:hidden;max-width:var(--wide)}
+.faq summary{cursor:pointer;padding:16px 20px;font-family:var(--display);font-weight:600;font-size:16.5px;color:var(--ink);
+  list-style:none;display:flex;align-items:center;gap:12px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary .q{flex:none;color:var(--gold);font-family:var(--mono);font-size:14px}
+.faq summary::after{content:"+";margin-left:auto;color:var(--faint);font-size:22px;font-weight:400;transition:transform .2s}
+.faq details[open] summary::after{transform:rotate(45deg)}
+.faq .a{padding:0 20px 18px 46px;font-size:15px;color:var(--ink-soft);line-height:1.7}
+.faq .a p{margin:0 0 8px}
+
+/* ── Footer ────────────────────────────── */
+.foot{border-top:1px solid var(--line);margin-top:30px;padding-top:24px;font-size:13.5px;color:var(--faint)}
+
+/* ── Responsive ────────────────────────── */
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr;gap:0}
+  .toc{position:static;max-height:none;padding:18px 0 10px;border-bottom:1px solid var(--line);margin-bottom:10px}
+  .toc ol{display:flex;flex-wrap:wrap;gap:4px}
+  .toc a{padding:6px 12px}.toc .sub{display:none}
+  main{padding-top:22px}
+  .gloss-row{grid-template-columns:1fr}
+  .gloss-row .term{background:#f4ecdc}
+}
+@media (max-width:560px){
+  body{font-size:16px}
+  .topbar-in,.shell{padding-left:16px;padding-right:16px}
+  .step{padding:22px 18px}
+  .step-top{gap:14px}.step-num{width:48px;height:48px;font-size:21px}
+  .colab{padding:20px 18px}
+}
+
+/* ── Print → PDF ───────────────────────── */
+@media print{
+  :root{--ground:#fff}
+  .topbar,.toc,.print-hint{display:none!important}
+  .shell{display:block;max-width:none;padding:0}
+  main{max-width:none;padding:0}
+  body{font-size:12pt}
+  .step,.frame,figure,.note,.colab,.faq details{break-inside:avoid}
+  .faq details{border:1px solid #ccc}
+  .faq details:not([open]) summary::after{content:""}
+  .frame{box-shadow:none}
+  a{color:var(--ink)}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="logo">L</div>
+    <div class="brand"><b>OCR Lot Checker</b><span>Packaging Wizard · คู่มือ</span></div>
+    <div class="print-hint">บันทึกเป็น PDF ได้ที่ <kbd>Ctrl</kbd>+<kbd>P</kbd></div>
+  </div>
+</header>
+
+<div class="shell">
+
+  <!-- ───────── TOC ───────── -->
+  <nav class="toc" aria-label="สารบัญ">
+    <p class="toc-eyebrow">สารบัญ</p>
+    <ol>
+      <li><a href="#intro"><span class="n">01</span> แอปนี้คืออะไร</a></li>
+      <li><a href="#access"><span class="n">02</span> เปิดแอป &amp; เข้าระบบ</a></li>
+      <li><a href="#dashboard"><span class="n">03</span> หน้าแรก &amp; การ์ด</a></li>
+      <li><a href="#add"><span class="n">04</span> เพิ่ม Packaging ใหม่</a></li>
+      <li class="sub"><a href="#step1">ขั้น 1 · ตั้งชื่อ</a></li>
+      <li class="sub"><a href="#step2">ขั้น 2 · อัพรูป</a></li>
+      <li class="sub"><a href="#step3">ขั้น 3 · ลากกรอบ</a></li>
+      <li class="sub"><a href="#step4">ขั้น 4 · ตั้งค่า</a></li>
+      <li class="sub"><a href="#step5">ขั้น 5 · เทรน &amp; ใช้งาน</a></li>
+      <li><a href="#edit"><span class="n">05</span> แก้ไข / เทรนใหม่</a></li>
+      <li><a href="#archive"><span class="n">06</span> ปิดใช้งาน (Archive)</a></li>
+      <li><a href="#conf"><span class="n">07</span> ปรับความไวการจับ</a></li>
+      <li><a href="#products"><span class="n">08</span> แก้ชื่อ Product (ไม่เทรนใหม่)</a></li>
+      <li><a href="#faq"><span class="n">09</span> แก้ปัญหาที่พบบ่อย</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- ───────── HERO ───────── -->
+    <div class="hero">
+      <p class="eyebrow">คู่มือผู้ใช้ · Packaging Wizard</p>
+      <h1>สอน AI ให้รู้จัก<br><em>กล่องและซองแบบใหม่</em></h1>
+      <p class="lead">
+        Packaging Wizard คือหน้าจอที่ให้คุณ<b>เพิ่มบรรจุภัณฑ์แบบใหม่</b>ให้ระบบตรวจ lot อัตโนมัติรู้จัก
+        แค่อัพรูป ลากกรอบรอบเลข lot แล้วกดเทรน
+        คู่มือนี้พาทำทีละขั้นพร้อมภาพประกอบจากหน้าจอใช้งาน
+      </p>
+      <div class="minimap">
+        <span class="chip"><span class="num">1</span> ตั้งชื่อ</span>
+        <span class="chip"><span class="num">2</span> อัพรูป</span>
+        <span class="chip"><span class="num">3</span> ลากกรอบ</span>
+        <span class="chip"><span class="num">4</span> ตั้งค่า</span>
+        <span class="chip"><span class="num">5</span> เทรน &amp; ใช้งาน</span>
+      </div>
+      <div class="prereq">
+        <span class="ic">🧰</span>
+        <div><b>เตรียมก่อนเริ่ม:</b> รูปถ่ายบรรจุภัณฑ์จริงอย่างน้อย <b>50 รูป</b> (หลายมุม/หลายแสง),
+        ตัวอย่างเลข lot จริง 3–5 ค่า, และ<b>บัญชี Google @tdfb.co</b> สำหรับเข้า Wizard และรัน Colab ตอนเทรน</div>
+      </div>
+    </div>
+
+    <!-- ───────── 01 INTRO ───────── -->
+    <section id="intro">
+      <div class="sec-head"><span class="kicker">01</span><h2>แอปนี้คืออะไร</h2></div>
+      <p class="sec-intro">
+        ระบบจะถ่ายรูปบรรจุภัณฑ์ → จำแนกว่าเป็นบรรจุภัณฑ์ชนิดไหน → หาตำแหน่งเลข lot/วันหมดอายุ → อ่านตัวเลข →
+        เทียบกับ Google Sheet ว่าตรงไหม แต่ระบบจะทำได้เฉพาะ<b>ชนิดบรรจุภัณฑ์ที่เคยถูกสอนมาแล้ว</b>เท่านั้น
+        เมื่อมีกล่อง/ซองแบบใหม่ คุณใช้ Wizard นี้เพิ่มประเภทบรรจุภัณฑ์ใหม่ให้ระบบ
+      </p>
+
+      <h3>ศัพท์ที่จะเจอบ่อย</h3>
+      <div class="glossary">
+        <div class="gloss-row"><div class="term">Packaging (คลาส)</div>
+          <div class="def">แบบของบรรจุภัณฑ์แต่ละชนิด เช่น "กล่องชาถุง", "ซองขายปลีก" — ระบบจำแต่ละแบบเป็นคนละคลาส แต่ละคลาสต้องสอนแยกกัน</div></div>
+        <div class="gloss-row"><div class="term">Lot / วันหมดอายุ</div>
+          <div class="def">เลขล็อตการผลิตและวันหมดอายุที่พิมพ์อยู่บนบรรจุภัณฑ์ — คือสิ่งที่เราอยากให้ AI "อ่าน" ออกมา</div></div>
+        <div class="gloss-row"><div class="term">ข้อมูลอยู่คนละมุม (multi_field)</div>
+          <div class="def">บรรจุภัณฑ์ที่ lot, วันหมดอายุ, ชื่อสินค้า ฯลฯ พิมพ์<b>แยกกันคนละจุด</b>ในรูป (เช่นสติกเกอร์หลังซอง Matcha ที่ LOT อยู่ล่างขวา แต่ชื่อสินค้าอยู่บนสุด) — เลือกโหมดนี้ในขั้น 1 แล้วบอกว่าแต่ละข้อมูลอยู่กรอบไหน</div></div>
+        <div class="gloss-row"><div class="term">ชื่อ Product (aliases)</div>
+          <div class="def">รายการคู่ระหว่าง "คำที่ OCR อ่านเจอบนซอง" กับ "ชื่อสินค้าจริงใน Google Sheet" — ใช้จับคู่ว่าซองนี้คือสินค้าตัวไหน แก้ไขได้ทันทีในแผงรายละเอียดโดย<b>ไม่ต้องเทรนใหม่</b> (ดูหัวข้อ 08)</div></div>
+        <div class="gloss-row"><div class="term">ลากกรอบ (Annotation)</div>
+          <div class="def">ใช้เมาส์ลากกรอบสี่เหลี่ยมล้อมตำแหน่งเลข lot ในรูป เป็นการระบุตำแหน่งที่ระบบควรอ่าน ยิ่งลากหลายรูป AI ยิ่งแม่น</div></div>
+        <div class="gloss-row"><div class="term">เทรน (Training)</div>
+          <div class="def">ขั้นที่คอมพิวเตอร์เรียนรู้จากรูป + กรอบที่คุณลาก ทำบน Google Colab (เครื่องเสมือนของ Google) โดย Colab ฟรีไม่การันตี runtime ใช้เวลาราว 60–90 นาทีขึ้นไปตามจำนวนรูปและคิวของ Colab</div></div>
+        <div class="gloss-row"><div class="term">Deploy</div>
+          <div class="def">นำโมเดลที่เทรนเสร็จขึ้นใช้งานจริง หลังจากนี้ระบบตรวจ lot จะรู้จักบรรจุภัณฑ์ใหม่ทันที</div></div>
+        <div class="gloss-row"><div class="term">Hard Floor</div>
+          <div class="def">เกณฑ์ความแม่นขั้นต่ำที่ต้องผ่านก่อน Deploy ได้ — กันไม่ให้เอาโมเดลที่ยังไม่แม่นพอขึ้นใช้งาน</div></div>
+      </div>
+    </section>
+
+    <!-- ───────── 02 ACCESS ───────── -->
+    <section id="access">
+      <div class="sec-head"><span class="kicker">02</span><h2>เปิดแอป &amp; เข้าสู่ระบบ</h2></div>
+      <p class="sec-intro">
+        Wizard เป็นหน้าเว็บที่ต้องเปิดผ่าน URL และล็อกอินก่อนใช้งาน ระบบอนุญาตเฉพาะบัญชี Google ขององค์กร
+        ที่ลงท้ายด้วย <code>@tdfb.co</code>
+      </p>
+      <ol class="clicks">
+        <li>เปิดลิงก์ Packaging Wizard ผ่านเบราว์เซอร์ ไม่เปิดไฟล์ <code>wizard.html</code> ตรง ๆ จากเครื่อง</li>
+        <li>กดปุ่ม Google Sign-In แล้วเลือกบัญชี <code>@tdfb.co</code></li>
+        <li>เมื่อเข้าสู่ระบบแล้วจะเห็นหน้า Packaging Classes และอีเมลผู้ใช้ที่มุมบนขวา</li>
+      </ol>
+      <figure>
+        <div class="frame">
+          <div class="mock-shot" role="img" aria-label="ตัวอย่างหน้าเข้าสู่ระบบ Packaging Wizard">
+            <div class="mock-login-card">
+              <div class="mock-login-brand">OCR Lot Checker</div>
+              <h3>เข้าสู่ระบบ</h3>
+              <p>ใช้บัญชี Google ของ @tdfb.co เท่านั้น</p>
+              <div class="mock-google">Sign in with Google</div>
+            </div>
+          </div>
+        </div>
+        <ul class="legend">
+          <li><span class="b">1</span> ปุ่มเข้าสู่ระบบด้วย Google</li>
+          <li><span class="b">2</span> ใช้บัญชี <code>@tdfb.co</code> เท่านั้น</li>
+        </ul>
+        <div class="mock-screen-link">ดูตัวอย่างหน้าจอเพิ่มเติม: <a href="mock-wizard-screens.html">mock-wizard-screens.html</a></div>
+      </figure>
+      <div class="note info"><span class="ic">🔒</span><div>
+        ถ้าเปิดจากไฟล์ในเครื่องแล้วขึ้นข้อความให้เปิดผ่าน URL ให้กลับไปเปิดจากลิงก์เว็บแทน
+        การเปิดจากไฟล์ตรง ๆ ไม่สามารถใช้ Google Sign-In ได้</div></div>
+    </section>
+
+    <!-- ───────── 02 DASHBOARD ───────── -->
+    <section id="dashboard">
+      <div class="sec-head"><span class="kicker">03</span><h2>หน้าแรก &amp; การ์ดบรรจุภัณฑ์</h2></div>
+      <p class="sec-intro">หน้าแรกแสดงบรรจุภัณฑ์ทุกชนิดที่ AI รู้จักอยู่ตอนนี้ เป็นการ์ดเรียงกัน ป้าย <b>Live</b> สีเขียว = ใช้งานจริงอยู่</p>
+
+      <figure>
+        <div class="frame"><img src="img/dashboard.png" alt="หน้า Dashboard แสดงการ์ด packaging"></div>
+        <ul class="legend">
+          <li><span class="b">1</span> ปุ่ม “เพิ่ม Packaging ใหม่” — เริ่มสอนชนิดใหม่</li>
+          <li><span class="b">2</span> การ์ดบรรจุภัณฑ์ — คลิกเพื่อดูรายละเอียด</li>
+        </ul>
+      </figure>
+
+      <p>คลิกที่การ์ดใดก็ได้ จะมีแผงรายละเอียดเลื่อนออกมาจากด้านขวา แสดงรูปตัวอย่างพร้อมกรอบที่ AI จับได้ และปุ่มจัดการ</p>
+
+      <figure>
+        <div class="frame"><img src="img/drawer.png" alt="แผงรายละเอียดของ packaging"></div>
+        <ul class="legend">
+          <li><span class="b">1</span> ความไวการจับ (conf) — ปรับได้ ดูหัวข้อ 07</li>
+          <li><span class="b">2</span> ปุ่ม “แก้ไข + เทรนใหม่”</li>
+          <li><span class="b">3</span> ปุ่ม “ปิดใช้งาน” (Archive)</li>
+        </ul>
+      </figure>
+      <p>ถ้าบรรจุภัณฑ์นั้นมีการอ่าน<b>ชื่อสินค้า</b> (เช่นสติกเกอร์หลังซอง Matcha) เลื่อนแผงลงไปจะเจอตัว<b>แก้ชื่อ Product ที่อ่าน</b>
+        ซึ่งแก้ได้ทันทีโดยไม่ต้องเทรนใหม่ — ดูวิธีใช้ที่<a href="#products">หัวข้อ 08</a></p>
+    </section>
+
+    <!-- ───────── 04 ADD NEW ───────── -->
+    <section id="add">
+      <div class="sec-head"><span class="kicker">04</span><h2>เพิ่ม Packaging ใหม่</h2></div>
+      <p class="sec-intro">
+        การสอนชนิดใหม่มี 5 ขั้นตอนเรียงกัน แถบด้านซ้ายในแอปจะบอกเสมอว่าคุณอยู่ขั้นไหน
+        เริ่มจากกดปุ่ม <b>“เพิ่ม Packaging ใหม่”</b> ที่หน้าแรก
+      </p>
+      <div class="note info"><span class="ic">💾</span><div>
+        ทุกขั้นจะ<b>เซฟอัตโนมัติ</b> ถ้าปิดไปกลางคัน เปิดการ์ดเดิมแล้วกด “Continue setup” เพื่อทำต่อจากจุดที่ค้างไว้ได้</div></div>
+
+      <!-- STEP 1 -->
+      <div class="step" id="step1">
+        <div class="step-top">
+          <div class="step-num" data-step="STEP">1</div>
+          <div class="step-titles"><div class="label">ตั้งชื่อ</div><h2>ตั้งชื่อ &amp; เลือกประเภท</h2></div>
+        </div>
+        <div class="step-body">
+          <p>บอกระบบว่าบรรจุภัณฑ์ใหม่ชื่ออะไร และข้อมูล lot อยู่รวมกันหรือกระจายหลายจุด</p>
+          <ol class="clicks">
+            <li>พิมพ์ <b>ชื่อแสดง</b> เป็นภาษาคนอ่านเข้าใจ เช่น “สติกเกอร์หลังซอง Matcha”</li>
+            <li>กรอก <b>Key</b> เป็นตัวพิมพ์เล็ก ตัวเลข และขีดล่างเท่านั้น เช่น <code>matcha_back_sticker</code></li>
+            <li>เลือก <b>ประเภท Pipeline</b> — ปกติเลือก <b>Detector + OCR</b> ไว้ (เลือก QR Scanner เฉพาะบรรจุภัณฑ์ที่อ่านจาก QR code)</li>
+            <li>เลือก <b>จุดที่จะ Crop</b> — มีให้เลือก 3 แบบ (ดูตารางด้านล่าง)</li>
+            <li>กด <b>ถัดไป</b></li>
+          </ol>
+          <figure>
+            <div class="frame"><img src="img/step1.png" alt="ขั้นที่ 1 ตั้งชื่อ packaging"></div>
+            <ul class="legend">
+              <li><span class="b">1</span> ชื่อแสดง</li>
+              <li><span class="b">2</span> Key สำหรับระบบ</li>
+              <li><span class="b">3</span> ประเภท Pipeline และจุดที่จะ Crop</li>
+            </ul>
+          </figure>
+
+          <h3>เลือก “จุดที่จะ Crop” แบบไหน?</h3>
+          <div class="glossary">
+            <div class="gloss-row"><div class="term">ข้อมูลอยู่ใกล้กัน — กรอบเดียว <span style="font-weight:400;color:var(--faint)">(ค่าเริ่มต้น)</span></div>
+              <div class="def">lot + วันหมดอายุพิมพ์ติดกัน ลากกรอบเดียวคลุมได้หมด — บรรจุภัณฑ์ส่วนใหญ่ใช้แบบนี้</div></div>
+            <div class="gloss-row"><div class="term">แต่ละข้อมูลอยู่คนละมุม <span style="font-weight:400;color:var(--faint)">(multi_field)</span></div>
+              <div class="def">แต่ละข้อมูลพิมพ์แยกกันคนละจุดในรูป เช่น<b>สติกเกอร์หลังซอง Matcha</b> — ชื่อสินค้าอยู่บนสุด แต่ LOT/วันหมดอายุอยู่ล่างขวา
+                เลือกแบบนี้แล้ว<b>ติ๊ก field ที่มี</b> (lot บังคับ, เพิ่ม Expiry / Product / Size) แล้วเลือก <b>“กรอบที่”</b> ให้แต่ละ field —
+                field ที่ใส่<b>เลขกรอบเดียวกัน</b>จะถูกอ่านจากกรอบเดียวกัน (เช่นให้ lot กับวันหมดอายุเป็น “กรอบที่ 1” เพราะพิมพ์ติดกัน, ชื่อสินค้ากับขนาดเป็น “กรอบที่ 2”)</div></div>
+            <div class="gloss-row"><div class="term">กล่องนอก + ซองใน <span style="font-weight:400;color:var(--faint)">(ขั้นสูง)</span></div>
+              <div class="def">เฉพาะกรณี lot พิมพ์ทั้งบนกล่องนอกและซองในแล้วต้องเทียบให้ตรงกัน (เช่น container_label) — ถ้าไม่แน่ใจ ข้ามไปได้</div></div>
+          </div>
+          <figure>
+            <div class="frame"><img src="img/step1-multi.png" alt="ขั้นที่ 1 โหมด multi_field เลือกกรอบ"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+              <div class="placeholder" style="display:none"><div class="big">📷</div>
+                <b>รูปนี้ไม่พร้อมแสดง</b> — เปิด <code>docs/manual/mock-wizard-screens.html</code> เพื่อดูตัวอย่างหน้าจอแทน</div>
+            </div>
+            <ul class="legend">
+              <li><span class="b">1</span> ปุ่มโหมด “แต่ละข้อมูลอยู่คนละมุม”</li>
+              <li><span class="b">2</span> ติ๊ก field + เลือก “กรอบที่” ของแต่ละข้อมูล</li>
+            </ul>
+          </figure>
+          <div class="note tip"><span class="ic">💡</span><div>
+            ไม่แน่ใจ? เลือก <b>“ข้อมูลอยู่ใกล้กัน — กรอบเดียว”</b> ไว้ก่อนได้เสมอ ใช้ multi_field เฉพาะตอนที่ข้อมูลอยู่ห่างกันจริง ๆ จนกรอบเดียวคลุมไม่ไหว</div></div>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="step" id="step2">
+        <div class="step-top">
+          <div class="step-num" data-step="STEP">2</div>
+          <div class="step-titles"><div class="label">อัพรูป</div><h2>อัพโหลดรูปตัวอย่าง</h2></div>
+        </div>
+        <div class="step-body">
+          <p>ยิ่งมีรูปหลากหลาย AI ยิ่งแม่น แนะนำ <b>50–200 รูป</b> จากหลายมุม หลายระยะ และแสงต่างกัน</p>
+          <ol class="clicks">
+            <li>คลิกพื้นที่อัพโหลด แล้วเลือกรูปจากเครื่อง (หน้าจอระบุรองรับ JPG, PNG ไม่เกิน 10MB ต่อรูป)</li>
+            <li>รอจนแถบความคืบหน้าขึ้นครบ แล้วกด <b>ถัดไป: Annotation</b></li>
+          </ol>
+          <figure>
+            <div class="frame"><img src="img/step2.png" alt="ขั้นที่ 2 อัพโหลดรูป"></div>
+            <ul class="legend"><li><span class="b">1</span> พื้นที่อัพโหลด — คลิกเพื่อเลือกรูป</li></ul>
+          </figure>
+          <div class="note tip"><span class="ic">📸</span><div>
+            <b>เคล็ดลับ:</b> ถ่ายทั้งมุมตรงและมุมเฉียง ใกล้-ไกล ที่สว่างและสลัว และมีบรรจุภัณฑ์อื่นปนในเฟรมบ้าง —
+            จะช่วยให้ AI ทำงานได้ดีกับสถานการณ์จริงหน้างาน</div></div>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="step" id="step3">
+        <div class="step-top">
+          <div class="step-num" data-step="STEP">3</div>
+          <div class="step-titles"><div class="label">ลากกรอบ</div><h2>ลากกรอบรอบเลข Lot</h2></div>
+        </div>
+        <div class="step-body">
+          <p>นี่คือขั้นที่คุณ “สอน” AI ด้วยมือ — บอกมันว่าเลข lot อยู่ตรงไหนในแต่ละรูป ต้องลากให้ครบ<b>อย่างน้อย 30 รูป</b></p>
+          <ol class="clicks">
+            <li>คลิกรูปจากแถบด้านบนเพื่อเลือกรูปที่จะทำ</li>
+            <li>ใช้เมาส์<b>ลากกรอบสี่เหลี่ยมล้อมเลข lot</b> ให้คลุมข้อความที่อยากอ่านทั้งหมด</li>
+            <li>กดลูกศร <kbd>→</kbd> ไปรูปถัดไป ทำซ้ำจนแถบ <b>Labeled</b> ครบ 30 / 30</li>
+            <li>เมื่อครบ ปุ่ม <b>ถัดไป: ตั้งค่า Config</b> สีเขียวจะขึ้นมาให้กด</li>
+          </ol>
+          <figure>
+            <div class="frame"><img src="img/step3.png" alt="ขั้นที่ 3 ลากกรอบ annotation"></div>
+            <ul class="legend">
+              <li><span class="b">1</span> พื้นที่ลากกรอบ (กรอบทอง = ที่ลากไว้แล้ว)</li>
+              <li><span class="b">2</span> แถบรูปย่อ — เขียว = ทำแล้ว</li>
+              <li><span class="b">3</span> ความคืบหน้า Labeled x / 30</li>
+            </ul>
+          </figure>
+          <div class="note tip"><span class="ic">⌨️</span><div>
+            <b>คีย์ลัด:</b> <kbd>←</kbd> <kbd>→</kbd> เปลี่ยนรูป · <kbd>Del</kbd> ลบกรอบล่าสุด · <kbd>Esc</kbd> ยกเลิกการลาก</div></div>
+
+          <h3>ถ้าเลือกโหมด “แต่ละข้อมูลอยู่คนละมุม” (multi_field)</h3>
+          <p>จะมี<b>เมนูเลือก label</b> โผล่เหนือพื้นที่ลากกรอบ ก่อนลากแต่ละกรอบให้เลือกก่อนว่ากรอบนี้คือข้อมูลอะไร
+            (<b>lot / วันหมดอายุ / ชื่อสินค้า / ขนาด</b> ตามกลุ่มที่ตั้งไว้ในขั้น 1) แล้วค่อยลาก ทำให้ครบทุก label ในแต่ละรูป</p>
+          <div class="note warn"><span class="ic">🏷️</span><div>
+            <b>อย่าลืมสลับ label</b> ก่อนลากกรอบถัดไป — ถ้าลากกรอบชื่อสินค้าโดยลืมสลับจาก lot ระบบจะเข้าใจผิดว่าเป็น lot ตรวจกรอบให้ป้ายสีตรงกับข้อมูลทุกครั้ง</div></div>
+        </div>
+      </div>
+
+      <!-- STEP 4 -->
+      <div class="step" id="step4">
+        <div class="step-top">
+          <div class="step-num" data-step="STEP">4</div>
+          <div class="step-titles"><div class="label">ตั้งค่า</div><h2>ตั้งค่า Lot Pattern &amp; Fields</h2></div>
+        </div>
+        <div class="step-body">
+          <p>บอกระบบว่าเลข lot หน้าตาเป็นยังไง และต้องการให้ดึงข้อมูลอะไรบ้าง</p>
+          <ol class="clicks">
+            <li>ใส่ <b>ตัวอย่างเลข Lot จริง 3–5 ค่า</b> — ระบบจะสร้างสูตร (pattern) ให้อัตโนมัติ และแสดง preview ว่าจับถูกไหม (เครื่องหมายถูกสีเขียว = ใช้ได้)</li>
+            <li>เลือก <b>Fields ที่จะดึง</b> — Lot บังคับเสมอ ติ๊กเพิ่ม Expiry / Product Name / Size ได้ตามต้องการ</li>
+            <li>เลือก <b>Sheet Checks</b> ว่าจะให้เทียบอะไรกับ Google Sheet</li>
+            <li>เลือก <b>Message Template</b> รูปแบบข้อความแจ้งผลที่จะส่งไป Slack แล้วกด <b>ถัดไป</b></li>
+          </ol>
+          <figure>
+            <div class="frame"><img src="img/step4.png" alt="ขั้นที่ 4 ตั้งค่า lot pattern"></div>
+            <ul class="legend">
+              <li><span class="b">1</span> ตัวอย่างเลข Lot</li>
+              <li><span class="b">2</span> Pattern ที่ระบบสร้าง + preview</li>
+              <li><span class="b">3</span> Fields ที่จะดึง</li>
+            </ul>
+          </figure>
+
+          <h3>ถ้าติ๊ก “Product Name”</h3>
+          <p>จะมีการ์ดเพิ่มให้ตั้งชื่อสินค้า — พิมพ์ <b>ชื่อ Product ที่ต้องตรงกับ Google Sheet</b> และ <b>คำที่พบบนซอง</b> ที่ OCR น่าจะอ่านเจอ
+            เช่นสติกเกอร์ Matcha จะใส่คำว่า <code>Matcha M2</code> คู่กับชื่อใน sheet <code>Matcha M2 {size}</code>
+            (ใส่ <code>{size}</code> ในชื่อได้ เพื่อให้ระบบเติมขนาดที่อ่านได้ลงไป)</p>
+          <div class="note tip"><span class="ic">✏️</span><div>
+            รายการนี้<b>แก้ทีหลังได้ทันทีโดยไม่ต้องเทรนใหม่</b> — เพิ่ม/ลบสินค้าจากแผงรายละเอียดของการ์ดได้ตลอด ดู<a href="#products">หัวข้อ 08</a></div></div>
+          <figure>
+            <div class="frame"><img src="img/step4-product.png" alt="การ์ดตั้งชื่อ product"></div>
+            <ul class="legend"><li><span class="b">1</span> ตั้งชื่อ Product + คำที่พบบนซอง</li></ul>
+          </figure>
+        </div>
+      </div>
+
+      <!-- STEP 5 -->
+      <div class="step" id="step5">
+        <div class="step-top">
+          <div class="step-num" data-step="STEP">5</div>
+          <div class="step-titles"><div class="label">เทรน &amp; ใช้งาน</div><h2>เทรนโมเดล แล้วนำขึ้นใช้งาน</h2></div>
+        </div>
+        <div class="step-body">
+          <p>ขั้นสุดท้าย: ส่งรูปทั้งหมดไปเทรนบน Google Colab รอผล แล้วถ้าผ่านเกณฑ์ก็กด Deploy</p>
+
+          <h3>5.1 เริ่มเทรน</h3>
+          <ol class="clicks">
+            <li>กด <b>“Publish dataset + เปิด Training Notebook”</b> — ระบบจะส่งรูปขึ้น Drive แล้วเปิดหน้า Colab ให้ในแท็บใหม่</li>
+          </ol>
+          <figure>
+            <div class="frame"><img src="img/step5a.png" alt="ขั้นที่ 5 เริ่ม full training"></div>
+            <ul class="legend"><li><span class="b">1</span> ปุ่ม Publish dataset + เปิด Notebook</li></ul>
+          </figure>
+
+          <!-- Colab block -->
+          <div class="colab">
+            <div class="colab-head"><span class="tag">ออกนอกแอป</span><h3>5.2 รันบน Google Colab</h3></div>
+            <p>Colab คือเครื่องเสมือนของ Google ที่ทำการเทรนให้ — ไม่ได้ใช้เครื่องของคุณประมวลผล แต่ถ้าใช้ Colab ฟรี runtime ไม่ได้การันตีและอาจถูกตัดเมื่อ idle หรือใช้งานครบโควตา</p>
+            <ol class="clicks">
+              <li>ถ้าระบบให้ <b>ลงชื่อเข้า Google</b> ให้ใช้บัญชีที่เตรียมไว้</li>
+              <li>ที่เมนูบนกด <b><code>Runtime → Run all</code></b> (ภาษาไทยคือ “รันทั้งหมด”)</li>
+              <li>ถ้ามีกล่องเตือน <em>“This notebook was not authored by Google”</em> ให้กด <b>Run anyway</b> — ปลอดภัย เพราะเป็น notebook ของทีมเราเอง</li>
+              <li><b>รอประมาณ 60–90 นาทีขึ้นไป</b> จนเซลล์สุดท้ายรันจบและเขียนผลลัพธ์ครบ — ระหว่างนี้ควรเปิดแท็บ Colab ทิ้งไว้และอย่ากด Disconnect/หยุด runtime</li>
+            </ol>
+            <figure>
+              <div class="frame"><img src="img/colab-training.png" alt="หน้า Google Colab สำหรับรัน Full Training Detector และ Classifier"></div>
+              <ul class="legend">
+                <li><span class="b">1</span> เมนู <code>Runtime → Run all</code></li>
+                <li><span class="b">2</span> เซลล์ Detector เริ่มจากติดตั้ง YOLO และเชื่อม Google Drive</li>
+              </ul>
+            </figure>
+          </div>
+
+          <h3>5.3 ดึงโมเดลกลับมา</h3>
+          <ol class="clicks">
+            <li>กลับมาที่แอป กด <b>“Train เสร็จแล้ว — ดึง model จาก Drive”</b></li>
+          </ol>
+          <figure>
+            <div class="frame"><img src="img/step5b.png" alt="ขั้นที่ 5 ดึง model จาก Drive"></div>
+            <ul class="legend"><li><span class="b">1</span> ปุ่มดึง model จาก Drive</li></ul>
+          </figure>
+          <div class="note warn"><span class="ic">⏳</span><div>
+            กดได้<b>หลังเซลล์สุดท้ายใน Colab รันเสร็จเท่านั้น</b> — ระบบจะเจอไฟล์ก็ต่อเมื่อ notebook รันจบครบ ถ้ากดเร็วเกินจะขึ้นว่ายังไม่เจอ ให้รอแล้วกดใหม่</div></div>
+
+          <h3>5.4 ดูผล &amp; Deploy</h3>
+          <ol class="clicks">
+            <li>ดู <b>คะแนนความแม่น</b> และแถบ <b>Hard Floor Check</b> — ต้องขึ้น “ผ่าน Hard Floor” สีเขียว</li>
+            <li>ถ้าผ่าน กด <b>“Deploy to Production”</b> เพื่อนำขึ้นใช้งานจริง</li>
+          </ol>
+          <figure>
+            <div class="frame"><img src="img/step5c.png" alt="ขั้นที่ 5 ผลการประเมินและ deploy"></div>
+            <ul class="legend">
+              <li><span class="b">1</span> คะแนนความแม่น (mAP / Precision)</li>
+              <li><span class="b">2</span> ผ่าน Hard Floor — พร้อม Deploy</li>
+              <li><span class="b">3</span> ปุ่ม Deploy to Production</li>
+            </ul>
+          </figure>
+          <div class="note warn"><span class="ic">⚠️</span><div>
+            ถ้าขึ้น <b>“ไม่ผ่าน Hard Floor”</b> สีแดง แปลว่าโมเดลยังไม่แม่นพอ — กลับไป<b>เพิ่มรูป</b>และ<b>ตรวจกรอบ</b>ให้ตรงขึ้น แล้วเทรนใหม่ (ดูหัวข้อ 05)</div></div>
+
+          <p>เมื่อ Deploy สำเร็จ หน้าจอจะแสดงสถานะว่า packaging <b>live ใน production</b> แล้ว
+            ถ้าเป็นการแก้ไขของเดิม ระบบจะกลับไปหน้า Dashboard หลัง deploy สำเร็จ</p>
+          <figure>
+            <div class="frame">
+              <div class="mock-shot" role="img" aria-label="ตัวอย่างสถานะ Deployed แล้วในขั้นตอน Eval และ Deploy">
+                <div class="mock-deploy">
+                  <div class="mock-metrics">
+                    <div class="mock-metric"><span>Detector mAP@0.5</span><b>0.912</b></div>
+                    <div class="mock-metric"><span>Precision</span><b>93%</b></div>
+                  </div>
+                  <div class="mock-floor">ผ่าน Hard Floor พร้อม Deploy</div>
+                  <div class="mock-live">✅ Deployed แล้ว packaging live ใน production</div>
+                </div>
+              </div>
+            </div>
+            <ul class="legend"><li><span class="b">1</span> สถานะ Deployed แล้ว</li></ul>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────── 05 EDIT ───────── -->
+    <section id="edit">
+      <div class="sec-head"><span class="kicker">05</span><h2>แก้ไข / เทรนใหม่</h2></div>
+      <p class="sec-intro">
+        อยากให้บรรจุภัณฑ์เดิมแม่นขึ้น หรือเพิ่มรูปใหม่? เปิดการ์ดของมันแล้วกด <b>“แก้ไข + เทรนใหม่”</b>
+        ระบบจะสร้างสำเนา (draft) ขึ้นมาให้แก้โดย<b>ไม่กระทบตัวที่ใช้งานอยู่</b> จนกว่าจะ Deploy ทับ
+      </p>
+      <figure>
+        <div class="frame"><img src="img/edit-banner.png" alt="โหมดแก้ไข edit mode"></div>
+        <ul class="legend"><li><span class="b">1</span> แถบ Edit mode — บอกว่ากำลังแก้ตัวไหนอยู่</li></ul>
+      </figure>
+      <p>ขั้นตอนเหมือนการเพิ่มใหม่ทุกอย่าง (อัพรูปเพิ่ม → ลากกรอบ → เทรน → Deploy) แต่ในขั้นลากกรอบจะมีปุ่มพิเศษ
+        <b>“Prelabel อัตโนมัติ”</b> ที่ใช้โมเดลตัวเดิมช่วยใส่กรอบให้รูปใหม่ก่อน คุณแค่ตรวจและแก้ — ประหยัดเวลามาก</p>
+      <figure>
+        <div class="frame"><img src="img/edit-prelabel.png" alt="ปุ่ม prelabel อัตโนมัติ"></div>
+        <ul class="legend"><li><span class="b">1</span> ปุ่ม Prelabel — ใส่กรอบให้อัตโนมัติ แล้วค่อยตรวจ</li></ul>
+      </figure>
+      <div class="note tip"><span class="ic">🛟</span><div>
+        ตอน Deploy โมเดลใหม่ ระบบจะ<b>สำรองตัวเก่าไว้</b>อัตโนมัติ เพื่อให้ทีมเทคนิค rollback ได้หากจำเป็น</div></div>
+    </section>
+
+    <!-- ───────── 06 ARCHIVE ───────── -->
+    <section id="archive">
+      <div class="sec-head"><span class="kicker">06</span><h2>ปิดใช้งาน (Archive)</h2></div>
+      <p class="sec-intro">
+        ถ้าเลิกใช้บรรจุภัณฑ์ชนิดไหน ให้ <b>ปิดใช้งาน</b> แทนการลบ — AI ยังจำคลาสนั้นได้ แต่ระบบจะไม่เอาไปตรวจจริง
+        เปิดกลับมาใช้เมื่อไหร่ก็ได้
+      </p>
+      <ol class="clicks">
+        <li>เปิดการ์ดของบรรจุภัณฑ์ที่ต้องการ</li>
+        <li>กดปุ่ม <b>“ปิดใช้งาน”</b> แล้วยืนยัน</li>
+        <li>อยากเอากลับ? เปิดการ์ดเดิม (จะมีป้าย Archived) แล้วกด <b>“เปิดใช้งานอีกครั้ง”</b></li>
+      </ol>
+      <figure>
+        <div class="frame"><img src="img/archive.png" alt="ปุ่มปิดใช้งาน packaging"></div>
+        <ul class="legend"><li><span class="b">1</span> ปุ่ม “ปิดใช้งาน”</li></ul>
+      </figure>
+    </section>
+
+    <!-- ───────── 07 CONF ───────── -->
+    <section id="conf">
+      <div class="sec-head"><span class="kicker">07</span><h2>ปรับความไวการจับ</h2></div>
+      <p class="sec-intro">
+        ในแผงรายละเอียดของแต่ละการ์ดมีค่า <b>conf threshold</b> (ความมั่นใจขั้นต่ำที่ AI จะยอมรับว่าเป็นบรรจุภัณฑ์ชนิดนั้น)
+        ปรับได้ทันที <b>โดยไม่ต้องเทรนใหม่</b>
+      </p>
+      <ul class="clicks">
+        <li>ค่า<b>สูง</b> (เช่น 0.85) = เข้มงวด จับเฉพาะที่มั่นใจมาก — ลดการเดาผิด แต่บางรูปอาจถูกตีว่า “ไม่มั่นใจ”</li>
+        <li>ค่า<b>ต่ำ</b> (เช่น 0.55) = ยืดหยุ่น จับได้มากขึ้น — แต่เสี่ยงจับผิดชนิด</li>
+        <li>ปรับในแผงรายละเอียด (เลข ① ในรูปหัวข้อ 03) แล้วกดบันทึก มีผลทันที</li>
+      </ul>
+      <div class="note info"><span class="ic">🎚️</span><div>ค่าเริ่มต้นคือ <code>0.60</code> ถ้าไม่แน่ใจ ปล่อยไว้ก่อนได้ แล้วค่อยปรับเมื่อเจอปัญหาจริง</div></div>
+    </section>
+
+    <!-- ───────── 08 PRODUCT NAMES ───────── -->
+    <section id="products">
+      <div class="sec-head"><span class="kicker">08</span><h2>แก้ชื่อ Product ที่อ่าน (ไม่ต้องเทรนใหม่)</h2></div>
+      <p class="sec-intro">
+        สำหรับบรรจุภัณฑ์ที่อ่าน<b>ชื่อสินค้า</b> (มี Product Name อยู่ในรายการที่ดึง เช่นสติกเกอร์หลังซอง Matcha)
+        คุณ<b>เพิ่ม/ลบ/แก้ชื่อสินค้าได้ทันทีจากแผงรายละเอียด</b> โดยไม่ต้องเทรนโมเดลใหม่ —
+        เหมาะกับตอนออกสินค้ารสใหม่หรือเปลี่ยนชื่อบน sheet
+      </p>
+      <p>ระบบจับคู่จาก <b>“คำที่พบบนซอง”</b> (สิ่งที่ OCR อ่านได้) ไปเป็น <b>“ชื่อสินค้าใน Sheet”</b> เช่น OCR อ่านเจอ
+        <code>Matcha M2</code> → แปลงเป็น <code>Matcha M2 100g</code> ที่ตรงกับ Google Sheet (ส่วน <code>{size}</code> ระบบเติมขนาดที่อ่านได้ให้เอง)</p>
+      <ol class="clicks">
+        <li>เปิดการ์ดของบรรจุภัณฑ์ แล้วเลื่อนแผงรายละเอียดลงไปที่หัวข้อ <b>“ชื่อ Product ที่อ่าน (แก้ได้ทันที — ไม่ต้อง retrain)”</b></li>
+        <li>กด <b>“+ เพิ่ม product”</b> เพื่อเพิ่มแถวใหม่ แล้วกรอก <b>ชื่อสินค้าใน sheet</b> (ซ้าย) และ <b>คำที่พบบนซอง</b> (ขวา)</li>
+        <li>แก้/ลบแถวเดิมได้ตามต้องการ แล้วกด <b>“บันทึก product names”</b> — มีผลทันที</li>
+        <li>อยากย้อนกลับไปใช้รายการเดิมของระบบ? กด <b>“↩ กลับไปใช้รายการมาตรฐาน”</b></li>
+      </ol>
+      <figure>
+        <div class="frame"><img src="img/drawer-product.png" alt="ตัวแก้ชื่อ product ในแผงรายละเอียด"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+          <div class="placeholder" style="display:none"><div class="big">📷</div>
+            <b>รูปนี้ไม่พร้อมแสดง</b> — เปิด <code>docs/manual/mock-wizard-screens.html</code> เพื่อดูตัวอย่างหน้าจอแทน</div>
+        </div>
+        <ul class="legend">
+          <li><span class="b">1</span> รายการคู่ ชื่อใน sheet ↔ คำที่พบบนซอง</li>
+          <li><span class="b">2</span> ปุ่ม “บันทึก product names”</li>
+          <li><span class="b">3</span> ปุ่ม “กลับไปใช้รายการมาตรฐาน”</li>
+        </ul>
+      </figure>
+      <div class="note warn"><span class="ic">⚠️</span><div>
+        ถ้าการ์ดยังขึ้นกล่องเตือนสีแดงว่า<b>“ยังใช้รายการ product มาตรฐานในระบบ (hardcode) อยู่”</b> แปลว่ายังไม่เคยตั้ง alias เอง —
+        เมื่อกดบันทึกครั้งแรกจะ<b>แทนที่รายการเดิมทั้งหมดทันที</b> ต้องใส่สินค้า<b>ทุกตัว</b>ที่อยากให้อ่านในคราวเดียว มิฉะนั้นของเดิมจะหาย</div></div>
+      <div class="note tip"><span class="ic">↩️</span><div>
+        หลังกดบันทึกจะมีปุ่ม <b>Undo</b> ขึ้นมาชั่วครู่ กดเพื่อย้อนทันทีได้ถ้าบันทึกผิด</div></div>
+    </section>
+
+    <!-- ───────── 09 FAQ ───────── -->
+    <section id="faq">
+      <div class="sec-head"><span class="kicker">09</span><h2>แก้ปัญหาที่พบบ่อย</h2></div>
+      <div class="faq">
+
+        <details>
+          <summary><span class="q">Q</span>กดปุ่ม “ถัดไป” ที่ขั้นลากกรอบไม่ได้</summary>
+          <div class="a"><p>ต้องลากกรอบให้ครบ<b>อย่างน้อย 30 รูป</b>ก่อน ดูแถบ <b>Labeled x / 30</b> ด้านล่าง ถ้ายังไม่ครบ ปุ่มเขียวจะยังไม่ขึ้น — ลากเพิ่มจนครบแล้วปุ่มจะปรากฏเอง</p></div>
+        </details>
+
+        <details>
+          <summary><span class="q">Q</span>อัพรูปได้ไม่ถึง 50 รูป / รูปอัพไม่ขึ้น</summary>
+          <div class="a"><p>ตรวจว่ารูปแต่ละไฟล์<b>ไม่เกิน 10MB</b> และใช้ไฟล์ JPG หรือ PNG ตามที่หน้าจอรองรับ ถ้ารูปน้อย ให้ถ่ายเพิ่มจากมุมและแสงที่ต่างออกไป — ความหลากหลายสำคัญกว่าจำนวนเป๊ะ ๆ</p></div>
+        </details>
+
+        <details>
+          <summary><span class="q">Q</span>เทรนเสร็จแต่ขึ้น “ไม่ผ่าน Hard Floor”</summary>
+          <div class="a"><p>แปลว่าโมเดลยังไม่แม่นพอ มักเกิดจากรูปน้อยเกินไปหรือกรอบที่ลากไม่ตรง วิธีแก้: ใช้โหมด <b>แก้ไข + เทรนใหม่</b> (หัวข้อ 05) เพิ่มรูปอีก ตรวจกรอบให้ล้อมเลข lot พอดี แล้วเทรนใหม่อีกครั้ง</p></div>
+        </details>
+
+        <details>
+          <summary><span class="q">Q</span>กด “ดึง model” แล้วขึ้นว่ายังไม่เจอไฟล์</summary>
+          <div class="a"><p>Colab ยังรันไม่เสร็จ ระบบจะเจอไฟล์ก็ต่อเมื่อ notebook รัน<b>จบครบทุกเซลล์</b> กลับไปดูที่แท็บ Colab ว่าเซลล์สุดท้ายเสร็จแล้วหรือยัง รอให้เสร็จแล้วค่อยกดใหม่</p></div>
+        </details>
+
+        <details>
+          <summary><span class="q">Q</span>Colab เตือน “not authored by Google”</summary>
+          <div class="a"><p>เป็นคำเตือนมาตรฐานของ Colab กับทุก notebook ที่ไม่ใช่ของ Google เอง กด <b>Run anyway</b> ได้เลย ปลอดภัย เพราะเป็น notebook ของทีมเรา</p></div>
+        </details>
+
+        <details>
+          <summary><span class="q">Q</span>เผลอปิดแท็บ Colab / เน็ตหลุดระหว่างรอ</summary>
+          <div class="a"><p>การเทรนรันอยู่บนเครื่องเสมือนของ Google ไม่ใช่คอมคุณ แต่บน Colab ฟรีไม่ควรถือว่าปิดคอมแล้วจะรันต่อได้แน่นอน เพราะ runtime อาจถูกตัดเมื่อ idle หรือครบโควตา เปิดลิงก์เดิมจากขั้นที่ 5 อีกครั้งเพื่อตรวจสถานะ ถ้ารันไม่จบให้รันต่อ/รันใหม่ตามที่ notebook บอก</p></div>
+        </details>
+
+        <details>
+          <summary><span class="q">Q</span>หน้าจอค้างที่ “รอ Colab” นานมาก</summary>
+          <div class="a"><p>ปิดหน้า Wizard ได้ เพราะสถานะ draft ถูกเซฟไว้แล้ว แต่ควรปล่อยแท็บ Colab ให้รันจนจบถ้าใช้ Colab ฟรี — เปิดการ์ด draft เดิมแล้วกด <b>Continue setup</b> เพื่อกลับมาที่ขั้นนี้ เมื่อ Colab เสร็จค่อยกด “ดึง model”</p></div>
+        </details>
+
+        <details>
+          <summary><span class="q">Q</span>Deploy ไปแล้วอยากย้อนกลับ</summary>
+          <div class="a"><p>ตอน Deploy ทับของเดิม ระบบสำรองตัวเก่าไว้อัตโนมัติ หากต้องย้อนกลับ ให้แจ้งทีมเทคนิคเพื่อใช้ backup หรือสลับ revision ที่เหมาะสม</p></div>
+        </details>
+
+        <details>
+          <summary><span class="q">Q</span>ออกสินค้ารสใหม่ ต้องเทรนโมเดลใหม่ไหม</summary>
+          <div class="a"><p>ถ้าหน้าตาบรรจุภัณฑ์ยัง<b>เหมือนเดิม</b> เปลี่ยนแค่ชื่อ/รส — <b>ไม่ต้องเทรนใหม่</b> แค่เปิดการ์ดแล้วเพิ่มชื่อสินค้าในตัวแก้ Product (หัวข้อ 08) ก็พอ จะเทรนใหม่ก็ต่อเมื่อรูปลักษณ์ของซอง/กล่องเปลี่ยนไปจริง ๆ</p></div>
+        </details>
+
+        <details>
+          <summary><span class="q">Q</span>โหมด “แต่ละข้อมูลอยู่คนละมุม” ต่างจากแบบกรอบเดียวยังไง</summary>
+          <div class="a"><p>ใช้เมื่อ lot, วันหมดอายุ, ชื่อสินค้า พิมพ์<b>แยกกันคนละจุด</b>ในรูปจนกรอบเดียวคลุมไม่ไหว (เช่นสติกเกอร์หลังซอง Matcha) ตอนตั้งค่าขั้น 1 ให้ติ๊ก field ที่มีแล้วบอก “กรอบที่” ของแต่ละข้อมูล จากนั้นตอนลากกรอบ (ขั้น 3) ต้องสลับ label ให้ตรงกับข้อมูลทุกครั้ง ถ้าข้อมูลอยู่ใกล้กันอยู่แล้ว ใช้ “กรอบเดียว” ง่ายกว่า</p></div>
+        </details>
+
+      </div>
+
+      <div class="foot">
+        คู่มือนี้อ้างอิงหน้าจอจริงของ Packaging Wizard — บันทึกเป็น PDF ได้ที่ <kbd>Ctrl</kbd>+<kbd>P</kbd> ·
+        หากหน้าจอจริงต่างจากคู่มือ ให้ยึดหน้าจอจริงและแจ้งทีมให้อัปเดตคู่มือ
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+// Scroll-spy: highlight the current section in the TOC
+(function(){
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var map = {};
+  links.forEach(function(a){
+    var id = a.getAttribute('href').slice(1);
+    var el = document.getElementById(id);
+    if (el) map[id] = a;
+  });
+  var ids = Object.keys(map);
+  if (!ids.length || !('IntersectionObserver' in window)) return;
+  var current = null;
+  function setActive(id){
+    if (id === current) return;
+    current = id;
+    links.forEach(function(a){ a.classList.remove('active'); });
+    if (map[id]) map[id].classList.add('active');
+  }
+  var io = new IntersectionObserver(function(entries){
+    // pick the entry nearest the top that is intersecting
+    var visible = entries.filter(function(e){ return e.isIntersecting; });
+    if (visible.length){
+      visible.sort(function(a,b){ return a.boundingClientRect.top - b.boundingClientRect.top; });
+      setActive(visible[0].target.id);
+    }
+  }, { rootMargin: '-72px 0px -65% 0px', threshold: 0 });
+  ids.forEach(function(id){ io.observe(document.getElementById(id)); });
+})();
+</script>
+</body>
+</html>
