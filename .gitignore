@@ -85,3 +85,13 @@ data/test/
 
 # Detector dataset cleanup backups
 dataset-backup/
+
+# AI tooling / session scratch (2026-07-02)
+graphify-out/
+scratchpad/
+.review-test-temp/
+--full-page
+report.txt
+_run_prod_test.py
+FLOW_*.html
+n8n workflow
