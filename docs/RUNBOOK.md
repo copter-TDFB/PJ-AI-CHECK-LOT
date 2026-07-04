@@ -106,6 +106,30 @@ Then redeploy (or force a fresh revision with `--revision-suffix <x>` if the
 image/config combo already exists — Cloud Run dedupes identical
 image+config and won't restart, so a running instance never re-syncs).
 
+**Gotcha (hit in production 2026-07-03):** the `PUT .../product-aliases` row
+above is only true for flat/OR keywords. Some classes (e.g. `30_sachet`) use
+AND-group keywords (`[["Medium Rich", "B Grade"]]` — all terms required) to
+disambiguate near-identical products. The endpoint's validation
+(`api/packagings.py` `update_product_aliases`) calls `.strip()` on every
+keyword assuming it's a string, so it 500s on a nested-list entry — and the
+wizard's product-alias drawer can only *write* flat OR lists to begin with
+(`.split(',')` on save), silently flattening any existing AND-groups for that
+class the next time you save an unrelated edit through it. If a class needs
+AND-groups, skip both the wizard and the endpoint and write the override
+directly:
+```bash
+GCS_CONFIG_BUCKET=ocr-lot-checker-config GOOGLE_APPLICATION_CREDENTIALS=gcp-key.json python -c "
+from services import config_overrides
+config_overrides.save_product_aliases('<key>', [...])   # keywords may be nested lists for AND
+"
+```
+No redeploy needed, but this bypasses the endpoint's own `main.reload_registry()`
+call — a currently-warm instance keeps serving the OLD in-memory registry
+until it restarts (same caveat as model sync below; a Cloud Run idle
+scale-down naturally triggers this, or force one with `--revision-suffix <x>`
++ `update-traffic`). Verify with `GET /api/packagings/{key}` before assuming
+it's live. Tracked in Jira KAN-31 (wizard UI + endpoint fix, not yet done).
+
 **Model sync only runs at process startup** (`lifespan`) — a running
 revision will not pick up new GCS models or config until it restarts.
 
