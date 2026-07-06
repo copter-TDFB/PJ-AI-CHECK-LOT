@@ -95,3 +95,7 @@ report.txt
 _run_prod_test.py
 FLOW_*.html
 n8n workflow
+
+# pm-bridge (AI PM workflow) scratch
+.worktrees/
+.pm-bridge/
