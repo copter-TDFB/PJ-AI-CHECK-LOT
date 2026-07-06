@@ -83,12 +83,15 @@ broken" confusion in this service:
 | `conf_threshold` or `product_aliases` on any class | `config_overrides.json` (GCS or Drive) — a **runtime override**, separate from the YAML | `PUT /api/packagings/{key}/conf` or `/product-aliases` — no redeploy needed |
 | Model weights (`.pt`) | GCS `models/` per `manifest.json`, when `GCS_CONFIG_BUCKET` is set | `cloudrun_deployer.publish_packaging_to_gcs` (uploads changed models automatically) |
 
-**Gotcha (hit in production 2026-07-02):** a packaging can be BOTH baked into
-the image AND have a stale copy in GCS `packagings/<key>.yaml` if it was ever
-published there (e.g. via the wizard's Deploy button, even if it's normally
-thought of as an "originally shipped" class). If that GCS copy exists, the
-registry overlay uses it **instead of** the freshly rebuilt image's version —
-so rebuilding the image alone does not ship the fix. Check both:
+**Gotcha (hit in production 2026-07-02, recurred 2026-07-06 — `bug_fix.md`
+Fix 6):** a packaging can be BOTH baked into the image AND have a stale copy
+in GCS `packagings/<key>.yaml` if it was ever published there (e.g. via the
+wizard's Deploy button, or an ad-hoc hotfix script — even for a class that was
+never created through the wizard, like `30_sachet`). If that GCS copy exists,
+the registry overlay uses it **instead of** the freshly rebuilt image's
+version — so rebuilding the image alone does not ship the fix. Don't assume a
+class is exempt just because it was originally added via git commit; check
+both:
 ```bash
 gcloud storage cat gs://ocr-lot-checker-config/manifest.json   # is the key listed under "packagings" or "archived"?
 gcloud storage cat gs://ocr-lot-checker-config/packagings/<key>.yaml   # does it match the local file you just fixed?
@@ -146,6 +149,7 @@ Full post-mortems (root cause, mechanism, fix, validation) live in
 | Detector retrain produces mislabeled classes | `data.yaml` on Drive drifted from current packaging configs (append-only class list, no GC) | `bug_fix.md` Fix 4, `scripts/cleanup_detector_dataset.py` |
 | `lot_number` comes back looking like a date | `_is_valid_lot()`'s date-rejection regex didn't cover the separator actually used (e.g. `-` vs `/`), or a packaging's `lot_patterns` can't skip an interleaved date line | `bug_fix.md` Fix 5 |
 | A packaging class 404s / returns `unconfigured_class` unexpectedly after a deploy or restart | GCS manifest has it archived, or GCS has a stale YAML shadowing the image — see "Config vs. code changes" above | — |
+| A config fix (e.g. `product_aliases`) is merged, image rebuilt and redeployed, but production behavior doesn't change at all | Both a `config_overrides.json` override AND a stray `packagings/<key>.yaml` full overlay were shadowing the fix — the overlay wins even for a class that was never wizard-created | `bug_fix.md` Fix 6 |
 | `/training/full/start` times out | Dataset publish is synchronous and sequential inside the request — scales linearly with image count. Service runs with `--timeout=600` for this reason; if it's still not enough, move publish to background rather than raising the timeout again | `CLAUDE.md` § Commands |
 
 ## Local diagnostics against prod

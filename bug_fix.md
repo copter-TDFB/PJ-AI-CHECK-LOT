@@ -242,3 +242,44 @@ Validation: `pytest tests/test_ocr.py` 71 ผ่านหมด, `pytest` เต
 - `30_sachet` เป็น shipped class ที่ baked เข้า image (ไม่ใช่ GCS-overlay-editable) — ต้อง rebuild image + deploy ถึงจะขึ้น prod ไม่ใช่แค่แก้ YAML/push
 - `back_label.yaml` ใช้ pattern shape เดียวกับ `lot_patterns[0]` ของ `30_sachet` (comment เดิมอ้างถึงกันตรงๆ) แต่ยังไม่ได้ตรวจว่ามี layout แบบเดียวกันหรือไม่ — ทิ้งไว้เป็น scope ในอนาคตถ้าเจอหลักฐานจริง
 - **Follow-up (ยังไม่ทำ):** กัน TEST_MODE publish ลง dataset folder จริง + เพิ่ม reconcile/GC ให้ `merge_class_names` — ดู spec `docs/superpowers/specs/2026-06-26-detector-dataset-datayaml-cleanup-design.md`
+
+---
+
+## Fix 6 — แก้ `30_sachet` product_aliases แล้ว deploy ไม่มีผลกับ production เลย (2026-07-06)
+
+### ปัญหา
+
+ตั๋ว KAN-43 แก้ `config/packagings/30_sachet.yaml::product_aliases` (ลบ entry เดี่ยว "Medium Rich 95% 100 g" + เพิ่ม "100 g" เป็น AND term ในทั้ง 2 entry ของ B-Grade) — merge PR, build image ใหม่, deploy เป็น candidate revision (0% traffic) เรียบร้อยตามขั้นตอนปกติ แต่ตรวจ `GET /api/packagings/30_sachet` บน candidate แล้วได้ค่าที่**ไม่ตรงกับทั้งของเก่าและของใหม่** — เป็น product_aliases เวอร์ชันที่ 3 ที่ไม่เคยเห็นในโค้ดปัจจุบันเลย
+
+### Root Cause (2 ชั้นซ้อนกัน)
+
+**ชั้นที่ 1 — `config_overrides.json` มี `product_aliases` override เก่าค้าง**
+
+มีคนเคยแก้ผ่าน wizard drawer เมื่อ 2026-07-03 (ดู commit `854292f`) ซึ่ง drawer เขียนได้แค่ AND-group แบบ flatten เป็น OR เท่านั้น (gotcha เดิม, ดู `docs/RUNBOOK.md` "Config vs. code changes" gotcha 2026-07-03) — override ที่เขียนไว้เป็นเวอร์ชันก่อน KAN-43 (5 entries, B-Grade ไม่มี "100 g")
+
+**ชั้นที่ 2 — มีไฟล์ config เต็มก้อนซ้อนอยู่บน GCS ด้วย (ชั้นที่ลึกกว่าและไม่คาดคิด)**
+
+`gs://ocr-lot-checker-config/packagings/30_sachet.yaml` มีไฟล์ snapshot เต็มก้อนของทั้ง config (ไม่ใช่แค่ product_aliases) ค้างอยู่ — ตรงกับเนื้อหา YAML เวอร์ชันก่อน commit `854292f` เป๊ะ (4 entries, B-Grade ไม่มี "100 g", ไม่มี entry "Medium Rich 95% 100 g" เดี่ยวๆ) ตาม design เดิม (`CLAUDE.md`) ไฟล์นี้ควรมีอยู่**เฉพาะ class ที่สร้างผ่าน wizard เท่านั้น** แต่ `30_sachet` ถูกเพิ่มผ่าน git commit ธรรมดา (`d7a00c3`) ไม่เคยผ่าน wizard เลย — คาดว่าไฟล์นี้หลุดมาจากการ hotfix เดียวกันเมื่อ 2026-07-03 (อาจเผลอเรียก `cloudrun_deployer.publish_packaging_to_gcs` แทนที่จะเรียกแค่ `config_overrides.save_product_aliases`)
+
+เพราะ `PackagingRegistry` overlay ชั้นนี้ (full-YAML) มาก่อน `config_overrides.json` (narrow override) ในลำดับการ resolve — ผลคือ **การ rebuild + redeploy image ใหม่ไม่มีผลอะไรกับ production เลย** ตราบใดที่ไฟล์นี้ยังอยู่ ไม่ว่าจะแก้ YAML ในโค้ดถูกแค่ไหนก็ตาม (Fix 5 เคยตั้งสมมติฐานไว้ว่า "`30_sachet` เป็น shipped class... ต้อง rebuild image + deploy ถึงจะขึ้น prod" — สมมติฐานนี้ไม่ครบถ้วน เพราะไม่ครอบคลุมเคสที่มี stray GCS overlay ซ้อนอยู่)
+
+### วิธีแก้
+
+1. ลบ `config_overrides.json` override: `services.config_overrides.delete_product_aliases('30_sachet')` (เรียกผ่าน `DELETE /api/packagings/30_sachet/product-aliases` บน candidate revision เพื่อ trigger reload ในตัวด้วย)
+2. ลบไฟล์ overlay เต็มก้อน: `gcloud storage rm gs://ocr-lot-checker-config/packagings/30_sachet.yaml`
+3. Verify ด้วย `GET /api/packagings/30_sachet` บน candidate URL ว่ากลับไปอ่านจาก baked YAML ในตัว image ถูกต้อง (4 entries, "100 g" ครบทั้ง 2 entry ของ B-Grade) ก่อนค่อยสลับ traffic 100%
+
+### ผลลัพธ์หลังแก้
+
+| | ก่อนแก้ | หลังแก้ |
+|---|---|---|
+| `product_aliases` ที่ production เสิร์ฟจริง | 5 entries, B-Grade ไม่ต้องมี "100 g" (จาก `config_overrides.json`) | 4 entries, B-Grade ต้องมี "100 g" ครบ (จาก baked YAML ในตัว image) |
+| ผลของการ rebuild+redeploy image เฉยๆ (ไม่แตะ GCS) | ไม่มีผลกับ production เลย | ใช้ได้ตามคาด หลังลบทั้ง 2 overlay แล้ว |
+
+Verify บน production URL จริง (`https://ocr-lot-checker-459907489982.asia-southeast1.run.app`) หลังสลับ traffic 100% แล้ว — `GET /api/packagings/30_sachet` ตรงกับที่ตั้งใจแก้ทุกจุด
+
+### หมายเหตุ
+
+- **CLAUDE.md แก้แล้ว**: บรรทัดที่เคยเขียนว่า "GCS `packagings/` holds ONLY wizard-created/edited classes" ไม่ครบถ้วน — เพิ่ม caveat ว่า shipped class ก็อาจมี stray overlay ได้จริงถ้าเคยมีการ hotfix/publish ผิดที่มาก่อน ต้องเช็คเสมอ ไม่ใช่เชื่อตาม "สร้างยังไง"
+- **Follow-up (ยังไม่ทำ)**: เพิ่ม startup check หรือ CI check ที่เตือนเมื่อ shipped class (ไม่เคยผ่าน wizard promote) มี GCS `packagings/<key>.yaml` overlay ค้างอยู่โดยไม่คาดคิด — ป้องกันไม่ให้เคสนี้เงียบซ้ำกับ class อื่น
+- ลำดับการแก้สำคัญ: ลบ override/overlay ก่อนที่ image ใหม่จะพร้อม (แต่ยังไม่สลับ traffic) จะทำให้ revision เก่าที่ยังรับ traffic 100% อยู่ fallback ไปที่ baked YAML รุ่นเก่าของมันเอง (เกิด gap ชั่วคราวสำหรับ product ที่เพิ่งถูกลบ entry ไป) — เพื่อลด gap ให้เหลือน้อยที่สุด ควร build+deploy candidate ให้เสร็จก่อน แล้วค่อยลบ override/overlay ผ่าน endpoint ของ candidate เอง (ไม่กระทบ revision เก่าที่ยังรับ traffic อยู่) จากนั้นค่อยสลับ traffic ทันที
