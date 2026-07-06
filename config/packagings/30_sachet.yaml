@@ -26,27 +26,23 @@ detector_yolo_prefixes: [30_sachet]
 
 # keyword เป็น list ซ้อน = AND (ต้องเจอครบทุกคำ); string เดี่ยว = เจอตัวเดียวพอ
 # ลำดับสำคัญ — _match_aliases คืน entry แรกที่ตรง:
-#   Medium B-Grade [Medium Rich + B Grade] / Classic B-Grade [Classic Rich + B Grade]
+#   Medium B-Grade [Medium Rich + B Grade + 100 g] / Classic B-Grade [Classic Rich + B Grade + 100 g]
 #   -> Classic 500g [Classic Rich + 500 g] -> Excellent [Excellent + 30 Sachets]
-#   -> Medium ธรรมดา [Medium Rich + 100 g] (ต้องมาหลัง Medium B-Grade)
-# ทุก entry ใช้ AND term เฉพาะตัว (B Grade / 500 g / 30 Sachets) จึงแยกกันชัด ไม่ชน
+# ทุก entry ใช้ AND term เฉพาะตัว (B Grade / 500 g / 30 Sachets / 100 g) จึงแยกกันชัด ไม่ชน
 # ทั้ง class นี้ตั้งใจให้เป็น AND หมดทุก entry (ไม่ใช่แค่ B-Grade) กันชนกับสินค้าตัวใหม่ในอนาคต —
 # อย่าแก้ผ่าน wizard drawer เด็ดขาด มันเขียนได้แค่ OR แบน ๆ จะทำ AND พังหมดทุกแถว (KAN-31)
 product_aliases:
   - canonical: "B-Grade Matcha Medium Rich 100 g"
     keywords:
-      - ["Medium Rich", "B Grade"]    # AND
+      - ["Medium Rich", "B Grade", "100 g"]    # AND
   - canonical: "B-Grade Matcha Classic Rich 100 g"
     keywords:
-      - ["Classic Rich", "B Grade"]   # AND — ต้องมาก่อน Classic 500g
+      - ["Classic Rich", "B Grade", "100 g"]   # AND — ต้องมาก่อน Classic 500g
   - canonical: "Classic Rich 95% 500 g"
     keywords:
       - ["Classic Rich", "500 g"]   # AND — pin ขนาด 500g (กันชนรุ่นขนาดอื่น/B-Grade)
   - canonical: "Excellent 3 g (30 Sachets)"
     keywords:
       - ["Excellent", "30 Sachets"]   # AND — ต้องเจอทั้ง Excellent และ 30 Sachets
-  - canonical: "Medium Rich 95% 100 g"
-    keywords:
-      - ["Medium Rich", "100 g"]   # AND — ต้องมาหลัง Medium B-Grade ไม่งั้นชนกัน
 
 image_count: 200
