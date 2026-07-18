@@ -41,11 +41,15 @@ with no network calls. See "Environment variables" below for what each one does.
 |---|---|
 | `python -m uvicorn main:app --reload --port 8080` | Local API server (port 8080 matches Cloud Run) |
 | `python test_image.py <image_path>` | Run the pipeline on one image outside the server. **Not production-faithful** — bypasses `PackagingRegistry`, so config-driven `lot_patterns`/`product_aliases` don't apply. To test config changes on the real path, drive `PipelineRunner` with a loaded registry instead (see `CLAUDE.md`). |
+| `python scripts/run_real_pipeline.py <image_path> [--force]` | Runs the **real** production code path (classifier → `PackagingRegistry` → `PipelineRunner`) on one image — the fix for `test_image.py`'s gap above. `--force` skips the low-confidence gate to run the pipeline anyway. |
 | `pytest` | Run all tests |
 | `pytest tests/test_integration.py` | Integration tests (hits a real running `/predict`) |
 | `pytest tests/test_ocr.py -k lot` | Single test by keyword |
 | `python evaluate.py` | Classifier + detector accuracy per class |
 | `python eval_thresholds.py` | Tune `conf_threshold` per class |
+| `python confusion_matrix_eval.py [--classes a,b] [--thresholds 0.5,0.6]` | Classifier confusion matrix; defaults to all active classes at 0.5/0.55/0.6. Metrics are measured on the same images used to train the classifier (no held-out set in-repo) — treat as relative (threshold-vs-threshold), not an absolute production guarantee. |
+| `python scripts/detector_dataset_topup.py {dedup,prelabel,merge-all,publish,status}` | Grows the Drive detector dataset from local classifier images: dedup (dHash vs. already-published) → prelabel (run `models/detector.pt`) → human review → `publish` (Drive train/val). `publish` is dry-run by default (`--execute` to mutate Drive). |
+| `python scripts/detector_annotator.py [images_dir] [labels_dir]` | Tkinter bbox annotator/validator for the topup workflow above (replaces labelImg, whose PyQt5 build is unmaintained). Auto-saves on every edit/navigation. |
 | `docker build -t ocr-lot-checker .` | Build the same image Cloud Run runs |
 | `start "" "web\wizard.html"` (Windows) | Open the wizard frontend locally |
 

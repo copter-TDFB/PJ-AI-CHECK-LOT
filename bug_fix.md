@@ -283,3 +283,68 @@ Verify บน production URL จริง (`https://ocr-lot-checker-459907489982
 - **CLAUDE.md แก้แล้ว**: บรรทัดที่เคยเขียนว่า "GCS `packagings/` holds ONLY wizard-created/edited classes" ไม่ครบถ้วน — เพิ่ม caveat ว่า shipped class ก็อาจมี stray overlay ได้จริงถ้าเคยมีการ hotfix/publish ผิดที่มาก่อน ต้องเช็คเสมอ ไม่ใช่เชื่อตาม "สร้างยังไง"
 - **Follow-up (ยังไม่ทำ)**: เพิ่ม startup check หรือ CI check ที่เตือนเมื่อ shipped class (ไม่เคยผ่าน wizard promote) มี GCS `packagings/<key>.yaml` overlay ค้างอยู่โดยไม่คาดคิด — ป้องกันไม่ให้เคสนี้เงียบซ้ำกับ class อื่น
 - ลำดับการแก้สำคัญ: ลบ override/overlay ก่อนที่ image ใหม่จะพร้อม (แต่ยังไม่สลับ traffic) จะทำให้ revision เก่าที่ยังรับ traffic 100% อยู่ fallback ไปที่ baked YAML รุ่นเก่าของมันเอง (เกิด gap ชั่วคราวสำหรับ product ที่เพิ่งถูกลบ entry ไป) — เพื่อลด gap ให้เหลือน้อยที่สุด ควร build+deploy candidate ให้เสร็จก่อน แล้วค่อยลบ override/overlay ผ่าน endpoint ของ candidate เอง (ไม่กระทบ revision เก่าที่ยังรับ traffic อยู่) จากนั้นค่อยสลับ traffic ทันที
+
+---
+
+## Fix 7 — YOLO detector สลับ RGB/BGR ทำให้ box lot ถูก misclassify แล้วหายไปเงียบๆ (2026-07-18)
+
+**ไฟล์ที่แก้:** `pipeline/detector.py`
+
+### ปัญหา
+
+ส่งรูป `IMG_20260718_085420.jpg` (`grade_bag`) ผ่าน production pipeline จริง (`PipelineRunner` + `PackagingRegistry`, ไม่ใช่ `test_image.py`) ได้ `lot_number: null`, `exp_date: null`, `status: "not_found"` ทั้งที่ในรูปเห็นเลข lot ชัดเจนมาก: `LOT:CR0009HKW026619926R`, `BBD:18/07/2027`
+
+### Root Cause
+
+`RegionDetector._yolo_crop_all()` รับ `img` เป็น numpy array **RGB** (มาจาก `bytes_to_numpy()` → PIL `.convert('RGB')`) แล้วส่งเข้า `self._model.predict(img, conf=_CONF_THRESHOLD, ...)` ตรงๆ โดยไม่แปลง
+
+`ultralytics/engine/predictor.py::BasePredictor.preprocess()` มีบรรทัด `if im.shape[-1] == 3: im = im[..., ::-1]  # BGR to RGB` — flip channel แบบไม่มีเงื่อนไขทุกครั้งที่ input เป็น numpy array (ไม่ใช่ path) โดยสมมติว่า array ที่รับมาเป็น **BGR** (ตามธรรมเนียม `cv2.imread`) แล้วค่อยแปลงเป็น RGB ก่อนเข้าโมเดล สมมติฐานนี้ถูกต้องเมื่อ caller ส่ง file path (ultralytics เปิดเองด้วย cv2 → ได้ BGR อยู่แล้ว พอ flip กลายเป็น RGB ถูกต้อง) แต่ `bytes_to_numpy()` ให้ RGB มาตั้งแต่ต้น — พอโดน flip ซ้ำ สีที่โมเดลเห็นจริงเลยสลับช่อง R↔B ไปจากตอนเทรน
+
+ยืนยันด้วยการเทียบ inference บนรูปเดียวกัน 3 แบบ (`models/detector.pt`, conf=0.01):
+
+| วิธีป้อน input เข้า `model.predict()` | ผลลัพธ์กล่อง lot |
+|---|---|
+| file path ตรงๆ (ultralytics เปิดเองด้วย cv2) | `grade_bag_lot` conf=0.8307 ✅ |
+| RGB numpy array ตรงๆ — **วิธีที่ production ใช้จริง** | `back_label_lot` conf=0.8238 ❌ คนละคลาส |
+| RGB numpy array ที่ flip เป็น BGR ก่อน (`img[:, :, ::-1]`) | `grade_bag_lot` conf=0.8307 ✅ ตรงกับ path เป๊ะ |
+
+`_yolo_crop_all()` กรอง box ด้วย `class_name.startswith(f"{image_class}_")` (เช่น `"grade_bag_"`) เพื่อเลือกเฉพาะ box ของ packaging นั้น พอกล่อง lot ถูกทายผิดเป็น `back_label_lot` (ไม่ตรง prefix) มันเลยถูกกรองทิ้งไปเงียบๆ — เหลือ box `grade_bag_product` เข้า OCR รายการเดียว (ยืนยันจาก `crop_all()` คืน detection แค่ 1 รายการ ทั้งที่รูปมีทั้ง product+lot ชัดเจน) ข้อความ LOT/BBD เลยไม่เคยเข้า OCR เลย → `find_lot()`/`find_expiry()` หาไม่เจอ
+
+บั๊กนี้เกิดกับทุก inference call เสมอ (deterministic ต่อรูป — รันซ้ำกี่ครั้งได้ผลเดิม) แต่ "อาการ" (พลิกคลาสผิด) จะออกเฉพาะรูปที่ confidence ของ 2 คลาสใกล้เคียงกันเป็นทุนเดิม: ทดสอบเทียบ RGB-ตรง vs BGR-corrected กับรูป `grade_bag` อื่นอีก 6 รูปจาก `images/grade_bag/` พบว่าทุกรูปยังทาย `grade_bag_lot` ถูกทั้งคู่ (confidence ต่างกันแค่ ~1-2%) ไม่มีรูปไหนพลิกคลาส — สอดคล้องกับสมมติฐานว่าบั๊กกระทบทุก inference แต่ magnitude ของผลกระทบขึ้นกับว่ารูปนั้นอยู่ใกล้ decision boundary ระหว่าง 2 คลาสแค่ไหน
+
+### วิธีแก้
+
+Flip channel กลับก่อนส่งเข้า `predict()` เพื่อชดเชยการ flip อัตโนมัติของ ultralytics (commit `4d75a27`):
+
+```python
+# ultralytics always does im[...,::-1] assuming BGR input (cv2.imread convention);
+# img here is already RGB (bytes_to_numpy via PIL), so pre-flip it to BGR or the
+# model sees channel-swapped colors and can misclassify boxes (e.g. grade_bag_lot
+# -> back_label_lot), silently dropping them from crop_all()'s prefix filter.
+results = self._model.predict(img[:, :, ::-1], conf=_CONF_THRESHOLD, verbose=False)
+```
+
+bbox ที่ return มายัง crop จาก `img` เดิม (RGB ถูกต้อง สำหรับ encode เป็น JPEG) — เปลี่ยนแค่ array ที่ป้อนเข้า `predict()` เท่านั้น ไม่กระทบการ crop/encode ที่เหลือ
+
+**Scope:** กระทบทุก packaging class ที่ผ่าน `RegionDetector.crop_all()` (`single`/`cross_check`/`multi_field` ทั้งหมดเรียก method เดียวกัน) ไม่ใช่แค่ `grade_bag`. `services/active_learning.py`'s prelabel ไม่กระทบ เพราะมันเรียก `model.predict(str(img_path), ...)` ด้วย path ตรงๆ ไม่ผ่าน `bytes_to_numpy()`.
+
+### ผลลัพธ์หลังแก้
+
+| | ก่อนแก้ | หลังแก้ |
+|---|---|---|
+| `lot_number` | `null` ❌ | `CR0009HKW026619926R` ✅ |
+| `exp_date` | `null` ❌ | `2027-07-18` ✅ |
+| `status` | `not_found` | `ok` |
+
+Validation:
+- Local ผ่าน `scripts/run_real_pipeline.py` (`PipelineRunner` + `PackagingRegistry` จริง, `GCS_CONFIG_BUCKET=ocr-lot-checker-config`) — ค่าตรงตามตารางข้างบน
+- `pytest` เต็ม suite: 348 ผ่าน, 2 fail (`test_eval_with_existing_eval_json`, `test_deploy_writes_yaml`) — ยืนยันด้วย `git stash` แล้วรันซ้ำว่าเป็นของเดิมอยู่ก่อนแล้ว ไม่เกี่ยวกับการแก้นี้
+- Production: build `ocr-repo/ocr-lot-checker:detector-rgb-fix` → deploy candidate revision `ocr-lot-checker-detfix1` (`--no-traffic`) → ยิงรูปจริงผ่าน candidate URL ยืนยันผล → สลับ traffic 100% → ยิงซ้ำผ่าน production URL จริง ยืนยันผลตรงกัน
+- เทียบ 6 รูป `grade_bag` อื่นใน `images/grade_bag/` (RGB-ตรง vs BGR-corrected) — ไม่มี regression ทุกรูปยังทาย `grade_bag_lot` ถูกทั้งก่อน/หลังแก้
+
+### หมายเหตุ
+
+- ยังไม่ได้วัด regression ข้าม packaging class อื่น (`back_label`, `container_label`, `capsule_box` ฯลฯ) เป็นชุดใหญ่หลังแก้ — การแก้เป็น pure bugfix ที่ทำให้ input เข้าโมเดลตรงกับตอนเทรน (ไม่ได้เปลี่ยน threshold/logic อื่นใด) จึงคาดว่าจะดีขึ้นหรือเท่าเดิมทุกคลาส แต่ยังไม่มีตัวเลข accuracy เทียบก่อน/หลังในวงกว้าง
+- **Follow-up (ยังไม่ทำ):** เพิ่ม regression test ที่ assert ว่า array ที่ส่งเข้า `model.predict()` เป็น BGR order — กันบั๊กคลาสนี้กลับมาอีกถ้ามีคน refactor `_yolo_crop_all` ในอนาคต โดยไม่รู้ที่มาของ `img[:, :, ::-1]`
+- **Follow-up (ยังไม่ทำ):** รัน `confusion_matrix_eval.py`/`evaluate.py` เต็มชุดหลังแก้ เพื่อวัด baseline accuracy ใหม่ต่อคลาส เทียบกับตัวเลขเดิมที่วัดตอนโมเดลยังมีบั๊กสีอยู่ (ตัวเลขเก่าอาจต่ำกว่าความเป็นจริงเล็กน้อย โดยเฉพาะคลาสที่พึ่งพา color cue มาก)
+- Related (ยังไม่มีหลักฐานยืนยันเจาะจง เป็นสมมติฐาน): บั๊กนี้อาจอธิบาย "lot not found"/misclassified-box แบบ intermittent ในอดีตที่ไม่เคยสืบสาเหตุถึงชั้นนี้มาก่อน
