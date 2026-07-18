@@ -77,7 +77,11 @@ class RegionDetector:
         คืน DetectionResult ทุก box ที่ตรงกับ image_class
         เรียงตาม y1 (บนลงล่าง)
         """
-        results = self._model.predict(img, conf=_CONF_THRESHOLD, verbose=False)
+        # ultralytics always does im[...,::-1] assuming BGR input (cv2.imread convention);
+        # img here is already RGB (bytes_to_numpy via PIL), so pre-flip it to BGR or the
+        # model sees channel-swapped colors and can misclassify boxes (e.g. grade_bag_lot
+        # -> back_label_lot), silently dropping them from crop_all()'s prefix filter.
+        results = self._model.predict(img[:, :, ::-1], conf=_CONF_THRESHOLD, verbose=False)
         boxes = results[0].boxes
 
         if boxes is None or len(boxes) == 0:
