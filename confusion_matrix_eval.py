@@ -1,14 +1,19 @@
 """
-สร้าง Confusion Matrix ของ classifier model ที่ confidence threshold 0.5, 0.6, 0.7
+สร้าง Confusion Matrix ของ classifier model ที่ confidence threshold ที่กำหนด
 
 วิธีรัน:
-    python confusion_matrix_eval.py             # บันทึก PNG + พิมพ์ text report
-    python confusion_matrix_eval.py --no-plot   # พิมพ์ text report อย่างเดียว
+    python confusion_matrix_eval.py                                   # 8 active class, threshold 0.5/0.55/0.6
+    python confusion_matrix_eval.py --no-plot                         # พิมพ์ text report อย่างเดียว
+    python confusion_matrix_eval.py --classes back_label,grade_bag    # เฉพาะบาง class
+    python confusion_matrix_eval.py --thresholds 0.5,0.6,0.7          # เฉพาะบาง threshold
 
 Output:
-    confusion_matrix_0.5.png
-    confusion_matrix_0.6.png
-    confusion_matrix_0.7.png
+    confusion_matrix_<threshold>.png (ต่อ threshold)
+
+CAVEAT: images/<class>/ เป็นชุดรูปเดียวกับที่ publish ไป train classifier บน Drive
+(ไม่มี held-out test set แยกต่างหากใน repo) — ตัวเลข precision/recall ที่ได้จึงวัด
+บนข้อมูลที่โมเดลเคยเห็นตอน train แล้วมีแนวโน้ม optimistic กว่า real-world ใช้เทียบ
+"ระหว่าง threshold" กันเอง (relative) ไม่ใช่ตัวเลข absolute ที่รับประกันบน production
 """
 
 import argparse
@@ -22,10 +27,17 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-CLASSES    = ["back_label", "container_label", "grade_bag", "import_sticker", "retail_sachet"]
+DEFAULT_CLASSES = [
+    "30_sachet", "back_label", "capsule_box", "container_label",
+    "grade_bag", "import_sticker", "print_sticker_back", "retail_sachet",
+]
 IMAGES_DIR = Path("images")
 IMG_EXTS   = {".jpg", ".jpeg", ".png", ".webp"}
-THRESHOLDS = [0.5, 0.6, 0.7]
+DEFAULT_THRESHOLDS = [0.5, 0.55, 0.6]
+
+# ตัวแปร module-level ที่ฟังก์ชันด้านล่างอ้างอิง — main() เซ็ตค่าจริงจาก CLI args
+CLASSES    = DEFAULT_CLASSES
+THRESHOLDS = DEFAULT_THRESHOLDS
 
 
 def collect_predictions() -> list[dict]:
@@ -92,7 +104,7 @@ def build_matrix(records: list[dict], threshold: float) -> tuple[list[list[int]]
 def print_matrix(matrix: list[list[int]], threshold: float, rejected: int, total: int) -> None:
     """พิมพ์ confusion matrix แบบ text (รวมคอลัมน์ rejected)"""
     n = len(CLASSES)
-    short = ["back_lbl", "cont_lbl", "grade_bg", "imp_stk", "ret_sach", "rejected"]
+    short = [c[:8] for c in CLASSES] + ["rejected"]
     col_w = 9
 
     accepted = total - rejected
@@ -266,11 +278,32 @@ def print_summary_table(all_results: list[tuple]) -> None:
 
 
 def main() -> None:
+    global CLASSES, THRESHOLDS
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--no-plot", action="store_true", help="ไม่บันทึก PNG")
+    parser.add_argument(
+        "--classes", default=",".join(DEFAULT_CLASSES),
+        help="comma-separated class keys (default: 8 active class)",
+    )
+    parser.add_argument(
+        "--thresholds", default=",".join(str(t) for t in DEFAULT_THRESHOLDS),
+        help="comma-separated confidence thresholds (default: 0.5,0.55,0.6)",
+    )
     args = parser.parse_args()
 
-    print("\nLoading classifier model...")
+    CLASSES = [c.strip() for c in args.classes.split(",") if c.strip()]
+    THRESHOLDS = [float(t.strip()) for t in args.thresholds.split(",") if t.strip()]
+
+    print(f"Classes:    {CLASSES}")
+    print(f"Thresholds: {THRESHOLDS}")
+    print(
+        "\n⚠️  CAVEAT: images/<class>/ คือชุดรูปที่เคย publish ไป train classifier แล้ว "
+        "(ไม่มี held-out test set) — ตัวเลขข้างล่างจึงวัดบนข้อมูลที่โมเดลเคยเห็น อ่านเป็นการ"
+        "เทียบ threshold ต่อ threshold เท่านั้น ไม่ใช่ precision/recall จริงบน production\n"
+    )
+
+    print("Loading classifier model...")
     try:
         records = collect_predictions()
     except FileNotFoundError as exc:
