@@ -348,3 +348,61 @@ Validation:
 - **Follow-up (ยังไม่ทำ):** เพิ่ม regression test ที่ assert ว่า array ที่ส่งเข้า `model.predict()` เป็น BGR order — กันบั๊กคลาสนี้กลับมาอีกถ้ามีคน refactor `_yolo_crop_all` ในอนาคต โดยไม่รู้ที่มาของ `img[:, :, ::-1]`
 - **Follow-up (ยังไม่ทำ):** รัน `confusion_matrix_eval.py`/`evaluate.py` เต็มชุดหลังแก้ เพื่อวัด baseline accuracy ใหม่ต่อคลาส เทียบกับตัวเลขเดิมที่วัดตอนโมเดลยังมีบั๊กสีอยู่ (ตัวเลขเก่าอาจต่ำกว่าความเป็นจริงเล็กน้อย โดยเฉพาะคลาสที่พึ่งพา color cue มาก)
 - Related (ยังไม่มีหลักฐานยืนยันเจาะจง เป็นสมมติฐาน): บั๊กนี้อาจอธิบาย "lot not found"/misclassified-box แบบ intermittent ในอดีตที่ไม่เคยสืบสาเหตุถึงชั้นนี้มาก่อน
+
+---
+
+## Fix 8 — OCR อ่าน "RICH" ผิดเป็น "RIGH" ทำให้ product_name หลุดคำว่า "Rich 95%" (2026-07-21)
+
+**ไฟล์ที่แก้:** `utils/validators.py`, เพิ่มเทสต์ใน `tests/test_ocr.py`
+
+### ปัญหา
+
+ส่งรูป `IMG_4991.jpg` (`grade_bag`, รส Medium) ผ่าน production pipeline จริงได้ `product_name: "Medium 100 g"` ทั้งที่ label จริงพิมพ์ว่า "MEDIUM RICH" ค่าที่ควรได้คือ `"Medium Rich 95% 100 g"` (เทียบกับรูป `grade_bag` รสอื่นในเซสชันเดียวกันที่ได้ `"Classic Rich 95% 100 g"` ถูกต้อง)
+
+ครอปบริเวณ `grade_bag_product` (bbox `[2339,739,3121,1815]`) จากรูปจริงมาดูด้วยตา ยืนยันว่า label พิมพ์ "MEDIUM RICH" จริง (รูปเบลอเล็กน้อยแต่อ่านออก) — Vision OCR อ่านตัว **C ผิดเป็น G** ได้ raw text `"MEDIUM RIGH"`
+
+### Root Cause
+
+`utils/validators.py::find_product_name()` (ไม่มี `product_aliases` ใน `grade_bag.yaml` เลยเข้า hardcoded fallback) เช็ค `_KW_MEDIUM_RICH = re.compile(r'\bmedium\s+rich\b')` ก่อน — "righ" ไม่ตรงกับ "rich" เป๊ะ เลย fallback ไป `_KW_MEDIUM = re.compile(r'\bmedium\b')` ซึ่งเจอ "medium" เฉยๆ ได้ผล `'Medium'` (ไม่มี "Rich 95%") แล้ว `ocr_engine.py:72` (legacy path เพราะ `grade_bag` ไม่มี `product_aliases`) ต่อ size ตรงๆ: `'Medium' + ' 100 g'` = `"Medium 100 g"`
+
+มี OCR-fix rule ที่ตั้งใจแก้เคสนี้อยู่แล้วใน `_OCR_FIXES` (`utils/validators.py`):
+```python
+(re.compile(r'(\b(?:EXCELLENT|CLASSIC|MEDIUM|HOUJICHA)\s+)RIC\w*\b'), r'\1RICH')
+```
+แต่ rule เดิมออกแบบมาแก้เฉพาะกรณี**ตัวท้าย**ของ "RICH" เพี้ยน (เช่น OCR อ่านเป็น "RICU"/"RICN") — มัน require ตัวอักษร 3 ตัวแรก "RIC" ต้องถูกครบก่อนถึงจะ match ในเคสนี้ตัวที่เพี้ยนคือ **ตัว C เอง** (ตัวกลาง ไม่ใช่ตัวท้าย) กลายเป็น "RIGH" ซึ่งไม่ขึ้นต้นด้วย "RIC" เลย → หลุดจาก pattern นี้ไปเงียบๆ
+
+ไม่มี test coverage สำหรับ rule นี้มาก่อนเลย (`tests/test_ocr.py` ไม่เคยมี class ทดสอบ hardcoded fallback ของ `find_product_name()` หรือ `correct_ocr()` โดยตรง มีแต่เทสต์ฝั่ง config-driven `aliases`) — ช่องโหว่นี้เลยไม่เคยถูกจับได้จนกว่าจะเจอรูปจริง
+
+### วิธีแก้
+
+เปลี่ยนตัวที่ 3 ของ anchor "RIC" ให้เป็น wildcard ตัวเดียว (ยังคง "RI" ไว้เป็น anchor เพราะ 2 ตัวนี้ไม่เคยเจอ OCR อ่านผิด):
+
+```python
+# เดิม
+(re.compile(r'(\b(?:EXCELLENT|CLASSIC|MEDIUM|HOUJICHA)\s+)RIC\w*\b', re.IGNORECASE), r'\1RICH')
+# ใหม่
+(re.compile(r'(\b(?:EXCELLENT|CLASSIC|MEDIUM|HOUJICHA)\s+)RI.\w*\b', re.IGNORECASE), r'\1RICH')
+```
+
+`RI.\w*` ครอบคลุมทั้งเคสตัวกลาง (C) เพี้ยนเป็นตัวอื่น (G/0/D/ฯลฯ ตามที่เจอจริง) และเคสเดิมตัวท้ายเพี้ยน (`\w*` ท้าย pattern เหมือนเดิม) ความเสี่ยง false-positive ต่ำมาก เพราะ rule ทำงานเฉพาะตอนตามหลัง 4 คำ flavor ที่กำหนด (`EXCELLENT|CLASSIC|MEDIUM|HOUJICHA`) เท่านั้น ไม่มีคำอื่นในระบบที่ตามหลัง 4 คำนี้แล้วไม่ใช่ "RICH"
+
+### เทสต์ที่เพิ่ม (`tests/test_ocr.py::TestFindProductNameHardcodedFallback`)
+
+เพิ่ม class ใหม่ทดสอบ hardcoded fallback path ของ `find_product_name()` (ไม่เคยมี coverage ส่วนนี้มาก่อน):
+- `test_classic_rich_clean_ocr` — baseline: OCR อ่านถูก ต้องได้ `'Classic Rich 95%'`
+- `test_medium_rich_ocr_misreads_c_as_g` — เคสบั๊กจริง: `find_product_name("MEDIUM RIGH")` ต้องได้ `'Medium Rich 95%'` (RED ก่อนแก้ — ยืนยันแล้วว่า fail ด้วยของเดิม ได้ `'Medium'` แทน)
+- `test_medium_rich_trailing_garble_still_fixed` — กันไม่ให้ wildcard ที่กว้างขึ้นทำ regression กับเคสเดิมที่ `RIC\w*` เคยกันได้ (ตัวท้ายเพี้ยน เช่น "RICU")
+
+### ผลลัพธ์หลังแก้
+
+| | ก่อนแก้ | หลังแก้ |
+|---|---|---|
+| `product_name` | `"Medium 100 g"` ❌ | `"Medium Rich 95% 100 g"` ✅ |
+| `lot_number` / `exp_date` | ถูกอยู่แล้ว (ไม่เกี่ยว) | ไม่เปลี่ยน |
+
+Validation: เขียนเทสต์ก่อน (RED) → ยืนยัน fail ด้วย pattern เดิม → แก้ regex (GREEN) → `pytest tests/test_ocr.py` 74 ผ่านหมด → `pytest` เต็ม suite 351 ผ่าน (2 deselect เป็นของเดิมที่ยืนยันแล้วจาก Fix 7) → รันรูปจริง `IMG_4991.jpg` ผ่าน `scripts/run_real_pipeline.py` (`PipelineRunner` จริง) ได้ `product_name: "Medium Rich 95% 100 g"` ตรงตามคาด
+
+### หมายเหตุ
+
+- `_OCR_FIXES` เป็น list กลางที่ทุก packaging ใช้ร่วมกันผ่าน `correct_ocr()` (เรียกใน `find_lot`/`find_expiry`/`find_product_name` ทุกจุด) — การแก้นี้กระทบทุก class ที่มีชื่อ flavor ขึ้นต้นด้วย 4 คำนี้ ไม่ใช่แค่ `grade_bag`
+- **Follow-up (ยังไม่ทำ):** `_OCR_FIXES` ทั้งก้อนไม่มี test coverage โดยตรงมาก่อนหน้านี้เลย (เจอตอนหา test ที่มีอยู่แล้วสำหรับ Fix นี้) — เทสต์ที่เพิ่มรอบนี้ครอบคลุมแค่ rule "RICH" เท่านั้น ยัง rule อื่นใน `_OCR_FIXES` (LOT, BBD, EXP, compact date) ที่ยังไม่มี test โดยตรงเหมือนกัน (มีแค่ทดสอบทางอ้อมผ่าน `find_lot`/`find_expiry`)

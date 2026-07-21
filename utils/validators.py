@@ -180,7 +180,11 @@ def _fix_lot_alpha_prefix(lot: str, image_class: str | None) -> str:
 _OCR_FIXES: list[tuple[re.Pattern, str]] = [
     # L?? → LOT: O อ่านผิดเป็น 0/C/Q/G/D, T อ่านผิดเป็น 7/I/1/L/J
     (re.compile(r'\bL[O0CQGD][TI17LJ]\b', re.IGNORECASE), 'LOT'),
-    (re.compile(r'(\b(?:EXCELLENT|CLASSIC|MEDIUM|HOUJICHA)\s+)RIC\w*\b', re.IGNORECASE), r'\1RICH'),  # EXCELLENT/CLASSIC/MEDIUM/HOUJICHA RIC* → RICH
+    # EXCELLENT/CLASSIC/MEDIUM/HOUJICHA RI?* → RICH — the wildcard covers the 3rd
+    # letter too (not just trailing garble), since Vision has misread C as G here
+    # (e.g. "MEDIUM RIGH") — safe this broad because only "RICH" ever follows these
+    # 4 flavor words in practice.
+    (re.compile(r'(\b(?:EXCELLENT|CLASSIC|MEDIUM|HOUJICHA)\s+)RI.\w*\b', re.IGNORECASE), r'\1RICH'),
     (re.compile(r'\bBBl\b',        re.IGNORECASE), 'BBD'),   # BBl → BBD
     (re.compile(r'\bEXl\b',        re.IGNORECASE), 'EXP'),   # EXl → EXP
     # retail_sachet: แก้ตัวอักษรที่ OCR อ่านแทน 0 ใน "LOT XNNN" (X=C,O,D → 0)

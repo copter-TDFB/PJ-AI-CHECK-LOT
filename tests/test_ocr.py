@@ -268,6 +268,25 @@ class TestFindMfg:
         assert find_expiry(text) == "2027-03-23"
 
 
+# ─── find_product_name — hardcoded fallback (no aliases, back_label/grade_bag) ───
+
+class TestFindProductNameHardcodedFallback:
+    """find_product_name(text) ไม่ให้ aliases → hardcode keyword เดิม (back_label/grade_bag)."""
+
+    def test_classic_rich_clean_ocr(self):
+        assert find_product_name("CLASSIC RICH matcha 100 g") == "Classic Rich 95%"
+
+    def test_medium_rich_ocr_misreads_c_as_g(self):
+        # ตัว C ของ "RICH" ถูก Vision OCR อ่านผิดเป็น G บนรูปเบลอ (IMG_4991.jpg) — _OCR_FIXES
+        # เดิม (RIC\w*) กันแค่ตัวท้ายเพี้ยน ไม่กันตัวกลาง (C) เพี้ยน เลยหลุดไปแมตช์ "medium"
+        # เฉย ๆ แทน "medium rich" — regex ใหม่ (RI.\w*) ต้องดัก case นี้ด้วย
+        assert find_product_name("MEDIUM RIGH") == "Medium Rich 95%"
+
+    def test_medium_rich_trailing_garble_still_fixed(self):
+        # เคสเดิมที่ RIC\w* เคยกันได้ (ตัวท้ายของ RICH เพี้ยน) ต้องไม่มี regression
+        assert find_product_name("MEDIUM RICU") == "Medium Rich 95%"
+
+
 # ─── find_product_name — config-driven aliases ──────────────────────────────────
 
 class TestFindProductNameAliases:
