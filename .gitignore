@@ -82,3 +82,7 @@ htmlcov/
 data/test/
 
 .codex/
+
+# pm-bridge (AI PM workflow) local orchestration state
+.pm-bridge/
+.worktrees/
