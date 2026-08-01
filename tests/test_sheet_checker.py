@@ -118,3 +118,12 @@ def test_lot_short_fallback_retries_via_new_method(monkeypatch):
     assert calls == ["AAAAAAAAA1234XX", "1234"]
     assert result["lot_match"] is True
     assert result["exp_match"] is True
+
+
+def test_find_rows_by_lot_returns_every_match_in_sheet_order(monkeypatch):
+    checker = SheetChecker()
+    monkeypatch.setattr(checker, "_get_rows", lambda sheet_id, gid: [
+        _row(" 109w ", exp=""), _row("OTHER"), _row("109W", exp="01022027"),
+    ])
+    found = checker._find_rows_by_lot("109W", "sid", 0)
+    assert [r["EXP"] for r in found] == ["", "01022027"]
