@@ -68,15 +68,16 @@ class SheetChecker:
             logger.info("Sheet refreshed — sheet=%s gid=%s rows=%d", sheet_id, gid, len(rows))
         return rows
 
-    def _find_row_by_lot(self, lot: str | None, sheet_id: str, gid: int) -> dict | None:
-        """หา row แรกที่ column 'Lot.' ตรงกับ lot (case-insensitive)"""
+    def _find_rows_by_lot(self, lot: str | None, sheet_id: str, gid: int) -> list[dict]:
+        """หาทุก row ที่ column 'Lot.' ตรงกับ lot (case-insensitive) — อาจเจอมากกว่า 1 แถว
+        ถ้าชีทมีข้อมูลซ้ำ (เช่น แถว placeholder ที่ยังไม่กรอก MFG/EXP + แถวจริงที่กรอกภายหลัง)"""
         if not lot:
-            return None
+            return []
         lot_key = lot.upper().strip()
-        for row in self._get_rows(sheet_id, gid):
-            if str(row.get("Lot.", "")).upper().strip() == lot_key:
-                return row
-        return None
+        return [
+            row for row in self._get_rows(sheet_id, gid)
+            if str(row.get("Lot.", "")).upper().strip() == lot_key
+        ]
 
     def check(
         self,
@@ -107,26 +108,41 @@ class SheetChecker:
             is_container = config.detection_mode == "cross_check"
 
             lot = kwargs.get("lot_box") if is_container else kwargs.get("lot_number")
-            row = self._find_row_by_lot(lot, sheet_id, gid)
+            rows = self._find_rows_by_lot(lot, sheet_id, gid)
 
-            if row is None and config.lot_short_fallback and lot and len(lot) >= 13:
+            if not rows and config.lot_short_fallback and lot and len(lot) >= 13:
                 short_lot = lot[9:13]
                 logger.info(
                     "%s lot not found — retrying with short lot %s",
                     config.key,
                     short_lot,
                 )
-                row = self._find_row_by_lot(short_lot, sheet_id, gid)
+                rows = self._find_rows_by_lot(short_lot, sheet_id, gid)
 
             if "lot" in checks:
-                result["lot_match"] = row is not None
+                result["lot_match"] = bool(rows)
 
-            if row:
+            if rows:
+                if len(rows) > 1:
+                    logger.warning(
+                        "%s: %d rows matched Lot %s — resolving by EXP",
+                        config.key, len(rows), lot,
+                    )
+
+                exp_key = "exp_box" if is_container else "exp_date"
+                exp = kwargs.get(exp_key)
+
+                row = None
+                if "exp" in checks and exp:
+                    row = next(
+                        (r for r in rows if _normalize_sheet_date(r.get("EXP", "")) == exp),
+                        None,
+                    )
+                row = row or rows[0]
+
                 result["sheet_product_name"] = row.get("Product Name", "").strip() or None
 
                 if "exp" in checks:
-                    exp_key = "exp_box" if is_container else "exp_date"
-                    exp = kwargs.get(exp_key)
                     sheet_exp = _normalize_sheet_date(row.get("EXP", ""))
                     result["exp_match"] = sheet_exp == exp if exp else False
 

@@ -56,9 +56,9 @@ def test_sheet_checker_lot_source(monkeypatch, mode, expected_lot_key):
 
     def fake_find(lot, sheet_id, gid):
         seen["lot"] = lot
-        return None
+        return []
 
-    monkeypatch.setattr(checker, "_find_row_by_lot", fake_find)
+    monkeypatch.setattr(checker, "_find_rows_by_lot", fake_find)
     checker.check(
         _cfg(detection_mode=mode),
         sheet_id="sid", gid=0,
