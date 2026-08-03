@@ -82,3 +82,9 @@ htmlcov/
 data/test/
 
 .codex/
+
+# pm-bridge: packet/state dirs and executor scratch output. The PM commits
+# with `git add -A` before any review, so unignored scratch lands in the PR.
+.pm-bridge/
+.worktrees/
+.opencode/
