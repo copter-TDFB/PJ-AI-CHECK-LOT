@@ -50,6 +50,8 @@ class RegionDetector:
         """True if the loaded model has at least one class that legitimately
         belongs to image_class — either '{image_class}_*' (e.g. back_label_lot)
         or an exact match (e.g. capsule_box, which has no underscore suffix)."""
+        if self._model is None:
+            return False
         prefix = f"{image_class}_"
         return any(
             name.startswith(prefix) or name == image_class
