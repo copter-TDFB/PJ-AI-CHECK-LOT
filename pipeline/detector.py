@@ -46,6 +46,16 @@ class RegionDetector:
         else:
             logger.info("models/detector.pt not found — using heuristic fallback")
 
+    def _has_trained_boxes(self, image_class: str) -> bool:
+        """True if the loaded model has at least one class that legitimately
+        belongs to image_class — either '{image_class}_*' (e.g. back_label_lot)
+        or an exact match (e.g. capsule_box, which has no underscore suffix)."""
+        prefix = f"{image_class}_"
+        return any(
+            name.startswith(prefix) or name == image_class
+            for name in self._model.names.values()
+        )
+
     def crop_all(self, image_bytes: bytes, image_class: str) -> list[DetectionResult]:
         """
         Crop ทุก region ที่ detect ได้สำหรับ image_class นั้น
@@ -58,11 +68,16 @@ class RegionDetector:
         logger.info("Detecting lot regions — class=%s size=%dx%d",
                     image_class, img_np.shape[1], img_np.shape[0])
 
-        if self._model is not None:
+        if self._model is not None and self._has_trained_boxes(image_class):
             results = self._yolo_crop_all(img_np, image_class)
             if results:
                 return results
-            logger.warning("YOLO: no detection for class '%s' — heuristic fallback", image_class)
+            logger.warning("YOLO: detected 0 boxes for class '%s' — heuristic fallback", image_class)
+        elif self._model is not None:
+            logger.info(
+                "YOLO: class '%s' has no trained boxes at all — skipping detector, heuristic fallback",
+                image_class,
+            )
 
         return [self._heuristic_crop(img_np, image_class)]
 
@@ -90,15 +105,15 @@ class RegionDetector:
         class_names: dict[int, str] = self._model.names
         cls_ids = boxes.cls.int().tolist()
 
-        # จับทุก YOLO class ที่ขึ้นต้นด้วย "{image_class}_"
+        # จับ YOLO class ที่ตรงกับ image_class จริง — prefix "{image_class}_"
+        # (เช่น back_label_lot) หรือ exact match (เช่น capsule_box ไม่มี suffix)
         prefix = f"{image_class}_"
-        target_cls_ids = {cid for cid, name in class_names.items() if name.startswith(prefix)}
-        if target_cls_ids:
-            matched_indices = [i for i, c in enumerate(cls_ids) if c in target_cls_ids]
-            logger.info("YOLO: target classes for '%s' → %s", image_class, sorted(target_cls_ids))
-        else:
-            logger.warning("YOLO: ไม่มี class ที่ขึ้นต้นด้วย '%s' — ใช้ทุก box", prefix)
-            matched_indices = list(range(len(boxes)))
+        target_cls_ids = {
+            cid for cid, name in class_names.items()
+            if name.startswith(prefix) or name == image_class
+        }
+        logger.info("YOLO: target classes for '%s' → %s", image_class, sorted(target_cls_ids))
+        matched_indices = [i for i, c in enumerate(cls_ids) if c in target_cls_ids]
 
         if not matched_indices:
             return []

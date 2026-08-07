@@ -82,3 +82,35 @@ def test_real_images_per_class(detector):
             crop_img = Image.open(io.BytesIO(result.cropped_bytes))
             assert crop_img.size[0] > 0, f"{image_class}: cropped width = 0"
             assert crop_img.size[1] > 0, f"{image_class}: cropped height = 0"
+
+
+def test_30_sachet_never_crops_to_foreign_class_box(detector):
+    """30_sachet has zero trained YOLO boxes of its own — crop_all() must
+    always fall through to the full-image heuristic (bbox=None), never
+    accept a box trained for a different packaging class (e.g. grade_bag)."""
+    img_dir = pathlib.Path("images") / "30_sachet"
+    samples = [p for p in img_dir.glob("*.jpg") if not p.name.startswith("aug_")]
+    assert samples, "expected real (non-aug_) 30_sachet training photos"
+
+    offenders = []
+    for img_path in samples:
+        results = detector.crop_all(img_path.read_bytes(), "30_sachet")
+        assert len(results) == 1
+        if results[0].bbox is not None:
+            offenders.append((img_path.name, results[0].bbox, results[0].class_name))
+
+    assert not offenders, f"crop_all hijacked by a foreign box: {offenders}"
+
+
+def test_capsule_box_still_crops_to_its_own_class(detector):
+    """capsule_box has no '_lot' suffix — its class name matches image_class
+    exactly. This must keep working after the 'use every box' fallback is
+    removed (it now goes through an explicit exact-match check instead)."""
+    img_path = pathlib.Path("images/capsule_box/1000010638.jpg")
+    assert img_path.exists(), f"missing fixture photo: {img_path}"
+
+    results = detector.crop_all(img_path.read_bytes(), "capsule_box")
+
+    assert len(results) == 1
+    assert results[0].bbox is not None
+    assert results[0].class_name == "capsule_box"
