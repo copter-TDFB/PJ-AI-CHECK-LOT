@@ -123,3 +123,25 @@ def test_capsule_box_still_crops_to_its_own_class(detector):
         assert len(results) == 1
         assert results[0].bbox is not None, f"{img_path.name}: expected a crop, got full image"
         assert results[0].class_name == "capsule_box", f"{img_path.name}: matched {results[0].class_name!r} instead"
+
+
+def test_yolo_detection_carries_confidence(detector):
+    """DetectionResult.conf must be populated for real YOLO detections so
+    downstream code (e.g. _run_multi_region's box/sachet selection) can
+    break ties between duplicate same-class detections."""
+    if detector._model is None:
+        pytest.skip("models/detector.pt not available")
+
+    img_dir = pathlib.Path("images") / "container_label"
+    samples = [p for p in img_dir.glob("*.jpg") if not p.name.startswith("aug_")][:3]
+    if not samples:
+        pytest.skip("no real container_label training photos available")
+
+    found_one = False
+    for img_path in samples:
+        for det in detector.crop_all(img_path.read_bytes(), "container_label"):
+            if det.class_name is not None:
+                assert det.conf is not None, f"{img_path.name}: {det.class_name} missing conf"
+                assert 0.0 <= det.conf <= 1.0
+                found_one = True
+    assert found_one, "no YOLO detection found across samples — test is not exercising the code path"

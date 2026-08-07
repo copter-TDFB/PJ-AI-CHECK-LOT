@@ -23,6 +23,7 @@ class DetectionResult:
     cropped_bytes: bytes   # JPEG bytes ของ region ที่ crop แล้ว
     bbox: Bbox | None      # [x1, y1, x2, y2] relative ต่อรูปต้นฉบับ
     class_name: str | None = None   # YOLO class of the matched box (e.g. "back_label_size")
+    conf: float | None = None       # YOLO confidence of the matched box (None for heuristic fallback)
 
 
 
@@ -137,6 +138,7 @@ class RegionDetector:
                 cropped_bytes=_to_jpeg(cropped),
                 bbox=[x1, y1, x2, y2],
                 class_name=class_names.get(cls_ids[idx]),
+                conf=conf,
             ))
 
         return detections
