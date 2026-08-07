@@ -8,6 +8,18 @@ from utils.validators import find_lot, find_expiry, find_product_name, find_size
 logger = logging.getLogger(__name__)
 
 
+def _select_region(detections, target_class):
+    """Pick the detection matching target_class exactly; if several match,
+    the highest-confidence one wins. A single class_name=None detection
+    (pure heuristic fallback, e.g. container_label's white-box locator) is
+    treated as the box region, since that's the only region heuristics
+    target today."""
+    matches = [d for d in detections if d.class_name == target_class]
+    if not matches and all(d.class_name is None for d in detections):
+        matches = detections if target_class.endswith("_box") else []
+    return max(matches, key=lambda d: d.conf or 0.0, default=None)
+
+
 class PipelineRunner:
     """Dispatches image through the correct pipeline based on PackagingConfig."""
 
@@ -57,8 +69,21 @@ class PipelineRunner:
     ) -> tuple[dict, object]:
         """Multi-crop OCR ใช้กับ container_label (กล่อง + ซอง แยก lot/date)"""
         detections = self._detector.crop_all(image_bytes, config.key)
+        box_det = _select_region(detections, f"{config.key}_box")
+        sachet_det = _select_region(detections, f"{config.key}_sachet")
+
+        selected = (box_det is not None) + (sachet_det is not None)
+        if selected < len(detections):
+            logger.warning(
+                "%s: %d detection(s) discarded (not selected as box or sachet)",
+                config.key, len(detections) - selected,
+            )
+
         crops: list[dict] = []
-        for det in detections:
+        for det in (box_det, sachet_det):
+            if det is None:
+                crops.append({})
+                continue
             processed = self._preprocessor.run(det.cropped_bytes, config.key)
             ocr_res = self._ocr_engine.run(processed, config=config)
             text_ok = len(ocr_res["raw_text"].strip()) >= 8
@@ -73,8 +98,7 @@ class PipelineRunner:
                 "exp_date":   ocr_res["exp_date"],
             })
 
-        box    = crops[0] if len(crops) > 0 else {}
-        sachet = crops[1] if len(crops) > 1 else {}
+        box, sachet = crops[0], crops[1]
         result = {
             "lot_number":   None,
             "exp_date":     None,
@@ -89,7 +113,7 @@ class PipelineRunner:
             "exp_sachet":   sachet.get("exp_date"),
             "status":       "ok" if any(c.get("lot_number") for c in crops) else "not_found",
         }
-        bbox = detections[0].bbox if detections else None
+        bbox = box_det.bbox if box_det else (sachet_det.bbox if sachet_det else None)
         return result, bbox
 
     def _run_multi_field(
