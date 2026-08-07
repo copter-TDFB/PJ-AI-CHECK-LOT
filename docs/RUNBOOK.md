@@ -71,6 +71,55 @@ Previous revisions stay deployed (0% traffic) unless explicitly deleted —
 rollback is just re-pointing traffic, not a redeploy. List candidates with
 `gcloud run revisions list --service ocr-lot-checker --region asia-southeast1`.
 
+### Cleaning up test/candidate tags
+
+**Do this every time**, right after a `--tag <name>` test deploy has served its
+purpose (verification done, ticket closed, whatever the tag was for) — don't
+leave it "just in case":
+
+```bash
+gcloud run services update-traffic ocr-lot-checker --region asia-southeast1 --remove-tags=<tag>
+gcloud run revisions delete <revision> --region asia-southeast1 --quiet
+```
+
+Never remove `candidate` — it's the one tag every deploy reuses (see step 2
+above), not a one-off.
+
+**Why this matters (incident, 2026-08-07):** Cloud Run does not auto-delete
+old revisions or tags, ever, and each revision pins a full container image by
+digest in `ocr-repo`. Seven one-off test tags (`psb`, `trig`, `acc`,
+`accfix`, `candidate-clf`, `kan43`, `verify` — none referenced anywhere in
+code, docs, or tests) plus 108 further untagged revisions accumulated over
+~2 months of normal development, ballooning `ocr-repo` to ~40GB (~$4/month
+in Artifact Registry storage) before anyone noticed. Cleanup brought it down
+to a single live image (~$0.03/month).
+
+**If this recurs, the recovery procedure is:**
+1. `gcloud run services describe ocr-lot-checker --region asia-southeast1 --format="value(status.traffic)"`
+   — note every `revisionName`+`tag` pair. These revisions (and only these)
+   must survive.
+2. `gcloud run revisions list --service=ocr-lot-checker --region=asia-southeast1 --format="value(metadata.name)"`
+   — delete every revision NOT in the protected set from step 1
+   (`gcloud run revisions delete <name> --region=asia-southeast1 --quiet`).
+3. Re-list the protected revisions' images
+   (`--format="value(spec.containers[0].image)"`) to get the digest set that
+   must survive.
+4. `gcloud artifacts docker images list asia-southeast1-docker.pkg.dev/pj-ai-detect-lot-no/ocr-repo --format="value(DIGEST)"`
+   — delete every digest NOT in the protected set
+   (`gcloud artifacts docker images delete <image>@<digest> --delete-tags --quiet`).
+5. Verify before AND after: `curl .../health` returns 200, and
+   `status.traffic` still matches step 1 exactly.
+
+**Gotcha:** `gcloud artifacts repositories describe/list` size (`sizeBytes`)
+lags real deletions by a while — it's a periodically-refreshed aggregate, not
+live. Don't judge whether cleanup worked by watching that number move; it
+can take a day or more to catch up even after the underlying blobs are
+already gone. To verify the real freed space immediately, compare layer
+digests across the surviving images' manifests instead:
+`curl -H "Authorization: Bearer $(gcloud auth print-access-token)" https://asia-southeast1-docker.pkg.dev/v2/pj-ai-detect-lot-no/ocr-repo/ocr-lot-checker/manifests/<digest>`
+(`Accept: application/vnd.docker.distribution.manifest.v2+json`) and sum the
+`layers[].size` for blobs not shared with a surviving image.
+
 ## Config vs. code changes — where a fix actually needs to go
 
 This is the single most common source of "I fixed it but prod is still

@@ -52,6 +52,20 @@ gcloud run deploy ocr-lot-checker --image <that-image> --region asia-southeast1 
 gcloud run services update-traffic ocr-lot-checker --region asia-southeast1 --to-revisions <rev>=100
 # rollback: --to-revisions <previous-rev>=100
 #
+# CLEANUP (mandatory once a one-off test tag has served its purpose): Cloud Run NEVER
+# auto-deletes old revisions or tags, and every revision pins a full container image by
+# digest in Artifact Registry (ocr-repo) — so ad-hoc `--tag <name>` test deploys left
+# "just in case" accumulate forever. This happened for real: 108 dead revisions + 7 stray
+# test tags (psb/trig/acc/accfix/candidate-clf/kan43/verify, none referenced anywhere in
+# code/docs) piled up over ~2 months and ballooned ocr-repo to ~40GB (~$4/month) before a
+# cleanup brought it to 1 image (~$0.03/month). Don't repeat this: as soon as a temporary
+# tag is done being used for verification, remove BOTH the tag and its revision —
+#   gcloud run services update-traffic ocr-lot-checker --region asia-southeast1 --remove-tags=<tag>
+#   gcloud run revisions delete <revision> --region asia-southeast1 --quiet
+# `candidate` is the one recurring exception — it's the standing staging tag reused by
+# every deploy (see step above), never remove it. Full audit/recovery procedure if this
+# recurs: docs/RUNBOOK.md § "Cleaning up test/candidate tags".
+#
 # CODE-ONLY redeploy (no config change): bare `gcloud run deploy --image <new> --no-traffic --tag candidate`
 # INHERITS the live env/secrets/SA — you do NOT need to re-pass --set-env-vars/--set-secrets (which risks
 # dropping a var). Read the live env first to confirm, verify the candidate /health, then update-traffic.
