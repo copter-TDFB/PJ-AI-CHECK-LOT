@@ -8,15 +8,14 @@ from utils.validators import find_lot, find_expiry, find_product_name, find_size
 logger = logging.getLogger(__name__)
 
 
-def _select_region(detections, target_class):
+def _select_region(detections, target_class, is_primary=False):
     """Pick the detection matching target_class exactly; if several match,
     the highest-confidence one wins. A single class_name=None detection
-    (pure heuristic fallback, e.g. container_label's white-box locator) is
-    treated as the box region, since that's the only region heuristics
-    target today."""
+    (pure heuristic fallback) is treated as the primary region, since
+    that's the only region heuristics target today."""
     matches = [d for d in detections if d.class_name == target_class]
     if not matches and all(d.class_name is None for d in detections):
-        matches = detections if target_class.endswith("_box") else []
+        matches = detections if is_primary else []
     return max(matches, key=lambda d: d.conf or 0.0, default=None)
 
 
@@ -69,8 +68,9 @@ class PipelineRunner:
     ) -> tuple[dict, object]:
         """Multi-crop OCR ใช้กับ container_label (กล่อง + ซอง แยก lot/date)"""
         detections = self._detector.crop_all(image_bytes, config.key)
-        box_det = _select_region(detections, f"{config.key}_box")
-        sachet_det = _select_region(detections, f"{config.key}_sachet")
+        regions = config.sub_regions or ["box", "sachet"]
+        box_det = _select_region(detections, f"{config.key}_{regions[0]}", is_primary=True)
+        sachet_det = _select_region(detections, f"{config.key}_{regions[1]}")
 
         selected = (box_det is not None) + (sachet_det is not None)
         if selected < len(detections):

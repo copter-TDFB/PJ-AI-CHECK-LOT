@@ -129,3 +129,33 @@ def test_zero_detections():
     assert result["lot_sachet"] is None
     assert result["status"] == "not_found"
     assert bbox is None
+
+
+def test_custom_sub_region_names_are_not_hardcoded_to_box_sachet():
+    """A cross_check packaging need not name its regions 'box'/'sachet' —
+    config.sub_regions=['front', 'back'] must drive the YOLO class names
+    used for selection (k_front / k_back), not a hardcoded '_box'/'_sachet'
+    suffix. The result dict's own key names (lot_box/lot_sachet) stay fixed
+    regardless of the packaging's region-name choice — that's the existing
+    external contract."""
+    front = _det(b"front", "k_front", 0.9)
+    back = _det(b"back", "k_back", 0.8)
+    runner = PipelineRunner(
+        detector=_StubDetector([front, back]),
+        preprocessor=_StubPreprocessor(),
+        ocr_engine=_StubOcrEngine(
+            {b"front": _ocr("LOTFRONT", "2026-01-01"), b"back": _ocr("LOTBACK", "2026-01-01")}
+        ),
+        qr_scanner=object(),
+    )
+    config = PackagingConfig(
+        key="k", display_name="K", pipeline="detector_ocr",
+        lot_patterns=[], fields_extracted=["lot", "exp"], sheet_checks=["lot", "exp"],
+        post_ocr_fixes=[], message_template_key="default_full",
+        model_classifier_label="k", detector_yolo_prefixes=["k_front", "k_back"],
+        conf_threshold=0.6, accuracy=None, gate_on_lot=True, lot_short_fallback=False,
+        sub_regions=["front", "back"], detection_mode="cross_check",
+    )
+    result, _ = runner._run_multi_region(b"unused_image_bytes", config)
+    assert result["lot_box"] == "LOTFRONT"
+    assert result["lot_sachet"] == "LOTBACK"
