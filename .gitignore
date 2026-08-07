@@ -88,3 +88,6 @@ data/test/
 .pm-bridge/
 .worktrees/
 .opencode/
+
+# superpowers subagent-driven-development scratch (ledgers, briefs, reports)
+.superpowers/
